@@ -1,140 +1,86 @@
 # AWS Network Operations Platform (ANOP)
 
-A production-grade, multi-account, multi-region AWS networking platform using **Terraform** for infrastructure provisioning and a **Python CLI (`netops`)** for operations, validation, testing, drift detection, remediation, reporting, and operational maturity scoring.
-
-## Goal
-
-Build a Principal-level AWS Network Operations Platform supporting:
-- Hundreds of AWS accounts
-- Multiple AWS regions
-- Enterprise change control (GitOps)
-- Disaster recovery
-- Operational excellence
-- Platform engineering best practices
-
-## Architecture
+## Architecture — Two Repos, Three Layers
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                    AWS Network Operations Platform                    │
-├──────────────────────────────┬──────────────────────────────────────┤
-│       TERRAFORM (IaC)        │          PYTHON (Operations)          │
-├──────────────────────────────┼──────────────────────────────────────┤
-│ • VPCs                       │ • netops inventory                    │
-│ • Transit Gateway            │ • netops validate                     │
-│ • Route Tables               │ • netops test                         │
-│ • VPN                        │ • netops drift                        │
-│ • Route53                    │ • netops recover                      │
-│ • IAM                        │ • netops report                       │
-│ • CloudWatch                 │ • netops score                        │
-│ • Logging                    │ • netops chaos                        │
-│ • EventBridge                │                                       │
-│ • Systems Manager            │                                       │
-│ • Multi-region architecture  │                                       │
-└──────────────────────────────┴──────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        AWS Organization                                  │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  LAYER 1: GOVERNANCE (LZA repo)                                         │
+│  Pipeline: CodePipeline (managed by LZA installer)                      │
+│  ───────────────────────────────────────────                            │
+│  • Account lifecycle (create, move, suspend)                            │
+│  • OUs, SCPs, RCPs, Declarative Policies                               │
+│  • Security services (GuardDuty, Security Hub, Config, CloudTrail)      │
+│  • IPAM pool hierarchy (consumed by Terraform via data sources)         │
+│  • IAM baseline (Identity Center, permission sets)                      │
+│  • Tagging & backup policies                                            │
+│                                                                         │
+│  LAYER 2: INFRASTRUCTURE (this repo — Terraform)                        │
+│  Pipeline: GitHub Actions → OIDC → Terraform Apply                      │
+│  ───────────────────────────────────────────                            │
+│  • Transit Gateway + route tables                                       │
+│  • VPCs (endpoints, ingress, egress, inspection, shared-services)       │
+│  • Network Firewall                                                     │
+│  • VPN / Direct Connect / Cloud WAN                                     │
+│  • Route53 (private zones, resolvers)                                   │
+│  • NAT Gateways, Internet Gateways                                      │
+│  • VPC endpoints                                                        │
+│  • CloudWatch (network alarms, dashboards)                              │
+│  • EventBridge (auto-remediation triggers)                              │
+│                                                                         │
+│  LAYER 3: OPERATIONS (this repo — Python CLI)                           │
+│  Pipeline: GitHub Actions (post-deploy validation)                      │
+│  ───────────────────────────────────────────                            │
+│  • netops inventory  — discover all network resources                   │
+│  • netops validate   — check route symmetry, blackholes, SGs           │
+│  • netops test       — connectivity tests, BGP route checks (GNS3)     │
+│  • netops drift      — compare Terraform state vs live AWS             │
+│  • netops recover    — auto-remediate (restart tunnels, fix routes)     │
+│  • netops chaos      — inject failures (kill VPN, blackhole routes)     │
+│  • netops report     — generate HTML/PDF reports                        │
+│  • netops score      — operational maturity scoring                     │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Phases
+## How Terraform Consumes LZA Resources
 
-| # | Phase | Description |
-|---|-------|-------------|
-| 0 | Repository Foundation | Repo structure, CI/CD, state management |
-| 1 | Network Foundation | VPCs, TGW, subnets, route tables |
-| 2 | Multi-Region Resilience | Cross-region TGW peering, failover |
-| 3 | Observability Platform | CloudWatch, Flow Logs, logging pipeline |
-| 4 | Python CLI Framework | `netops` CLI skeleton with Click/Typer |
-| 5 | Inventory Engine | Discover and catalog all network resources |
-| 6 | Validation Framework | Validate configurations against policies |
-| 7 | Automated Network Testing | Connectivity, latency, path validation |
-| 8 | Drift Detection | Compare live state vs. Terraform state |
-| 9 | Automated Recovery | Self-healing for known failure patterns |
-| 10 | Chaos Engineering | Controlled failure injection |
-| 11 | Operational Runbooks | SSM Automation documents |
-| 12 | Reporting | Dashboards, PDFs, executive summaries |
-| 13 | Operational Maturity Scoring | Score the platform against best practices |
+LZA creates the organizational foundation. Terraform references it:
 
-## Repository Structure
+```hcl
+# Terraform reads IPAM pools created by LZA
+data "aws_vpc_ipam_pool" "dev" {
+  filter {
+    name   = "tag:Name"
+    values = ["AWSAccelerator-eu-west-1-ipam-workloads-dev-pool"]
+  }
+}
 
-```
-aws-network-operations-platform/
-├── terraform/
-│   ├── modules/              # Reusable Terraform modules
-│   │   ├── vpc/
-│   │   ├── transit-gateway/
-│   │   ├── route-tables/
-│   │   ├── vpn/
-│   │   ├── route53/
-│   │   ├── iam/
-│   │   ├── cloudwatch/
-│   │   ├── logging/
-│   │   ├── eventbridge/
-│   │   └── systems-manager/
-│   ├── environments/         # Per-environment configurations
-│   │   ├── dev/
-│   │   ├── test/
-│   │   └── prod/
-│   └── global/               # Cross-environment resources (state, IAM)
-├── python/
-│   ├── netops/               # CLI application package
-│   │   ├── commands/         # CLI command implementations
-│   │   ├── engines/          # Business logic engines
-│   │   └── utils/            # Shared utilities
-│   └── tests/                # Test suite
-├── docs/
-│   ├── phases/               # Phase-by-phase implementation plans
-│   ├── architecture/         # Architecture decision records
-│   └── runbooks/             # Operational runbooks
-├── .github/
-│   ├── workflows/            # GitHub Actions pipelines
-│   └── PULL_REQUEST_TEMPLATE/
-├── scripts/                  # Helper scripts (bootstrap, etc.)
-└── configs/                  # Configuration files (linting, etc.)
+# Terraform reads account IDs from AWS Organizations (created by LZA)
+data "aws_organizations_organization" "org" {}
+
+# Terraform assumes cross-account roles (baseline created by LZA)
+provider "aws" {
+  alias  = "network"
+  assume_role { role_arn = "arn:aws:iam::${var.network_account_id}:role/NetOps-TerraformExecution" }
+}
 ```
 
-## CI/CD Model (GitOps)
+## Pipelines
 
-```
-Feature Branch → PR → terraform plan + lint + security scan → Review → Merge
-                                                                         ↓
-                                                              terraform apply
-                                                                         ↓
-                                                              netops validate
-                                                                         ↓
-                                                              netops test
-                                                                         ↓
-                                                              netops report
-```
-
-### PR Pipeline
-- `terraform fmt` / `terraform validate` / `terraform plan`
-- `checkov` / `tfsec` (security scanning)
-- `python lint` / `pytest`
-
-### Merge Pipeline
-- `terraform init` → `terraform plan` → `terraform apply`
-
-### Post-Deployment
-- `netops validate` → `netops test` → `netops report`
-
-## State Management
-
-- **Backend:** S3 + DynamoDB lock table
-- **Separation:** By account × environment × region
-
-## Environments
-
-| Environment | Purpose |
-|-------------|---------|
-| `dev` | Development and experimentation |
-| `test` | Integration testing and validation |
-| `prod` | Production workloads |
+| Pipeline | Trigger | Tool | Responsibility |
+|----------|---------|------|----------------|
+| LZA | Push to LZA CodeCommit | CodePipeline | Governance, accounts, SCPs |
+| Terraform | PR merge to `main` in this repo | GitHub Actions | Network infrastructure |
+| Python | Post-Terraform-apply | GitHub Actions | Validation, testing, reporting |
 
 ## Getting Started
 
-1. Read the phase plans in `docs/phases/`
-2. Start with Phase 0 (Repository Foundation)
-3. Each phase builds on the previous — follow sequentially
+1. **LZA is already deployed** — it manages accounts, OUs, SCPs, IPAM
+2. **Start with Phase 0** — set up Terraform backend (S3 + DynamoDB in Management account)
+3. **Phase 1** — deploy TGW + first VPC using IPAM pools from LZA
+4. **Phase 4** — build `netops` CLI to validate what Terraform deployed
 
-## License
-
-Private — Internal Use Only
+See `docs/phases/` for detailed specs on each phase.
