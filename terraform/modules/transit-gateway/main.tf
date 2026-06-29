@@ -1,5 +1,14 @@
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = ">= 5.0"
+    }
+  }
+}
+
 resource "aws_ec2_transit_gateway" "this" {
-  description = var.description
+  description = "Central TGW"
   amazon_side_asn = var.amazon_side_asn
   auto_accept_shared_attachments = "enable"
   default_route_table_association = "disable"
