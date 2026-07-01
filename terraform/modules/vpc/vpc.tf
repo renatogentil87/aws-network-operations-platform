@@ -9,8 +9,8 @@ terraform {
 
 data "aws_vpc_ipam_pool" "dev" {
   filter {
-    name = "tag:Name"
-    values = ["AWSAccelerator-eu-west-1-ipam-workloads-dev-pool"]
+    name   = "description"
+    values = ["IP regional pool allocation for Dev LZA accounts"]
   }
 }
 
