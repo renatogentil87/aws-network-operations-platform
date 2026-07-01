@@ -16,5 +16,9 @@ module "vpc" {
   providers = {
     aws = aws.spoke
   }
+
+  name           = "spoke-dev-vpc"
+  ipam_pool_id   = "ipam-pool-07627ea1fbb4208e5"
+  netmask_length = 22
 }
 

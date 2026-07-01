@@ -7,19 +7,13 @@ terraform {
   }
 }
 
-data "aws_vpc_ipam_pool" "dev" {
-  filter {
-    name   = "description"
-    values = ["IP regional pool allocation for Dev LZA accounts"]
-  }
-}
-
 resource "aws_vpc" "this" {
-  ipv4_ipam_pool_id = data.aws_vpc_ipam_pool.dev.id
-  ipv4_netmask_length = 22
+  ipv4_ipam_pool_id   = var.ipam_pool_id
+  ipv4_netmask_length = var.netmask_length
   enable_dns_hostnames = true
-  enable_dns_support = true
+  enable_dns_support   = true
+
   tags = {
-    Name = "spoke-dev-vpc"
+    Name = var.name
   }
 }
