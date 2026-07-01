@@ -11,3 +11,10 @@ module "transit_gateway" {
   organization_arn = data.aws_organizations_organization.this.arn
 }
 
+module "vpc" {
+  source = "../../modules/vpc"
+  providers = {
+    aws = aws.spoke
+  }
+}
+
