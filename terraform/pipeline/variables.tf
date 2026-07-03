@@ -46,6 +46,12 @@ variable "spoke_account_id" {
   default     = "SPOKE_DEV1_ACCOUNT_ID"
 }
 
+variable "spoke2_account_id" {
+  description = "AWS Account ID for the SpokeDev2 account"
+  type        = string
+  default     = "SPOKE_DEV2_ACCOUNT_ID"
+}
+
 variable "notification_email" {
   description = "Email address to receive plan output notifications"
   type        = string

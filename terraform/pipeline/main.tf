@@ -48,6 +48,10 @@ resource "aws_codebuild_project" "plan" {
       value = var.spoke_account_id
     }
     environment_variable {
+      name  = "TF_VAR_spoke2_account_id"
+      value = var.spoke2_account_id
+    }
+    environment_variable {
       name  = "PLAN_BUCKET"
       value = aws_s3_bucket.artifacts.id
     }
@@ -112,6 +116,10 @@ resource "aws_codebuild_project" "apply" {
     environment_variable {
       name  = "TF_VAR_spoke_account_id"
       value = var.spoke_account_id
+    }
+    environment_variable {
+      name  = "TF_VAR_spoke2_account_id"
+      value = var.spoke2_account_id
     }
   }
 
