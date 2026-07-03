@@ -114,6 +114,117 @@ resource "aws_ec2_transit_gateway_vpc_attachment" "this" {
 3. **Configure providers** in your environment `main.tf`
 4. **Run Terraform** — `terraform plan` / `terraform apply` from Management account
 
+## Onboarding a New Spoke Account
+
+When LZA creates a new account, follow these steps to connect it to the transit network:
+
+### Prerequisites (automatic)
+- LZA deploys `NetOps-TerraformExecution` role to the new account
+- LZA StackSet auto-deploys the NOTG spoke stack (via `customizations-config.yaml`)
+
+### Step 1: Update SSM Parameter
+
+Account IDs are stored in SSM Parameter Store (`/netops/config/accounts`) — never in GitHub.
+The pipeline fetches this at build time to populate `terraform.tfvars`.
+
+```bash
+# Fetch current config
+aws ssm get-parameter \
+  --name "/netops/config/accounts" \
+  --with-decryption \
+  --query "Parameter.Value" \
+  --output text \
+  --region eu-west-1 > /tmp/accounts.tfvars
+
+# Add the new account
+echo 'spoke3_account_id = "111222333444"' >> /tmp/accounts.tfvars
+
+# Update SSM
+aws ssm put-parameter \
+  --name "/netops/config/accounts" \
+  --type SecureString \
+  --value "$(cat /tmp/accounts.tfvars)" \
+  --overwrite \
+  --region eu-west-1
+
+# Clean up
+rm /tmp/accounts.tfvars
+```
+
+### Step 2: Add Terraform Code (in GitHub)
+
+Add the provider in `terraform/environments/dev/providers.tf`:
+```hcl
+provider "aws" {
+  alias  = "spoke3"
+  region = var.aws_region
+  assume_role {
+    role_arn     = "arn:aws:iam::${var.spoke3_account_id}:role/NetOps-TerraformExecution"
+    session_name = "terraform-netops"
+  }
+  default_tags { tags = { Project = "aws-network-operations-platform", ManagedBy = "terraform" } }
+}
+```
+
+Add the variable in `terraform/environments/dev/variables.tf`:
+```hcl
+variable "spoke3_account_id" {
+  description = "AWS Account ID for the new spoke account"
+  type        = string
+  sensitive   = true
+}
+```
+
+Add the VPC module in `terraform/environments/dev/main.tf`:
+```hcl
+module "vpc_spoke3" {
+  source = "../../modules/vpc"
+  providers = { aws = aws.spoke3 }
+
+  name               = "spoke3-vpc"
+  ipam_pool_id       = "ipam-pool-XXXXXXXXXXXX"  # Use pool for the account's OU
+  netmask_length     = 22
+  availability_zones = ["eu-west-1a", "eu-west-1b"]
+  tgw_subnet_newbits = 6  # /28 subnets for TGW ENIs
+
+  notg_tags = {
+    "Attach-to-tgw"  = "fullmesh"
+    "Associate-with" = "fullmesh"
+    "Propagate-to"   = "firewall"
+  }
+}
+```
+
+### Step 3: Push and Deploy
+
+```bash
+git add -A && git commit -m "feat: onboard spoke3 VPC" && git push origin main
+```
+
+The pipeline will:
+1. Fetch account IDs from SSM (`/netops/config/accounts`)
+2. Write `terraform.tfvars` in-memory
+3. Run `terraform plan` / `apply`
+4. Create VPC + subnets with NOTG tags
+5. NOTG orchestrator detects the tags and auto-attaches to TGW
+
+### IPAM Pool Reference
+
+| OU | IPAM Pool ID | Description |
+|----|-------------|-------------|
+| Workloads/Dev | `ipam-pool-07627ea1fbb4208e5` | Dev LZA accounts |
+| Workloads/Prod | `ipam-pool-04540de906d50e885` | Prod LZA accounts |
+
+### Verify the Attachment
+
+After the pipeline completes, verify the TGW attachment was created:
+```bash
+aws ec2 describe-transit-gateway-vpc-attachments \
+  --filters "Name=state,Values=available" \
+  --region eu-west-1 \
+  --query "TransitGatewayVpcAttachments[*].{VpcId:VpcId,State:State,TgwId:TransitGatewayId}"
+```
+
 ## Security Notes
 
 - The role currently has `AdministratorAccess` — scope down to least privilege once modules are stable
