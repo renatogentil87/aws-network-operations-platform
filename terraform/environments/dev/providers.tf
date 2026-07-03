@@ -79,13 +79,32 @@ provider "aws" {
   }
 }
 
-# Spoke Dev account — Workload VPCs
+# Spoke Dev1 account — Workload VPCs
 provider "aws" {
   alias  = "spoke"
   region = var.aws_region
 
   assume_role {
     role_arn     = "arn:aws:iam::${var.spoke_account_id}:role/NetOps-TerraformExecution"
+    session_name = "terraform-netops"
+  }
+
+  default_tags {
+    tags = {
+      Project     = "aws-network-operations-platform"
+      ManagedBy   = "terraform"
+      Environment = "dev"
+    }
+  }
+}
+
+# Spoke Dev2 account — Workload VPCs
+provider "aws" {
+  alias  = "spoke2"
+  region = var.aws_region
+
+  assume_role {
+    role_arn     = "arn:aws:iam::${var.spoke2_account_id}:role/NetOps-TerraformExecution"
     session_name = "terraform-netops"
   }
 

@@ -1,5 +1,5 @@
 variable "name" {
-  description = "NetOps VPC"
+  description = "Name of the VPC"
   type        = string
 }
 
@@ -12,4 +12,21 @@ variable "netmask_length" {
   description = "Netmask length to request from IPAM (e.g., 22 for /22)"
   type        = number
   default     = 22
+}
+
+variable "availability_zones" {
+  description = "List of availability zones to create TGW subnets in"
+  type        = list(string)
+}
+
+variable "tgw_subnet_newbits" {
+  description = "Additional bits for TGW subnet CIDR (e.g., 6 gives /28 subnets from a /22 VPC)"
+  type        = number
+  default     = 6
+}
+
+variable "notg_tags" {
+  description = "NOTG tags to apply to TGW subnets (Attach-to-tgw, Associate-with, Propagate-to)"
+  type        = map(string)
+  default     = {}
 }
