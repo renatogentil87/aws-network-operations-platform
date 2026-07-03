@@ -25,8 +25,14 @@ variable "tgw_subnet_newbits" {
   default     = 6
 }
 
-variable "notg_tags" {
-  description = "NOTG tags to apply to TGW subnets (Attach-to-tgw, Associate-with, Propagate-to)"
+variable "notg_vpc_tags" {
+  description = "NOTG tags for the VPC (Associate-with, Propagate-to)"
+  type        = map(string)
+  default     = {}
+}
+
+variable "notg_subnet_tags" {
+  description = "NOTG tags for TGW subnets (Attach-to-tgw)"
   type        = map(string)
   default     = {}
 }

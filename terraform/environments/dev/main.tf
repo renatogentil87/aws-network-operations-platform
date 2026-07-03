@@ -23,10 +23,13 @@ module "vpc_spoke1" {
   availability_zones = ["eu-west-1a", "eu-west-1b"]
   tgw_subnet_newbits = 6 # /28 subnets from /22 VPC
 
-  notg_tags = {
-    "Attach-to-tgw"  = "fullmesh"
+  notg_vpc_tags = {
     "Associate-with" = "fullmesh"
     "Propagate-to"   = "firewall"
+  }
+
+  notg_subnet_tags = {
+    "Attach-to-tgw" = "fullmesh"
   }
 }
 
@@ -42,9 +45,12 @@ module "vpc_spoke2" {
   availability_zones = ["eu-west-1a", "eu-west-1b"]
   tgw_subnet_newbits = 6 # /28 subnets from /22 VPC
 
-  notg_tags = {
-    "Attach-to-tgw"  = "fullmesh"
+  notg_vpc_tags = {
     "Associate-with" = "fullmesh"
     "Propagate-to"   = "firewall"
+  }
+
+  notg_subnet_tags = {
+    "Attach-to-tgw" = "fullmesh"
   }
 }

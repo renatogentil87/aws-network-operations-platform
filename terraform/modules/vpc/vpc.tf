@@ -17,7 +17,7 @@ resource "aws_vpc" "this" {
     {
       Name = var.name
     },
-    var.notg_tags
+    var.notg_vpc_tags
   )
 }
 
@@ -32,6 +32,6 @@ resource "aws_subnet" "tgw" {
     {
       Name = "${var.name}-tgw-${var.availability_zones[count.index]}"
     },
-    var.notg_tags
+    var.notg_subnet_tags
   )
 }
