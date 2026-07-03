@@ -37,7 +37,7 @@ module "vpc_spoke2" {
     aws = aws.spoke2
   }
   name               = "spoke-dev2-vpc"
-  ipam_pool_id       = "ipam-pool-07627ea1fbb4208e5"
+  ipam_pool_id       = "ipam-pool-04540de906d50e885"
   netmask_length     = 22
   availability_zones = ["eu-west-1a", "eu-west-1b"]
   tgw_subnet_newbits = 6 # /28 subnets from /22 VPC
