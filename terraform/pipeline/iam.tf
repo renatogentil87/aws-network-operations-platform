@@ -42,7 +42,7 @@ resource "aws_iam_role_policy" "codepipeline" {
       {
         Effect   = "Allow"
         Action   = ["sns:Publish"]
-        Resource = [aws_sns_topic.approval.arn]
+        Resource = [aws_sns_topic.plan_notifications.arn]
       }
     ]
   })

@@ -1,4 +1,7 @@
-# Lambda to send plan output via email when Plan stage succeeds
+# SNS topic for plan notifications
+resource "aws_sns_topic" "plan_notifications" {
+  name = "netops-plan-notifications"
+}
 
 data "archive_file" "plan_notifier" {
   type        = "zip"
@@ -39,7 +42,7 @@ resource "aws_iam_role_policy" "lambda_notifier" {
       {
         Effect   = "Allow"
         Action   = ["sns:Publish"]
-        Resource = aws_sns_topic.approval.arn
+        Resource = aws_sns_topic.plan_notifications.arn
       }
     ]
   })
@@ -57,7 +60,7 @@ resource "aws_lambda_function" "plan_notifier" {
   environment {
     variables = {
       PLAN_BUCKET   = aws_s3_bucket.artifacts.id
-      SNS_TOPIC_ARN = aws_sns_topic.approval.arn
+      SNS_TOPIC_ARN = aws_sns_topic.plan_notifications.arn
     }
   }
 }
@@ -92,7 +95,7 @@ resource "aws_lambda_permission" "eventbridge" {
 
 # Email subscription — you'll receive a confirmation email
 resource "aws_sns_topic_subscription" "email" {
-  topic_arn = aws_sns_topic.approval.arn
+  topic_arn = aws_sns_topic.plan_notifications.arn
   protocol  = "email"
   endpoint  = var.notification_email
 }

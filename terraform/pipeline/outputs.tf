@@ -6,6 +6,6 @@ output "artifacts_bucket" {
   value = aws_s3_bucket.artifacts.id
 }
 
-output "approval_topic_arn" {
-  value = aws_sns_topic.approval.arn
+output "plan_notifications_topic_arn" {
+  value = aws_sns_topic.plan_notifications.arn
 }

@@ -22,32 +22,8 @@ variable "terraform_version" {
   default     = "1.14.9"
 }
 
-variable "network_account_id" {
-  description = "AWS Account ID for the Network account"
-  type        = string
-  sensitive   = true
-}
-
-variable "perimeter_account_id" {
-  description = "AWS Account ID for the Perimeter account"
-  type        = string
-  sensitive   = true
-}
-
-variable "shared_services_account_id" {
-  description = "AWS Account ID for the SharedServices account"
-  type        = string
-  sensitive   = true
-}
-
-variable "spoke_account_id" {
-  description = "AWS Account ID for the SpokeDev1 account"
-  type        = string
-  sensitive   = true
-}
-
-variable "spoke2_account_id" {
-  description = "AWS Account ID for the SpokeDev2 account"
+variable "accounts_config_json" {
+  description = "Initial value for the SSM parameter containing account tfvars. After creation, update via CLI only."
   type        = string
   sensitive   = true
 }

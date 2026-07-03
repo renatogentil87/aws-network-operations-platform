@@ -9,9 +9,16 @@ resource "aws_s3_bucket_versioning" "artifacts" {
   versioning_configuration { status = "Enabled" }
 }
 
-# SNS topic for manual approval notifications
-resource "aws_sns_topic" "approval" {
-  name = "netops-pipeline-approval"
+# SSM Parameter to store account configuration (managed outside of git)
+resource "aws_ssm_parameter" "accounts_config" {
+  name        = "/netops/config/accounts"
+  description = "Account IDs for the NetOps Terraform pipeline. Managed via CLI/Console — never in git."
+  type        = "SecureString"
+  value       = var.accounts_config_json
+
+  lifecycle {
+    ignore_changes = [value] # After initial creation, updates are done via CLI only
+  }
 }
 
 # CodeBuild — Terraform Plan
@@ -32,28 +39,12 @@ resource "aws_codebuild_project" "plan" {
       value = var.terraform_version
     }
     environment_variable {
-      name  = "TF_VAR_network_account_id"
-      value = var.network_account_id
-    }
-    environment_variable {
-      name  = "TF_VAR_perimeter_account_id"
-      value = var.perimeter_account_id
-    }
-    environment_variable {
-      name  = "TF_VAR_shared_services_account_id"
-      value = var.shared_services_account_id
-    }
-    environment_variable {
-      name  = "TF_VAR_spoke_account_id"
-      value = var.spoke_account_id
-    }
-    environment_variable {
-      name  = "TF_VAR_spoke2_account_id"
-      value = var.spoke2_account_id
-    }
-    environment_variable {
       name  = "PLAN_BUCKET"
       value = aws_s3_bucket.artifacts.id
+    }
+    environment_variable {
+      name  = "SSM_ACCOUNTS_PARAM"
+      value = aws_ssm_parameter.accounts_config.name
     }
   }
 
@@ -67,6 +58,15 @@ resource "aws_codebuild_project" "plan" {
             - curl -s -o terraform.zip "https://releases.hashicorp.com/terraform/$${TF_VERSION}/terraform_$${TF_VERSION}_linux_amd64.zip"
             - unzip -q terraform.zip -d /usr/local/bin/
             - terraform --version
+        pre_build:
+          commands:
+            # Fetch account IDs from SSM and write terraform.tfvars
+            - |
+              aws ssm get-parameter \
+                --name "$${SSM_ACCOUNTS_PARAM}" \
+                --with-decryption \
+                --query "Parameter.Value" \
+                --output text > terraform/environments/dev/terraform.tfvars
         build:
           commands:
             - set -o pipefail
@@ -102,24 +102,8 @@ resource "aws_codebuild_project" "apply" {
       value = var.terraform_version
     }
     environment_variable {
-      name  = "TF_VAR_network_account_id"
-      value = var.network_account_id
-    }
-    environment_variable {
-      name  = "TF_VAR_perimeter_account_id"
-      value = var.perimeter_account_id
-    }
-    environment_variable {
-      name  = "TF_VAR_shared_services_account_id"
-      value = var.shared_services_account_id
-    }
-    environment_variable {
-      name  = "TF_VAR_spoke_account_id"
-      value = var.spoke_account_id
-    }
-    environment_variable {
-      name  = "TF_VAR_spoke2_account_id"
-      value = var.spoke2_account_id
+      name  = "SSM_ACCOUNTS_PARAM"
+      value = aws_ssm_parameter.accounts_config.name
     }
   }
 
@@ -133,6 +117,15 @@ resource "aws_codebuild_project" "apply" {
             - curl -s -o terraform.zip "https://releases.hashicorp.com/terraform/$${TF_VERSION}/terraform_$${TF_VERSION}_linux_amd64.zip"
             - unzip -q terraform.zip -d /usr/local/bin/
             - terraform --version
+        pre_build:
+          commands:
+            # Fetch account IDs from SSM and write terraform.tfvars
+            - |
+              aws ssm get-parameter \
+                --name "$${SSM_ACCOUNTS_PARAM}" \
+                --with-decryption \
+                --query "Parameter.Value" \
+                --output text > terraform/environments/dev/terraform.tfvars
         build:
           commands:
             - cd terraform/environments/dev

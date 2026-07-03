@@ -13,9 +13,12 @@ resource "aws_vpc" "this" {
   enable_dns_hostnames = true
   enable_dns_support   = true
 
-  tags = {
-    Name = var.name
-  }
+  tags = merge(
+    {
+      Name = var.name
+    },
+    var.notg_tags
+  )
 }
 
 # TGW attachment subnets — /28 dedicated for TGW ENIs
