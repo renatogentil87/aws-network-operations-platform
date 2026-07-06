@@ -40,7 +40,7 @@ module "vpc_spoke2" {
   providers = {
     aws = aws.spoke2
   }
-  name               = "spoke-dev2-vpc"
+  name               = "spoke-prod-vpc"
   ipam_pool_id       = "ipam-pool-04540de906d50e885"
   netmask_length     = 22
   availability_zones = ["eu-west-1a", "eu-west-1b"]
@@ -55,14 +55,14 @@ module "vpc_spoke2" {
     "Attach-to-tgw" = "fullmesh"
   }
 }
-# VPC 2 Spoke Dev 2 - account SPOKE_DEV2_ACCOUNT_ID
 
+# VPC 2 Spoke Dev 2 - account SPOKE_DEV2_ACCOUNT_ID
 module "vpc2_spoke2" {
   source = "../../modules/vpc"
   providers = {
     aws = aws.spoke2
   }
-  name               = "spoke-dev2-vpc2"
+  name               = "spoke-prod-vpc2"
   ipam_pool_id       = "ipam-pool-04540de906d50e885"
   netmask_length     = 22
   availability_zones = ["eu-west-1a", "eu-west-1b"]
