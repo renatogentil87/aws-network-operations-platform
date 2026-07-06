@@ -77,4 +77,3 @@ module "vpc2_spoke2" {
     "Attach-to-tgw" = "fullmesh"
   }
 }
-}
