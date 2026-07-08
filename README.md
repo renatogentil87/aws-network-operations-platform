@@ -1,86 +1,128 @@
-# AWS Network Operations Platform (ANOP)
+# AWS Network Operations Platform
 
-## Architecture — Two Repos, Three Layers
+A hybrid network operations platform that covers cloud infrastructure (Terraform), network validation (Python), on-prem automation (Ansible), and operational tooling — all connected through a GNS3 lab that peers with real AWS infrastructure via VPN.
+
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                        AWS Organization                                  │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│  LAYER 1: GOVERNANCE (LZA repo)                                         │
-│  Pipeline: CodePipeline (managed by LZA installer)                      │
-│  ───────────────────────────────────────────                            │
-│  • Account lifecycle (create, move, suspend)                            │
-│  • OUs, SCPs, RCPs, Declarative Policies                               │
-│  • Security services (GuardDuty, Security Hub, Config, CloudTrail)      │
-│  • IPAM pool hierarchy (consumed by Terraform via data sources)         │
-│  • IAM baseline (Identity Center, permission sets)                      │
-│  • Tagging & backup policies                                            │
-│                                                                         │
-│  LAYER 2: INFRASTRUCTURE (this repo — Terraform)                        │
-│  Pipeline: GitHub Actions → OIDC → Terraform Apply                      │
-│  ───────────────────────────────────────────                            │
-│  • Transit Gateway + route tables                                       │
-│  • VPCs (endpoints, ingress, egress, inspection, shared-services)       │
-│  • Network Firewall                                                     │
-│  • VPN / Direct Connect / Cloud WAN                                     │
-│  • Route53 (private zones, resolvers)                                   │
-│  • NAT Gateways, Internet Gateways                                      │
-│  • VPC endpoints                                                        │
-│  • CloudWatch (network alarms, dashboards)                              │
-│  • EventBridge (auto-remediation triggers)                              │
-│                                                                         │
-│  LAYER 3: OPERATIONS (this repo — Python CLI)                           │
-│  Pipeline: GitHub Actions (post-deploy validation)                      │
-│  ───────────────────────────────────────────                            │
-│  • netops inventory  — discover all network resources                   │
-│  • netops validate   — check route symmetry, blackholes, SGs           │
-│  • netops test       — connectivity tests, BGP route checks (GNS3)     │
-│  • netops drift      — compare Terraform state vs live AWS             │
-│  • netops recover    — auto-remediate (restart tunnels, fix routes)     │
-│  • netops chaos      — inject failures (kill VPN, blackhole routes)     │
-│  • netops report     — generate HTML/PDF reports                        │
-│  • netops score      — operational maturity scoring                     │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
+│                    Hybrid Network Operations Platform                     │
+├─────────────────┬──────────────────┬──────────────────┬─────────────────┤
+│   Terraform     │     Python       │     Ansible      │   Operations    │
+│   (Cloud Infra) │  (Validation)    │  (On-Prem Auto)  │  (Runbooks)     │
+├─────────────────┼──────────────────┼──────────────────┼─────────────────┤
+│ • TGW           │ • Route drift    │ • BGP config     │ • BGP flap      │
+│ • VPC + Subnets │ • BGP health     │ • OSPF config    │   response      │
+│ • IPAM          │ • VPN state      │ • VPN tunnels    │ • VPN tunnel    │
+│ • NOTG tags     │ • Isolation audit│ • Route audit    │   down          │
+│ • RAM shares    │ • Hybrid compare │ • Emergency      │ • Route leak    │
+│ • Multi-account │ • HTML reports   │   shutdown       │   detection     │
+└─────────────────┴──────────────────┴──────────────────┴─────────────────┘
+                              │
+                    ┌─────────┴─────────┐
+                    │   Desired State    │
+                    │  (Source of Truth) │
+                    │  YAML definitions  │
+                    └───────────────────┘
 ```
 
-## How Terraform Consumes LZA Resources
+## Repository Structure
 
-LZA creates the organizational foundation. Terraform references it:
-
-```hcl
-# Terraform reads IPAM pools created by LZA
-data "aws_vpc_ipam_pool" "dev" {
-  filter {
-    name   = "tag:Name"
-    values = ["AWSAccelerator-eu-west-1-ipam-workloads-dev-pool"]
-  }
-}
-
-# Terraform reads account IDs from AWS Organizations (created by LZA)
-data "aws_organizations_organization" "org" {}
-
-# Terraform assumes cross-account roles (baseline created by LZA)
-provider "aws" {
-  alias  = "network"
-  assume_role { role_arn = "arn:aws:iam::${var.network_account_id}:role/NetOps-TerraformExecution" }
-}
+```
+├── terraform/                      Cloud infrastructure (EXISTING — pipeline active)
+│   ├── modules/                    TGW, VPC, IPAM modules
+│   ├── environments/dev/           Dev environment composition
+│   └── pipeline/                   CodePipeline + CodeBuild CI/CD
+│
+├── python/                         Network validation & operations
+│   ├── netops/
+│   │   ├── validators/             Route validation, drift detection, BGP health
+│   │   ├── collectors/             Gather state from AWS + on-prem devices
+│   │   ├── remediators/            Auto-fix (shutdown peer, failover, create ticket)
+│   │   ├── reporters/              HTML reports, metrics export
+│   │   └── cli.py                  CLI entry point: `netops validate|collect|report`
+│   ├── tests/                      pytest test suite
+│   └── pyproject.toml              Package definition
+│
+├── ansible/                        On-prem network automation
+│   ├── inventory/                  GNS3 lab + production inventories
+│   ├── playbooks/                  BGP config, OSPF config, route audit, emergency shutdown
+│   ├── roles/                      Reusable roles (base_router, bgp_peer, vpn_to_aws)
+│   └── ansible.cfg
+│
+├── labs/                           GNS3 lab environment
+│   ├── topology/                   Lab topology (4 routers: core, edge1, edge2, branch)
+│   ├── configs/                    Initial router configurations
+│   └── exercises/                  Progressive hands-on scenarios
+│
+├── operations/                     Operational tooling
+│   ├── runbooks/                   Incident response procedures
+│   ├── dashboards/                 CloudWatch + Grafana definitions
+│   └── alerting/                   EventBridge rules, Lambda monitors
+│
+├── desired-state/                  Source of truth (YAML)
+│   ├── desired-routes-tgw.yaml     Expected TGW route table state
+│   ├── desired-bgp-peers.yaml      Expected BGP sessions (cloud + on-prem)
+│   └── desired-vpn-tunnels.yaml    Expected VPN tunnel states
+│
+├── docs/                           Architecture docs & phase plans
+└── configs/                        Shared configuration
 ```
 
-## Pipelines
+## Quick Start
 
-| Pipeline | Trigger | Tool | Responsibility |
-|----------|---------|------|----------------|
-| LZA | Push to LZA CodeCommit | CodePipeline | Governance, accounts, SCPs |
-| Terraform | PR merge to `main` in this repo | GitHub Actions | Network infrastructure |
-| Python | Post-Terraform-apply | GitHub Actions | Validation, testing, reporting |
+### Cloud Infrastructure (Terraform)
+```bash
+cd terraform/environments/dev
+terraform init
+terraform plan    # Pipeline runs this automatically on push
+```
 
-## Getting Started
+### Network Validation (Python)
+```bash
+cd python
+pip install -e .
+netops validate routes --region eu-west-1
+netops validate bgp --region eu-west-1 --device router-edge1
+netops collect hybrid --region eu-west-1 --device router-edge1
+netops report health --format html
+```
 
-1. **LZA is already deployed** — it manages accounts, OUs, SCPs, IPAM
-2. **Start with Phase 0** — set up Terraform backend (S3 + DynamoDB in Management account)
-3. **Phase 1** — deploy TGW + first VPC using IPAM pools from LZA
-4. **Phase 4** — build `netops` CLI to validate what Terraform deployed
+### On-Prem Automation (Ansible)
+```bash
+cd ansible
+ansible-playbook playbooks/bgp_config.yml -i inventory/gns3_lab.yml
+ansible-playbook playbooks/route_audit.yml -i inventory/gns3_lab.yml
+```
 
-See `docs/phases/` for detailed specs on each phase.
+### GNS3 Lab
+See `labs/topology/README.md` for topology setup and `labs/exercises/` for progressive scenarios.
+
+## Learning Path
+
+| Phase | Focus | Skills |
+|-------|-------|--------|
+| 1 | Cloud Automation | Terraform modules, multi-account, CI/CD pipeline |
+| 2 | Network Validation | Python + boto3, desired-state comparison, pytest |
+| 3 | On-Prem Automation | Ansible, netmiko, NAPALM, GNS3 lab |
+| 4 | Hybrid Operations | End-to-end validation (both sides), closed-loop remediation |
+| 5 | Production Operations | Monitoring, alerting, runbooks, self-healing |
+
+## How It All Connects
+
+1. **Terraform** deploys TGW, VPCs, VPN in AWS
+2. **Ansible** configures BGP/OSPF on the on-prem routers (GNS3 lab → production)
+3. **VPN tunnel** connects the GNS3 lab to real AWS TGW
+4. **Python validators** check BOTH sides agree on routes, BGP state, tunnel health
+5. **Operations tooling** alerts when drift is detected and auto-remediates if threshold is crossed
+
+## Key Design Principles
+
+- **Desired state as YAML** — Define what the network SHOULD look like, validate continuously
+- **Validate before and after** — Every change runs validators pre/post
+- **Closed-loop operations** — Detect → Alert → Validate → Remediate → Verify
+- **Cloud and on-prem are one system** — Not two separate tools, one platform that sees both
+
+## License
+
+MIT

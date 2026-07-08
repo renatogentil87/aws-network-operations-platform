@@ -1,0 +1,55 @@
+# GNS3 Lab Inventory
+# Reference: See labs/topology/README.md for the network design
+#
+# YOUR TASK:
+# 1. Start your GNS3 lab and note the management IPs for each router
+# 2. Fill in ansible_host for each device
+# 3. Define router_id (use loopback IPs: 10.255.0.x)
+# 4. Define ospf_areas each router participates in
+# 5. Define bgp_role for each router
+#
+# HINTS:
+# - ansible_connection: network_cli (required for network devices)
+# - ansible_network_os: cisco.ios.ios (for Cisco IOSv routers)
+# - Use ansible-vault for passwords: ansible_password: "{{ vault_lab_password }}"
+# - Test connectivity: ansible all -m ping -i inventory/gns3_lab.yml
+
+all:
+  vars:
+    ansible_connection: network_cli
+    ansible_network_os: cisco.ios.ios
+    ansible_user: # TODO: your lab username
+    ansible_password: # TODO: your lab password (use vault in production)
+    ansible_become: true
+    ansible_become_method: enable
+
+  children:
+    core:
+      hosts:
+        router-core:
+          ansible_host: # TODO: GNS3 management IP
+          router_id: # TODO: loopback IP (e.g., 10.255.0.1)
+          ospf_areas: # TODO: list of areas (e.g., [0, 1, 2])
+          bgp_role: # TODO: route_reflector
+
+    edge:
+      hosts:
+        router-edge1:
+          ansible_host: # TODO
+          router_id: # TODO
+          ospf_areas: # TODO
+          bgp_role: # TODO: pe_router
+          aws_vpn_peer: true
+        router-edge2:
+          ansible_host: # TODO
+          router_id: # TODO
+          ospf_areas: # TODO
+          bgp_role: # TODO
+
+    branch:
+      hosts:
+        router-branch:
+          ansible_host: # TODO
+          router_id: # TODO
+          ospf_areas: # TODO
+          bgp_role: none

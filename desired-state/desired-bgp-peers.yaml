@@ -1,0 +1,44 @@
+# Desired BGP Peering State
+# Reference: desired-state/desired-routes-tgw.yaml (the completed example)
+#
+# YOUR TASK:
+# Define your expected BGP sessions — both AWS-side and on-prem-side.
+# The Python validator will compare live state against this file.
+#
+# STRUCTURE:
+# aws_bgp_sessions:
+#   - name: "descriptive name"
+#     type: direct_connect | site_to_site_vpn
+#     region: eu-west-1
+#     peer_ip: <BGP peer IP on AWS side>
+#     local_asn: <your TGW ASN>
+#     remote_asn: <on-prem ASN>
+#     expected_state: available | UP
+#
+# onprem_bgp_sessions:
+#   - name: "descriptive name"
+#     device: <hostname from ansible inventory>
+#     neighbor_ip: <BGP neighbor IP>
+#     local_asn: <on-prem ASN>
+#     remote_asn: <AWS ASN>
+#     expected_state: Established
+#
+# thresholds:
+#   bgp_flap_count_5min: <number>      # Alert if exceeded
+#   prefix_drop_percent: <number>       # Alert if % of prefixes disappear
+#   session_down_seconds: <number>      # Alert if down longer than this
+#
+# HINTS:
+# - Your TGW ASN is 64512 (from terraform/modules/transit-gateway/variables.tf)
+# - Your on-prem lab ASN is 65000 (from labs/topology/README.md)
+# - VPN inside addresses are typically 169.254.x.x/30
+# - Use 'show ip bgp summary' on your lab routers to find the right IPs
+
+aws_bgp_sessions:
+  # TODO: define your AWS-side BGP sessions (VPN tunnels to TGW)
+
+onprem_bgp_sessions:
+  # TODO: define your on-prem BGP sessions (router-edge1 to AWS, core to edge iBGP)
+
+thresholds:
+  # TODO: define your alert thresholds
