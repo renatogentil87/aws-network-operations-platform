@@ -5,7 +5,7 @@ module "transit_gateway" {
   providers = {
     aws = aws.network
   }
-  name              = "netops-tgw"
+  name              = "netops-tgw-dev"
   amazon_side_asn   = 64512
   route_table_names = ["shared", "fullmesh", "firewall", "spoke"]
   organization_arn  = data.aws_organizations_organization.this.arn
@@ -17,7 +17,7 @@ module "vpc_spoke1" {
   providers = {
     aws = aws.spoke
   }
-  name               = "spoke-dev1-vpc"
+  name                = "spoke-dev1-vpc"
   ipam_pool_id       = "ipam-pool-07627ea1fbb4208e5"
   netmask_length     = 22
   availability_zones = ["eu-west-1a", "eu-west-1b"]
@@ -50,4 +50,16 @@ module "vpc2_spoke2" {
   netmask_length     = 22
   availability_zones = ["eu-west-1a", "eu-west-1b"]
   tgw_subnet_newbits = 6 # /28 subnets from /22 VPC
+}
+
+module "inspection_vpc" {
+  source = "../../modules/vpc"
+  providers = {
+    aws = aws.network
+  }
+  name = "inspection-vpc-dev"
+  ipam_pool_id = "ipam-pool-04540de906d50e885"
+  netmask_length = 22
+  availability_zones = ["eu-west-1a", "eu-west-1b"]
+  tgw_subnet_newbits = 6
 }
