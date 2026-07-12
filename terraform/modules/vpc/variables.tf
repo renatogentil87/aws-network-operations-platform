@@ -26,7 +26,7 @@ variable "tgw_subnet_newbits" {
 }
 
 variable "public_subnet" {
-  description = "Additional bits for public subnet (eg., 6 /28 subnet from a /22 vpc")
+  description = "Additional bits for public subnet (eg., 6 /28 subnet from a /22 vpc)"
   type = number
   default = 6
 }

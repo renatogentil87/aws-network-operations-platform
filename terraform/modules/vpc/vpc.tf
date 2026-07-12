@@ -83,7 +83,6 @@ resource "aws_route" "private_subnet_route_to_tgw" {
   destination_cidr_block = "0.0.0.0/0"
   transit_gateway_id = var.transit_gateway_id.id
 }
-
 resource "aws_route_table" "public-rt" {
   vpc_id = aws_vpc.this.id
   tags = merge(
@@ -100,6 +99,9 @@ resource "aws_route" "public_subnet_default_route_to_internetgateway" {
 
 resource "aws_internet_gateway" "internet_gateway" {
   vpc_id = aws_vpc.this.id
-  tags = {Name = "${var.name}-internet-gateway"}}
+  tags = {
+    Name = "${var.name}-internet-gateway"
+  }
+}
 
 
