@@ -23,6 +23,7 @@ module "vpc_spoke1" {
   availability_zones = ["eu-west-1a", "eu-west-1b"]
   tgw_subnet_newbits = 6 # /28 subnets from /22 VPC
   transit_gateway_id = module.transit_gateway.tgw_id
+  
 }
 
 

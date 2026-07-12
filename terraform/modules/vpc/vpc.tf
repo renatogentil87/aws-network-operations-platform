@@ -81,7 +81,7 @@ resource "aws_route_table_association" "public_association" {
 resource "aws_route" "private_subnet_route_to_tgw" {
   route_table_id = aws_route_table.private_route_table.id
   destination_cidr_block = "0.0.0.0/0"
-  transit_gateway_id = var.transit_gateway_id.id
+  transit_gateway_id = var.transit_gateway_id
 }
 resource "aws_route_table" "public-rt" {
   vpc_id = aws_vpc.this.id
