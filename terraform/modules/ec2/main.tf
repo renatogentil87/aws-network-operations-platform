@@ -72,6 +72,16 @@ resource "aws_vpc_security_group_ingress_rule" "https" {
   ip_protocol       = "tcp"
 }
 
+# HTTP inbound rule (EVE-NG web UI)
+resource "aws_vpc_security_group_ingress_rule" "http" {
+  count             = length(var.allowed_https_cidrs) > 0 ? length(var.allowed_https_cidrs) : 0
+  security_group_id = aws_security_group.this.id
+  cidr_ipv4         = var.allowed_https_cidrs[count.index]
+  from_port         = 80
+  to_port           = 80
+  ip_protocol       = "tcp"
+}
+
 # Allow all outbound traffic
 resource "aws_vpc_security_group_egress_rule" "all_outbound" {
   security_group_id = aws_security_group.this.id
