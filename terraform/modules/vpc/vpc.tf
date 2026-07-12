@@ -82,6 +82,7 @@ resource "aws_route" "private_subnet_route_to_tgw" {
   route_table_id = aws_route_table.private_route_table.id
   destination_cidr_block = "0.0.0.0/0"
   transit_gateway_id = var.transit_gateway_id
+  depends_on = [aws_ec2_transit_gateway_vpc_attachment.tgw_attachment]
 }
 resource "aws_route_table" "public-rt" {
   vpc_id = aws_vpc.this.id
@@ -95,6 +96,7 @@ resource "aws_route" "public_subnet_default_route_to_internetgateway" {
   route_table_id = aws_route_table.public-rt.id
   destination_cidr_block = "0.0.0.0/0"
   gateway_id = aws_internet_gateway.internet_gateway.id
+  depends_on = [aws_ec2_transit_gateway_vpc_attachment.tgw_attachment]
 }
 
 resource "aws_internet_gateway" "internet_gateway" {
@@ -104,8 +106,12 @@ resource "aws_internet_gateway" "internet_gateway" {
   }
 }
 
-resource "awscc_ec2_transit_gateway_attachment" "tgw_attachment"{
+resource "aws_ec2_transit_gateway_vpc_attachment" "tgw_attachment" {
   transit_gateway_id = var.transit_gateway_id
   vpc_id = aws_vpc.this.id
   subnet_ids = aws_subnet.tgw_subnet[*].id
+  tags = {
+    Name = "${var.name}-tgw-attachment"
+  }
+
 }
