@@ -104,4 +104,8 @@ resource "aws_internet_gateway" "internet_gateway" {
   }
 }
 
-
+resource "awscc_ec2_transit_gateway_attachment" "tgw_attachment"{
+  transit_gateway_id = var.transit_gateway_id
+  vpc_id = aws_vpc.this.id
+  subnet_ids = aws_subnet.tgw_subnet[*].id
+}
