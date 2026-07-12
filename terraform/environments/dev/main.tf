@@ -70,7 +70,7 @@ module "eveng_vpc" {
     aws = aws.eveng
   }
   name = "eveng vpc"
-  ipam_pool_id = "ipam-0236b505e8cf42111"
+  ipam_pool_id = "ipam-pool-04540de906d50e885"
   netmask_length = 22
   availability_zones = ["eu-west-1a", "eu-west-1b"]
   tgw_subnet_newbits = 6
