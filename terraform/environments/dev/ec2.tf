@@ -12,6 +12,9 @@ data "aws_ami" "ubuntu" {
     values = ["hvm"]
   }
 }
+variable "instance_name" {
+  default = ""
+}
 module "ec2" {
   source = "../../modules/ec2"
    providers = {
@@ -26,4 +29,11 @@ module "ec2" {
   associate_public_ip = true
   allowed_https_cidrs = ["64.43.143.251/32"]
   allowed_ssh_cidrs = ["64.43.143.251/32"]
+}
+
+resource "aws_key_pair" "ireland-key-pair" {
+  provider = aws.eveng
+  public_key = file("~/.ssh/eu-west-1-keypair.pub")
+  key_name = "eu-west-1-keypair"
+  tags = { Name = "ireland-key-pair"}
 }
