@@ -22,7 +22,7 @@ module "vpc_spoke1" {
   netmask_length     = 22
   availability_zones = ["eu-west-1a", "eu-west-1b"]
   tgw_subnet_newbits = 6 # /28 subnets from /22 VPC
-
+  transit_gateway_id = module.transit_gateway.tgw_id
 }
 
 
@@ -37,6 +37,8 @@ module "vpc_spoke2" {
   netmask_length     = 22
   availability_zones = ["eu-west-1a", "eu-west-1b"]
   tgw_subnet_newbits = 6 # /28 subnets from /22 VPC
+  transit_gateway_id = module.transit_gateway.tgw_id
+
 }
 
 # VPC 2 Spoke Dev 2 - account SPOKE_DEV2_ACCOUNT_ID
@@ -50,6 +52,8 @@ module "vpc2_spoke2" {
   netmask_length     = 22
   availability_zones = ["eu-west-1a", "eu-west-1b"]
   tgw_subnet_newbits = 6 # /28 subnets from /22 VPC
+  transit_gateway_id = module.transit_gateway.tgw_id
+
 }
 
 module "inspection_vpc" {
@@ -62,6 +66,8 @@ module "inspection_vpc" {
   netmask_length = 22
   availability_zones = ["eu-west-1a", "eu-west-1b"]
   tgw_subnet_newbits = 6
+  transit_gateway_id = module.transit_gateway.tgw_id
+
 }
 
 module "eveng_vpc" {
@@ -74,4 +80,5 @@ module "eveng_vpc" {
   netmask_length = 22
   availability_zones = ["eu-west-1a", "eu-west-1b"]
   tgw_subnet_newbits = 6
+  transit_gateway_id = module.transit_gateway.tgw_id
 }
