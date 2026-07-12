@@ -28,3 +28,8 @@ variable "spoke2_account_id" {
   description = "AWS Account ID for the second spoke workload account"
   type        = string
 }
+
+variable "eveng_account_id" {
+  description = "AWS Account ID for Eveng environment"
+  type = string
+}

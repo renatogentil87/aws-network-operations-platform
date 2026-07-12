@@ -11,3 +11,4 @@ perimeter_account_id       = ""  # Perimeter/Firewall account
 shared_services_account_id = ""  # Shared Services account
 spoke_account_id           = ""  # Spoke Dev1 account
 spoke2_account_id          = ""  # Spoke Dev2 account
+eveng_account_id          = "" # Even NG Account

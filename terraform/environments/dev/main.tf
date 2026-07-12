@@ -63,3 +63,15 @@ module "inspection_vpc" {
   availability_zones = ["eu-west-1a", "eu-west-1b"]
   tgw_subnet_newbits = 6
 }
+
+module "eveng_vpc" {
+  source = "../../modules/vpc"
+  providers = {
+    aws = aws.eveng
+  }
+  name = "eveng vpc"
+  ipam_pool_id = "ipam-0236b505e8cf42111"
+  netmask_length = 22
+  availability_zones = ["eu-west-1a", "eu-west-1b"]
+  tgw_subnet_newbits = 6
+}

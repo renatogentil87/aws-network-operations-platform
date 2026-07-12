@@ -116,3 +116,22 @@ provider "aws" {
     }
   }
 }
+
+## Eveng Account
+provider "aws" {
+  alias  = "eveng"
+  region = var.aws_region
+
+  assume_role {
+    role_arn     = "arn:aws:iam::${var.eveng_account_id}:role/NetOps-TerraformExecution"
+    session_name = "terraform-netops"
+  }
+
+  default_tags {
+    tags = {
+      Project     = "aws-network-operations-platform"
+      ManagedBy   = "terraform"
+      Environment = "dev"
+    }
+  }
+}
