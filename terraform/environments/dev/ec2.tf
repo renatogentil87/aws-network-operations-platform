@@ -26,6 +26,7 @@ module "ec2" {
   associate_public_ip = true
   allowed_https_cidrs = ["64.43.143.251/32"]
   allowed_ssh_cidrs = ["64.43.143.251/32"]
+  depends_on = [aws_key_pair.ireland-key-pair]
 }
 
 data "aws_ssm_parameter" "ec2_public_key" {
