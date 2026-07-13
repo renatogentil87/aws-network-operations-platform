@@ -7,7 +7,7 @@ module "transit_gateway" {
   }
   name              = "netops-tgw-dev"
   amazon_side_asn   = 64512
-  route_table_names = ["shared", "fullmesh", "firewall", "spoke"]
+  route_table_names = ["shared", "fullmesh", "firewall", "isolated"]
   organization_arn  = data.aws_organizations_organization.this.arn
 }
 
@@ -23,7 +23,16 @@ module "vpc_spoke1" {
   availability_zones = ["eu-west-1a", "eu-west-1b"]
   tgw_subnet_newbits = 6 # /28 subnets from /22 VPC
   transit_gateway_id = module.transit_gateway.tgw_id
-  
+}
+
+resource "aws_ec2_transit_gateway_route_table_association" "spoke1_to_fullmesh" {
+  transit_gateway_attachment_id = module.vpc_spoke1.tgw_attachment_id
+  transit_gateway_route_table_id = module.transit_gateway.route_table_ids["fullmesh"]
+}
+
+resource "aws_ec2_transit_gateway_route_table_propagation" "spoke1-to-firewall" {
+  transit_gateway_attachment_id  = module.vpc_spoke1.tgw_attachment_id
+  transit_gateway_route_table_id = module.transit_gateway.route_table_ids["firewall"]
 }
 
 
@@ -82,4 +91,14 @@ module "eveng_vpc" {
   availability_zones = ["eu-west-1a", "eu-west-1b"]
   tgw_subnet_newbits = 6
   transit_gateway_id = module.transit_gateway.tgw_id
+}
+
+resource "aws_ec2_transit_gateway_route_table_association" "eveng-to-isolated" {
+  transit_gateway_attachment_id = module.vpc_spoke1.tgw_attachment_id
+  transit_gateway_route_table_id = module.transit_gateway.route_table_ids["isolated"]
+}
+
+resource "aws_ec2_transit_gateway_route_table_propagation" "eveng-to-shared" {
+  transit_gateway_attachment_id  = module.vpc_spoke1.tgw_attachment_id
+  transit_gateway_route_table_id = module.transit_gateway.route_table_ids["shared"]
 }
