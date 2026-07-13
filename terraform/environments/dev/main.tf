@@ -26,11 +26,13 @@ module "vpc_spoke1" {
 }
 
 resource "aws_ec2_transit_gateway_route_table_association" "spoke1_to_fullmesh" {
+  provider = aws.network
   transit_gateway_attachment_id = module.vpc_spoke1.tgw_attachment_id
   transit_gateway_route_table_id = module.transit_gateway.route_table_ids["fullmesh"]
 }
 
 resource "aws_ec2_transit_gateway_route_table_propagation" "spoke1-to-firewall" {
+  provider = aws.network
   transit_gateway_attachment_id  = module.vpc_spoke1.tgw_attachment_id
   transit_gateway_route_table_id = module.transit_gateway.route_table_ids["firewall"]
 }
@@ -94,11 +96,13 @@ module "eveng_vpc" {
 }
 
 resource "aws_ec2_transit_gateway_route_table_association" "eveng-to-isolated" {
+  provider = aws.network
   transit_gateway_attachment_id = module.vpc_spoke1.tgw_attachment_id
   transit_gateway_route_table_id = module.transit_gateway.route_table_ids["isolated"]
 }
 
 resource "aws_ec2_transit_gateway_route_table_propagation" "eveng-to-shared" {
+  provider = aws.network
   transit_gateway_attachment_id  = module.vpc_spoke1.tgw_attachment_id
   transit_gateway_route_table_id = module.transit_gateway.route_table_ids["shared"]
 }
