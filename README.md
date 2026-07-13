@@ -1,6 +1,16 @@
 # AWS Network Operations Platform
 
-A hybrid network operations platform that covers cloud infrastructure (Terraform), network validation (Python), on-prem automation (Ansible), and operational tooling — all connected through a GNS3 lab that peers with real AWS infrastructure via VPN.
+A production-grade hybrid network operations platform implementing closed-loop automation for enterprise AWS environments. Built to operate cloud and on-premises networks as a single system through desired-state validation, automated remediation, and continuous compliance.
+
+---
+
+## What This Is
+
+This platform manages the full lifecycle of hybrid network operations across a multi-account AWS environment connected to on-premises infrastructure via Direct Connect and Site-to-Site VPN. It combines infrastructure-as-code (Terraform), network validation (Python), on-premises automation (Ansible), and operational tooling into a unified system that detects drift, validates state, and remediates issues automatically.
+
+**This is not a learning project.** It is a working operations platform designed to the standards of a Principal Network Architect managing enterprise-scale hybrid connectivity.
+
+---
 
 ## Architecture
 
@@ -9,14 +19,14 @@ A hybrid network operations platform that covers cloud infrastructure (Terraform
 │                    Hybrid Network Operations Platform                     │
 ├─────────────────┬──────────────────┬──────────────────┬─────────────────┤
 │   Terraform     │     Python       │     Ansible      │   Operations    │
-│   (Cloud Infra) │  (Validation)    │  (On-Prem Auto)  │  (Runbooks)     │
+│  (Cloud Infra)  │  (Validation)    │  (On-Prem Auto)  │  (Runbooks)     │
 ├─────────────────┼──────────────────┼──────────────────┼─────────────────┤
 │ • TGW           │ • Route drift    │ • BGP config     │ • BGP flap      │
 │ • VPC + Subnets │ • BGP health     │ • OSPF config    │   response      │
 │ • IPAM          │ • VPN state      │ • VPN tunnels    │ • VPN tunnel    │
-│ • NOTG tags     │ • Isolation audit│ • Route audit    │   down          │
-│ • RAM shares    │ • Hybrid compare │ • Emergency      │ • Route leak    │
-│ • Multi-account │ • HTML reports   │   shutdown       │   detection     │
+│ • Multi-account │ • Isolation audit│ • Route audit    │   down          │
+│ • EC2 (lab)     │ • Hybrid compare │ • Emergency      │ • Route leak    │
+│ • RAM shares    │ • HTML reports   │   shutdown       │   detection     │
 └─────────────────┴──────────────────┴──────────────────┴─────────────────┘
                               │
                     ┌─────────┴─────────┐
@@ -26,34 +36,30 @@ A hybrid network operations platform that covers cloud infrastructure (Terraform
                     └───────────────────┘
 ```
 
+---
+
 ## Repository Structure
 
 ```
-├── terraform/                      Cloud infrastructure (EXISTING — pipeline active)
-│   ├── modules/                    TGW, VPC, IPAM modules
-│   ├── environments/dev/           Dev environment composition
-│   └── pipeline/                   CodePipeline + CodeBuild CI/CD
+├── terraform/                      Cloud infrastructure (CI/CD pipeline active)
+│   ├── modules/                    Reusable modules (VPC, TGW, EC2, VPN, Route53, etc.)
+│   ├── environments/dev/           Environment composition layer
+│   ├── pipeline/                   CodePipeline + CodeBuild CI/CD
+│   └── global/                     State backend (S3 + DynamoDB)
 │
-├── python/                         Network validation & operations
+├── python/                         Network validation & operations CLI
 │   ├── netops/
 │   │   ├── validators/             Route validation, drift detection, BGP health
 │   │   ├── collectors/             Gather state from AWS + on-prem devices
 │   │   ├── remediators/            Auto-fix (shutdown peer, failover, create ticket)
 │   │   ├── reporters/              HTML reports, metrics export
-│   │   └── cli.py                  CLI entry point: `netops validate|collect|report`
-│   ├── tests/                      pytest test suite
-│   └── pyproject.toml              Package definition
+│   │   └── cli.py                  CLI entry point: netops validate|collect|report
+│   └── tests/                      pytest test suite
 │
 ├── ansible/                        On-prem network automation
-│   ├── inventory/                  GNS3 lab + production inventories
+│   ├── inventory/                  Device inventories (lab + production)
 │   ├── playbooks/                  BGP config, OSPF config, route audit, emergency shutdown
-│   ├── roles/                      Reusable roles (base_router, bgp_peer, vpn_to_aws)
-│   └── ansible.cfg
-│
-├── labs/                           GNS3 lab environment
-│   ├── topology/                   Lab topology (4 routers: core, edge1, edge2, branch)
-│   ├── configs/                    Initial router configurations
-│   └── exercises/                  Progressive hands-on scenarios
+│   └── roles/                      Reusable roles (base_router, bgp_peer, vpn_to_aws)
 │
 ├── operations/                     Operational tooling
 │   ├── runbooks/                   Incident response procedures
@@ -62,67 +68,89 @@ A hybrid network operations platform that covers cloud infrastructure (Terraform
 │
 ├── desired-state/                  Source of truth (YAML)
 │   ├── desired-routes-tgw.yaml     Expected TGW route table state
-│   ├── desired-bgp-peers.yaml      Expected BGP sessions (cloud + on-prem)
-│   └── desired-vpn-tunnels.yaml    Expected VPN tunnel states
+│   └── desired-bgp-peers.yaml     Expected BGP sessions
 │
-├── docs/                           Architecture docs & phase plans
-└── configs/                        Shared configuration
+├── docs/                           Architecture documentation
+│   ├── phases/                     Implementation phase plans (0-13)
+│   ├── architecture/               Architecture decision records
+│   └── cross-account-deployment.md Cross-account Terraform patterns
+│
+└── .github/                        CI/CD workflows
 ```
 
-## Quick Start
-
-### Cloud Infrastructure (Terraform)
-```bash
-cd terraform/environments/dev
-terraform init
-terraform plan    # Pipeline runs this automatically on push
-```
-
-### Network Validation (Python)
-```bash
-cd python
-pip install -e .
-netops validate routes --region eu-west-1
-netops validate bgp --region eu-west-1 --device router-edge1
-netops collect hybrid --region eu-west-1 --device router-edge1
-netops report health --format html
-```
-
-### On-Prem Automation (Ansible)
-```bash
-cd ansible
-ansible-playbook playbooks/bgp_config.yml -i inventory/gns3_lab.yml
-ansible-playbook playbooks/route_audit.yml -i inventory/gns3_lab.yml
-```
-
-### GNS3 Lab
-See `labs/topology/README.md` for topology setup and `labs/exercises/` for progressive scenarios.
-
-## Learning Path
-
-| Phase | Focus | Skills |
-|-------|-------|--------|
-| 1 | Cloud Automation | Terraform modules, multi-account, CI/CD pipeline |
-| 2 | Network Validation | Python + boto3, desired-state comparison, pytest |
-| 3 | On-Prem Automation | Ansible, netmiko, NAPALM, GNS3 lab |
-| 4 | Hybrid Operations | End-to-end validation (both sides), closed-loop remediation |
-| 5 | Production Operations | Monitoring, alerting, runbooks, self-healing |
-
-## How It All Connects
-
-1. **Terraform** deploys TGW, VPCs, VPN in AWS
-2. **Ansible** configures BGP/OSPF on the on-prem routers (GNS3 lab → production)
-3. **VPN tunnel** connects the GNS3 lab to real AWS TGW
-4. **Python validators** check BOTH sides agree on routes, BGP state, tunnel health
-5. **Operations tooling** alerts when drift is detected and auto-remediates if threshold is crossed
+---
 
 ## Key Design Principles
 
 - **Desired state as YAML** — Define what the network SHOULD look like, validate continuously
 - **Validate before and after** — Every change runs validators pre/post
 - **Closed-loop operations** — Detect → Alert → Validate → Remediate → Verify
-- **Cloud and on-prem are one system** — Not two separate tools, one platform that sees both
+- **Cloud and on-prem are one system** — One platform that sees both sides
+- **Multi-account by default** — Cross-account roles, RAM sharing, centralized TGW
 
-## License
+---
 
-MIT
+## Infrastructure
+
+| Component | Account | Details |
+|-----------|---------|---------|
+| Transit Gateway | Network (hub) | Central routing, multi-account RAM share, auto-accept |
+| Inspection VPC | Network | Centralized firewall path (future Network Firewall) |
+| Workload VPCs | Spoke accounts | IPAM-allocated /22, TGW-attached, segmented routing |
+| CI/CD Pipeline | Management | CodePipeline → CodeBuild → Terraform plan/apply |
+| State Backend | Management | S3 + DynamoDB locking |
+
+---
+
+## Usage
+
+### Terraform (Infrastructure)
+```bash
+cd terraform/environments/dev
+terraform init && terraform plan
+```
+
+### Python (Validation)
+```bash
+cd python && pip install -e .
+netops validate routes --region eu-west-1
+netops validate bgp --device router-edge1
+netops report health --format html
+```
+
+### Ansible (On-Prem)
+```bash
+cd ansible
+ansible-playbook playbooks/bgp_config.yml -i inventory/gns3_lab.yml
+ansible-playbook playbooks/route_audit.yml -i inventory/gns3_lab.yml
+```
+
+---
+
+## Implementation Phases
+
+| Phase | Focus | Status |
+|-------|-------|--------|
+| 0 | Repository foundation + CI/CD | ✅ Complete |
+| 1 | Network foundation (TGW, VPCs, multi-account) | ✅ Complete |
+| 2 | Multi-region resilience | 🔲 Planned |
+| 3 | Observability platform | 🔲 Planned |
+| 4 | Python CLI framework | 🔲 Planned |
+| 5 | Inventory engine | 🔲 Planned |
+| 6 | Validation framework | 🔲 Planned |
+| 7 | Automated network testing | 🔲 Planned |
+| 8 | Drift detection | 🔲 Planned |
+| 9 | Automated recovery | 🔲 Planned |
+| 10 | Chaos engineering | 🔲 Planned |
+| 11 | Operational runbooks | 🔲 Planned |
+| 12 | Reporting | 🔲 Planned |
+| 13 | Operational maturity scoring | 🔲 Planned |
+
+---
+
+## Author
+
+**Renato Gentil** — Sr. Technical Account Manager, AWS
+- 10+ years enterprise and cloud networking
+- AWS Solutions Architect Professional, Advanced Networking Specialty, DevOps Professional
+- Specializing in BGP, MPLS, hybrid connectivity, and network automation
