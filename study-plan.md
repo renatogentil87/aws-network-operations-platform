@@ -86,15 +86,6 @@
 
 ---
 
-## Certifications
-
-| Cert | Target Date | Notes |
-|------|-------------|-------|
-| CCNP ENCOR (350-401) | Nov 2026 | Take after books 1-4 + labs |
-| CCNP ENAUTO (300-435) | Dec 2026 | Take after book 6 + automation labs |
-
----
-
 ## Monthly Targets
 
 | Month | Book Focus | Labs | Output |
