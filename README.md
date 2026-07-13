@@ -151,6 +151,6 @@ ansible-playbook playbooks/route_audit.yml -i inventory/gns3_lab.yml
 ## Author
 
 **Renato Gentil** — Sr. Technical Account Manager, AWS
-- 10+ years enterprise and cloud networking
+- 15 years enterprise and cloud networking
 - AWS Solutions Architect Professional, Advanced Networking Specialty, DevOps Professional
-- Specializing in BGP, MPLS, hybrid connectivity, and network automation
+- Specialist in BGP, MPLS, hybrid connectivity, and network automation
