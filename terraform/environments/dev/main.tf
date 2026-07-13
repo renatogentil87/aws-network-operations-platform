@@ -25,16 +25,67 @@ module "vpc_spoke1" {
   transit_gateway_id = module.transit_gateway.tgw_id
 }
 
-resource "aws_ec2_transit_gateway_route_table_association" "spoke1_to_fullmesh" {
-  provider = aws.network
-  transit_gateway_attachment_id = module.vpc_spoke1.tgw_attachment_id
-  transit_gateway_route_table_id = module.transit_gateway.route_table_ids["fullmesh"]
-}
+module "tgw_routing" {
+  source = "../../modules/tgw-routing"
+  providers = {
+    aws = aws.network
+  }
 
-resource "aws_ec2_transit_gateway_route_table_propagation" "spoke1-to-firewall" {
-  provider = aws.network
-  transit_gateway_attachment_id  = module.vpc_spoke1.tgw_attachment_id
-  transit_gateway_route_table_id = module.transit_gateway.route_table_ids["firewall"]
+  associations = {
+    spoke1-to-fullmesh = {
+      attachment_id  = module.vpc_spoke1.tgw_attachment_id
+      route_table_id = module.transit_gateway.route_table_ids["fullmesh"]
+    }
+    spoke2-to-fullmesh = {
+      attachment_id  = module.vpc_spoke2.tgw_attachment_id
+      route_table_id = module.transit_gateway.route_table_ids["fullmesh"]
+    }
+    spoke2-vpc2-to-fullmesh = {
+      attachment_id  = module.vpc2_spoke2.tgw_attachment_id
+      route_table_id = module.transit_gateway.route_table_ids["fullmesh"]
+    }
+    inspection-to-firewall = {
+      attachment_id  = module.inspection_vpc.tgw_attachment_id
+      route_table_id = module.transit_gateway.route_table_ids["firewall"]
+    }
+    eveng-to-isolated = {
+      attachment_id  = module.eveng_vpc.tgw_attachment_id
+      route_table_id = module.transit_gateway.route_table_ids["isolated"]
+    }
+  }
+
+  propagations = {
+    spoke1-into-firewall = {
+      attachment_id  = module.vpc_spoke1.tgw_attachment_id
+      route_table_id = module.transit_gateway.route_table_ids["firewall"]
+    }
+    spoke2-into-firewall = {
+      attachment_id  = module.vpc_spoke2.tgw_attachment_id
+      route_table_id = module.transit_gateway.route_table_ids["firewall"]
+    }
+    spoke2-vpc2-into-firewall = {
+      attachment_id  = module.vpc2_spoke2.tgw_attachment_id
+      route_table_id = module.transit_gateway.route_table_ids["firewall"]
+    }
+    spoke1-into-fullmesh = {
+      attachment_id  = module.vpc_spoke1.tgw_attachment_id
+      route_table_id = module.transit_gateway.route_table_ids["fullmesh"]
+    }
+    spoke2-into-fullmesh = {
+      attachment_id  = module.vpc_spoke2.tgw_attachment_id
+      route_table_id = module.transit_gateway.route_table_ids["fullmesh"]
+    }
+    spoke2-vpc2-into-fullmesh = {
+      attachment_id  = module.vpc2_spoke2.tgw_attachment_id
+      route_table_id = module.transit_gateway.route_table_ids["fullmesh"]
+    }
+    inspection-into-fullmesh = {
+      attachment_id  = module.inspection_vpc.tgw_attachment_id
+      route_table_id = module.transit_gateway.route_table_ids["fullmesh"]
+    }
+  }
+
+  static_routes = {}
 }
 
 
@@ -93,16 +144,4 @@ module "eveng_vpc" {
   availability_zones = ["eu-west-1a", "eu-west-1b"]
   tgw_subnet_newbits = 6
   transit_gateway_id = module.transit_gateway.tgw_id
-}
-
-resource "aws_ec2_transit_gateway_route_table_association" "eveng-to-isolated" {
-  provider = aws.network
-  transit_gateway_attachment_id = module.vpc_spoke1.tgw_attachment_id
-  transit_gateway_route_table_id = module.transit_gateway.route_table_ids["isolated"]
-}
-
-resource "aws_ec2_transit_gateway_route_table_propagation" "eveng-to-shared" {
-  provider = aws.network
-  transit_gateway_attachment_id  = module.vpc_spoke1.tgw_attachment_id
-  transit_gateway_route_table_id = module.transit_gateway.route_table_ids["shared"]
 }
