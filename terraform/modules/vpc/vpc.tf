@@ -79,6 +79,7 @@ resource "aws_route_table_association" "public_association" {
   subnet_id = aws_subnet.public_subnet[count.index].id
 }
 resource "aws_route" "private_subnet_route_to_tgw" {
+  count = var.tgw_default_route ? 1: 0
   route_table_id = aws_route_table.private_route_table.id
   destination_cidr_block = "0.0.0.0/0"
   transit_gateway_id = var.transit_gateway_id
@@ -92,24 +93,12 @@ resource "aws_route_table" "public-rt" {
     }
   )
 }
-resource "aws_route" "public_subnet_default_route_to_internetgateway" {
-  route_table_id = aws_route_table.public-rt.id
-  destination_cidr_block = "0.0.0.0/0"
-  gateway_id = aws_internet_gateway.internet_gateway.id
-  depends_on = [aws_ec2_transit_gateway_vpc_attachment.tgw_attachment]
-}
-
-resource "aws_internet_gateway" "internet_gateway" {
-  vpc_id = aws_vpc.this.id
-  tags = {
-    Name = "${var.name}-internet-gateway"
-  }
-}
 
 resource "aws_ec2_transit_gateway_vpc_attachment" "tgw_attachment" {
   transit_gateway_id = var.transit_gateway_id
   vpc_id = aws_vpc.this.id
   subnet_ids = aws_subnet.tgw_subnet[*].id
+  appliance_mode_support = var.tgw_appliance_mode ? "enable" : "disable"
   tags = {
     Name = "${var.name}-tgw-attachment"
   }

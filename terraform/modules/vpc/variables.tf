@@ -53,3 +53,15 @@ variable "transit_gateway_id" {
   description = "Transit Gateway ID for priavte route default route"
   type = string
 }
+
+variable "tgw_default_route" {
+  description = "conditional configuration to add default route to TGW"
+  type = bool
+  default = true
+}
+
+variable "tgw_appliance_mode" {
+  description = "Decide whether to turn on TGW appliance mode"
+  type = bool
+  default = false
+}
