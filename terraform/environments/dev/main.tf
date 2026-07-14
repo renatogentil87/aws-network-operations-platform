@@ -52,8 +52,12 @@ module "tgw_routing" {
       attachment_id  = module.eveng_vpc.tgw_attachment_id
       route_table_id = module.transit_gateway.route_table_ids["isolated"]
     }
+    shared-vpc-to-shared-rt = {
+      attachment_id = module.shared_vpc.tgw_attachment_id
+      route_table_id = module.transit_gateway.route_table_ids["shared"]
+    }
   }
-
+   ## Spoke to Firewall for return traffic
   propagations = {
     spoke1-into-firewall = {
       attachment_id  = module.vpc_spoke1.tgw_attachment_id
@@ -67,6 +71,8 @@ module "tgw_routing" {
       attachment_id  = module.vpc2_spoke2.tgw_attachment_id
       route_table_id = module.transit_gateway.route_table_ids["firewall"]
     }
+
+    ## Spoke to fullmesh for fullmesh connectivity
     spoke1-into-fullmesh = {
       attachment_id  = module.vpc_spoke1.tgw_attachment_id
       route_table_id = module.transit_gateway.route_table_ids["fullmesh"]
@@ -79,13 +85,40 @@ module "tgw_routing" {
       attachment_id  = module.vpc2_spoke2.tgw_attachment_id
       route_table_id = module.transit_gateway.route_table_ids["fullmesh"]
     }
-    inspection-into-fullmesh = {
-      attachment_id  = module.inspection_vpc.tgw_attachment_id
+
+    ### Spokes to Shared
+    spoke1-into-shared = {
+      attachment_id  = module.vpc_spoke1.tgw_attachment_id
+      route_table_id = module.transit_gateway.route_table_ids["shared"]
+    }
+    spoke2-into-shared = {
+      attachment_id  = module.vpc_spoke2.tgw_attachment_id
+      route_table_id = module.transit_gateway.route_table_ids["shared"]
+    }
+    spoke2-vpc2-into-shared = {
+      attachment_id  = module.vpc2_spoke2.tgw_attachment_id
+      route_table_id = module.transit_gateway.route_table_ids["shared"]
+    }
+
+    ## Shared into fullmesh
+    shared-into-fullmesh = {
+      attachment_id = module.shared_vpc.tgw_attachment_id
       route_table_id = module.transit_gateway.route_table_ids["fullmesh"]
     }
   }
 
-  static_routes = {}
+  static_routes = {
+    fullmesh-default-to-inspection = {
+      destination = "0.0.0.0/0"
+      route_table_id = module.transit_gateway.route_table_ids["fullmesh"]
+      attachment_id = module.inspection_vpc.tgw_attachment_id
+    }
+    shared-default-to-inspection = {
+      destination = "0.0.0.0/0"
+      route_table_id = module.transit_gateway.route_table_ids["shared"]
+      attachment_id = module.inspection_vpc.tgw_attachment_id
+    }
+  }
 }
 
 
@@ -119,20 +152,6 @@ module "vpc2_spoke2" {
 
 }
 
-module "inspection_vpc" {
-  source = "../../modules/vpc"
-  providers = {
-    aws = aws.network
-  }
-  name = "inspection-vpc-dev"
-  ipam_pool_id = "ipam-pool-04540de906d50e885"
-  netmask_length = 22
-  availability_zones = ["eu-west-1a", "eu-west-1b"]
-  tgw_subnet_newbits = 6
-  transit_gateway_id = module.transit_gateway.tgw_id
-
-}
-
 module "eveng_vpc" {
   source = "../../modules/vpc"
   providers = {
@@ -145,3 +164,62 @@ module "eveng_vpc" {
   tgw_subnet_newbits = 6
   transit_gateway_id = module.transit_gateway.tgw_id
 }
+
+module "shared_vpc" {
+  source = "../../modules/vpc"
+  providers = {
+    aws = aws.network
+  }
+  name = "shared_vpc"
+  ipam_pool_id = "ipam-pool-04540de906d50e885"
+  netmask_length = 22
+  availability_zones = ["eu-west-1a", "eu-west-1b"]
+  tgw_subnet_newbits = 6
+  transit_gateway_id = module.transit_gateway.tgw_id
+}
+
+### INSPECTION VPC CONFIGURATION
+
+module "inspection_vpc" {
+  source = "../../modules/vpc"
+  providers = {
+    aws = aws.network
+  }
+  name = "inspection-vpc-dev"
+  ipam_pool_id = "ipam-pool-04540de906d50e885"
+  netmask_length = 22
+  availability_zones = ["eu-west-1a", "eu-west-1b"]
+  tgw_subnet_newbits = 6
+  transit_gateway_id = module.transit_gateway.tgw_id
+  tgw_default_route = false
+  tgw_appliance_mode = true
+}
+
+resource "aws_eip" "eip" {
+  domain = "vpc"
+  tags = { Name = "eip-inspection-vpc"}
+}
+
+resource "aws_nat_gateway" "natgw" {
+  subnet_id = module.inspection_vpc.public_subnet[0]
+  allocation_id = aws_eip.eip.id
+  tags = {Name = "inspection-vpc-nat-gateway"}
+}
+resource "aws_internet_gateway" "internet_gateway" {
+  vpc_id = module.inspection_vpc.vpc_id
+  tags = {
+    Name = "inspection-internet-gateway"
+  }
+}
+resource "aws_route" "inspection_private_to_natgw" {
+  route_table_id = module.inspection_vpc.private_route_table
+  destination_cidr_block = "0.0.0.0/0"
+  nat_gateway_id = aws_nat_gateway.natgw.id
+}
+
+resource "aws_route" "public_route_to_igw" {
+  route_table_id = module.inspection_vpc.public_rt
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id = aws_internet_gateway.internet_gateway.id
+}
+
