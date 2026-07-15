@@ -202,6 +202,7 @@ resource "aws_eip" "eip" {
 }
 
 resource "aws_nat_gateway" "natgw" {
+  provider = aws.network
   subnet_id = module.inspection_vpc.public_subnet[0]
   allocation_id = aws_eip.eip.id
   tags = {Name = "inspection-vpc-nat-gateway"}
@@ -214,12 +215,14 @@ resource "aws_internet_gateway" "internet_gateway" {
   }
 }
 resource "aws_route" "inspection_private_to_natgw" {
+  provider = aws.network
   route_table_id = module.inspection_vpc.private_route_table
   destination_cidr_block = "0.0.0.0/0"
   nat_gateway_id = aws_nat_gateway.natgw.id
 }
 
 resource "aws_route" "public_route_to_igw" {
+  provider = aws.network
   route_table_id = module.inspection_vpc.public_rt
   destination_cidr_block = "0.0.0.0/0"
   gateway_id = aws_internet_gateway.internet_gateway.id
