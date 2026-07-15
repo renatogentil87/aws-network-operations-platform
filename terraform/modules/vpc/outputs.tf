@@ -29,3 +29,4 @@ output "private_route_table" {
 output "public_rt" {
   value = aws_route_table.public-rt.id
 }
+

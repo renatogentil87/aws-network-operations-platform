@@ -1,0 +1,14 @@
+# Block SSH outbound from internal networks
+drop tcp $HOME_NET any -> $EXTERNAL_NET 22 (msg:"Block outbound SSH"; sid:1000001; rev:1;)
+
+# Block SMTP outbound (prevent data exfiltration via email)
+drop tcp $HOME_NET any -> $EXTERNAL_NET 25 (msg:"Block outbound SMTP"; sid:1000002; rev:1;)
+
+# Alert on any DNS query to a .ru TLD
+alert dns $HOME_NET any -> any any (msg:"DNS query to .ru domain"; dns.query; content:".ru"; endswith; sid:1000003; rev:1;)
+
+# Block crypto mining pool connections
+drop tls $HOME_NET any -> $EXTERNAL_NET any (msg:"Block crypto mining"; tls.sni; content:"pool."; startswith; sid:1000004; rev:1;)
+
+# Block outbound RDP
+drop tcp $HOME_NET any -> $EXTERNAL_NET 3389 (msg:"Block outbound RDP"; sid:1000005; rev:1;)
