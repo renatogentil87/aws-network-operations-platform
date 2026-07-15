@@ -196,6 +196,7 @@ module "inspection_vpc" {
 }
 
 resource "aws_eip" "eip" {
+  provider = aws.network
   domain = "vpc"
   tags = { Name = "eip-inspection-vpc"}
 }
@@ -206,6 +207,7 @@ resource "aws_nat_gateway" "natgw" {
   tags = {Name = "inspection-vpc-nat-gateway"}
 }
 resource "aws_internet_gateway" "internet_gateway" {
+  provider = aws.network
   vpc_id = module.inspection_vpc.vpc_id
   tags = {
     Name = "inspection-internet-gateway"

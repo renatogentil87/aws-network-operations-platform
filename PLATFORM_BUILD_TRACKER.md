@@ -24,12 +24,11 @@
 ## Phase 2 — Segmentation & Inspection
 
 ### TGW Route Table Design
-- [ ] Define segmentation policy (which VPCs can talk to which)
-- [ ] Spoke RT: propagate only shared services + inspection VPC
-- [ ] Shared RT: propagate all VPCs + on-prem (future)
-- [ ] Inspection RT: propagate all spokes (return path)
-- [ ] Fullmesh RT: propagate everything (unrestricted VPCs)
-- [ ] Add blackhole routes for explicit isolation between spokes
+- [x] Define segmentation policy (which VPCs can talk to which)
+- [x] Spoke RT: propagate only shared services + inspection VPC
+- [x] Shared RT: propagate all VPCs + on-prem (future)
+- [x] Inspection RT: propagate all spokes (return path)
+- [x] Fullmesh RT: propagate everything (unrestricted VPCs)
 - [ ] Validate: instance in spoke A CANNOT ping instance in spoke B directly
 
 ### Inspection VPC — AWS Network Firewall
