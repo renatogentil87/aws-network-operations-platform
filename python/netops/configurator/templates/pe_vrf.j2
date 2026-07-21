@@ -1,0 +1,33 @@
+ip cef
+!
+ip vrf {{ vrf_name }}
+ rd {{ rd }}
+ route-target import {{ rt_import }}
+ route-target export {{ rt_export }}
+!
+interface loopback0
+ ip address {{ loopback }} 255.255.255.255
+ no shutdown
+!
+interface loopback10
+ ip vrf forwarding {{ vrf_name }}
+ ip address {{loopback10}} 255.255.255.255
+ no shut
+!
+interface {{ customer_interface }}
+ ip vrf forwarding {{vrf_name}}
+ ip address {{customer_ip}} 255.255.255.252
+ no shut
+!
+router bgp {{ bgp_asn}}
+ neighbor {{ pe_neighbor }} remote-as {{ bgp_asn }}
+ neighbor {{ pe_neighbor }} update-source loopback0
+ address-family vpnv4
+  neighbor {{ pe_neighbor }} activate
+ exit-address-family
+ address-family ipv4 vrf {{ vrf_name }}
+  neighbor {{ ce_neighbor }} remote-as {{ce_asn}}
+  neighbor {{ ce_neighbor }} activate
+  network {{ loopback10}} mask 255.255.255.255
+  exit
+ !
