@@ -29,29 +29,26 @@
 - [x] Shared RT: propagate all VPCs + on-prem (future)
 - [x] Inspection RT: propagate all spokes (return path)
 - [x] Fullmesh RT: propagate everything (unrestricted VPCs)
+- [x] Static route 0.0.0.0/0 in fullmesh → inspection VPC
+- [x] Static route 0.0.0.0/0 in shared → inspection VPC
+- [x] Shared VPC created and associated to shared RT
 - [ ] Validate: instance in spoke A CANNOT ping instance in spoke B directly
 
 ### Inspection VPC — AWS Network Firewall
-- [ ] Create Network Firewall module (`terraform/modules/network-firewall/`)
-- [ ] Deploy NFW in inspection VPC (2 AZs, endpoint per AZ)
-- [ ] Enable appliance mode on inspection VPC TGW attachment
-- [ ] Create firewall policy (stateless + stateful rule groups)
-- [ ] Stateful rules: allow DNS, HTTPS; deny everything else by default
-- [ ] Stateful rules: domain allow-list (e.g., *.amazonaws.com, specific SaaS)
-- [ ] Configure TGW routing: spoke `0.0.0.0/0` → inspection attachment
-- [ ] Configure inspection VPC routing: NFW endpoint → NAT GW → IGW
-- [ ] Configure return path: inspection RT has routes back to each spoke CIDR
+- [x] Deploy NFW in inspection VPC (2 AZs, endpoint per AZ)
+- [x] Enable appliance mode on inspection VPC TGW attachment
+- [x] Create firewall policy (stateless + stateful rule groups)
+- [x] Stateful rules: domain allow-list (*.amazonaws.com, github.com, pypi.org)
+- [x] Stateful rules: custom Suricata rules (block SSH/SMTP/RDP outbound, alert .ru domains)
+- [x] Stateless rules: forward HTTPS/DNS/HTTP to stateful, drop rest
+- [x] Configure TGW routing: spoke 0.0.0.0/0 → inspection attachment
+- [x] Configure inspection VPC routing: TGW subnet → FW endpoint → NAT GW → IGW
+- [x] Configure return path: public subnet 10.0.0.0/8 → FW endpoint
+- [x] Firewall logging to CloudWatch (alerts + flows)
+- [x] NAT Gateway + EIP for centralized egress
 - [ ] Validate: traffic from spoke traverses NFW (check firewall flow logs)
 - [ ] Validate: blocked domain returns RST/timeout
-
-### Egress VPC (Centralized Internet)
-- [ ] Create egress VPC (or combine with inspection VPC — decide)
-- [ ] NAT Gateway in public subnet (2 AZs for HA)
-- [ ] Elastic IP attached (stable IP for third-party whitelisting)
-- [ ] IGW attached
-- [ ] TGW routing: post-inspection traffic → egress VPC → internet
-- [ ] Validate: instance in spoke VPC can reach the internet via centralized path
-- [ ] Validate: source IP is the EIP (not the instance IP)
+- [ ] Validate: source IP from spoke is the NAT GW EIP
 
 ---
 
@@ -121,20 +118,14 @@
 
 ## Phase 6 — Python Validation Framework
 
-### CLI Structure
-- [ ] `netops validate routes` — TGW route tables vs desired state
-- [ ] `netops validate isolation` — confirm spoke-to-spoke blocked
-- [ ] `netops validate firewall-path` — trace traffic through NFW
-- [ ] `netops validate vpn` — both tunnels UP, correct prefixes
-- [ ] `netops validate dns` — resolver endpoints healthy, forwarding works
-- [ ] `netops collect state` — snapshot all network state to JSON
-- [ ] `netops report health` — full health check, HTML output
-
-### Desired-State Validation
-- [ ] Define `desired-state/desired-routes-tgw.yaml` (expected routes per RT)
-- [ ] Define `desired-state/desired-bgp-peers.yaml` (expected BGP sessions)
-- [ ] Define `desired-state/desired-vpn-tunnels.yaml` (expected tunnel states)
-- [ ] Write validator: read YAML → fetch actual state → compare → report
+### AWS Validators (boto3)
+- [x] VPC routes collector (assume role, fetch route tables)
+- [x] VPC routes validator (check 0.0.0.0/0 → TGW exists)
+- [ ] TGW routes collector (fetch TGW route tables from networking account)
+- [ ] TGW routes validator (compare state file vs live API)
+- [ ] TGW associations validator (confirm correct attachments per RT)
+- [ ] Firewall policy validator (rule groups attached, capacity OK)
+- [ ] VPN tunnel validator (both tunnels UP, correct prefixes)
 - [ ] Unit tests with mocked AWS responses (pytest)
 
 ### Drift Detection (automated)
@@ -145,25 +136,57 @@
 
 ---
 
-## Phase 7 — Automation & Remediation
+## Phase 7 — Python Network Automation (Netmiko + Jinja2)
 
-### Ansible On-Prem Automation
-- [ ] Playbook: configure BGP peer (idempotent)
-- [ ] Playbook: route audit (compare actual vs expected)
-- [ ] Playbook: emergency shutdown (disable BGP peer, withdraw routes)
-- [ ] Role: base_router (NTP, logging, SNMP, AAA)
-- [ ] Role: vpn_to_aws (tunnel config, crypto, BGP)
-- [ ] Inventory: EVE-NG lab devices (working connectivity)
+### Configurator Framework (GNS3 lab)
+- [x] Inventory file (all 20 routers with ports and variables)
+- [x] Jinja2 template: MPLS base config (CEF, loopback, OSPF, MPLS on all interfaces)
+- [x] Jinja2 template: PE VRF config (VRF, RD, RT, MP-BGP vpnv4, PE-CE peering)
+- [x] push_config.py (render template + push via telnet)
+- [x] --dry-run mode (print without pushing)
+- [ ] Jinja2 template: CE router config (eBGP to PE, advertise customer routes)
+- [ ] Jinja2 template: P router base (OSPF + MPLS only, no BGP)
+- [ ] Jinja2 template: interface IP addressing (per-link IPs from inventory)
+- [ ] Jinja2 template: OSPF cost tuning (set cost per interface)
+- [ ] Jinja2 template: BGP route-policy (local-pref, AS-PATH prepend, communities)
 
-### Auto-Remediation
-- [ ] VPN tunnel down → auto-check BGP state → restart if stale
-- [ ] Blackhole route detected → alert + log (don't auto-fix — too risky)
-- [ ] Drift detected → create ticket automatically (SIM/Asana integration)
-- [ ] NFW blocking legitimate traffic → alert with rule ID for review
+### Collectors (read state from routers)
+- [ ] show_commands.py — connect to router, run show commands, return output
+- [ ] bgp_collector.py — collect BGP neighbor state from all PEs
+- [ ] route_collector.py — collect routing table from all routers
+- [ ] mpls_collector.py — collect MPLS forwarding table, LDP neighbors
+
+### Validators (compare expected vs actual)
+- [ ] bgp_validator.py — check all BGP sessions are Established
+- [ ] ospf_validator.py — check all OSPF neighbors are Full
+- [ ] mpls_validator.py — check LDP neighbors match expected list
+- [ ] route_validator.py — check expected prefixes exist in routing table
+
+### Reports
+- [ ] health_report.py — run all validators, print summary (PASS/FAIL per router)
+- [ ] Output to JSON for further processing
+- [ ] Output to HTML for dashboard/sharing
 
 ---
 
-## Phase 8 — Multi-Region
+## Phase 8 — Hybrid Connectivity (AWS VPN + On-Prem)
+
+### Site-to-Site VPN
+- [ ] Create VPN module (`terraform/modules/vpn/`)
+- [ ] VPN connection attached to TGW (BGP, 2 tunnels)
+- [ ] Download config and apply to GNS3/EVE-NG router
+- [ ] Establish eBGP session (AS 65000 ↔ AS 64512)
+- [ ] Advertise on-prem prefixes to AWS
+- [ ] Receive AWS VPC prefixes on on-prem router
+- [ ] Validate: on-prem router has routes to all spoke VPC CIDRs
+- [ ] Validate: instance in spoke VPC can ping on-prem loopback
+- [ ] Configure BGP AS-PATH prepend on backup tunnel
+- [ ] Test failover: shut primary tunnel, traffic shifts to backup
+- [ ] Python: automate VPN router config via Netmiko template
+
+---
+
+## Phase 9 — Multi-Region
 
 - [ ] Deploy TGW in second region (eu-west-2)
 - [ ] Create TGW peering between eu-west-1 and eu-west-2
@@ -171,11 +194,10 @@
 - [ ] Validate: cross-region connectivity works
 - [ ] Validate: latency is within expected range
 - [ ] Consider Cloud WAN migration (replace TGW peering with segments)
-- [ ] If Cloud WAN: implement routing policies (summarization, local-pref)
 
 ---
 
-## Phase 9 — Production Hardening
+## Phase 10 — Production Hardening
 
 - [ ] Terraform: add `prevent_destroy` lifecycle on critical resources
 - [ ] Terraform: tag compliance (all resources tagged with owner, environment, project)
@@ -193,8 +215,11 @@
 
 ## Notes
 
-- Inspection VPC is the highest-value next step — proves segmentation works
-- VPN to EVE-NG is second priority — enables real hybrid validation
-- Python validators come after infra exists (need something to validate against)
+- Phase 2 complete — inspection VPC, Network Firewall, centralized egress all deployed
+- Ansible removed — replaced with Python/Netmiko/Jinja2 (can't use SSH with GNS3 local)
+- desired-state/ folder removed — using Terraform state as source of truth for drift detection
+- Python automation uses telnet to GNS3 routers on localhost (Netmiko cisco_ios_telnet)
+- Next priorities: validate firewall works end-to-end, then build more templates for MPLS lab
+- VPN to on-prem is Phase 8 — needs GNS3 or EVE-NG router with IPsec+BGP
 - Multi-region is last — get single-region production-solid first
 - Each completed phase should result in a LinkedIn post or blog
