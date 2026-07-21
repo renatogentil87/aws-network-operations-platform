@@ -1,18 +1,13 @@
 """
-VPC Routes Collector — Assumes role into an account and returns all route tables.
+VPC Routes Collector - Assumes role into a spoke account and returns all route tables.
 """
 
 import boto3
 
 
 def get_all_route_tables(account_id, region="eu-west-1"):
-    """
-    Assume role into an account and return all route tables.
-    """
-
     role_arn = f"arn:aws:iam::{account_id}:role/NetOps-Collector"
 
-    # Assume role into the target account
     sts = boto3.client("sts")
     creds = sts.assume_role(RoleArn=role_arn, RoleSessionName="netops-collector")
 
@@ -24,7 +19,5 @@ def get_all_route_tables(account_id, region="eu-west-1"):
         aws_session_token=creds["Credentials"]["SessionToken"],
     )
 
-    # Get all route tables in the account
     route_tables = ec2.describe_route_tables()["RouteTables"]
-
     return route_tables
