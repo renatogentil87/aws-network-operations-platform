@@ -1,0 +1,21 @@
+! Base MPLS configuration for {{ hostname }}
+!
+ip cef
+!
+interface Loopback0
+ ip address {{ loopback }} 255.255.255.255
+ no shutdown
+!
+{% for interface in interfaces %}
+interface {{ interface }}
+ no shutdown
+ mpls ip
+!
+{% endfor %}
+router ospf 1
+ router-id {{ loopback }}
+ network {{ loopback }} 0.0.0.0 area {{ ospf_area }}
+ network 0.0.0.0 255.255.255.255 area {{ ospf_area }}
+!
+mpls ldp router-id Loopback0 force
+!

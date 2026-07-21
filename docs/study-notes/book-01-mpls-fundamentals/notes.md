@@ -28,6 +28,7 @@ The label value changes per hop, but the path and treatment remain the same for 
 - The incoming label is the label from the local binding on the particular LSR.
 - The outgoing label is the label from the remote binding chose by the LSR from all possible remote bindings.
 
+
 ### Chapter 3: Forwarding Labeled Packets
 Label Operations:
 - SWAP: means the top label in the stack is replaced with another
@@ -45,6 +46,12 @@ packet. show mpls forwarding-table 10.200.254.4 detail
 - Cisco doesn't load balance labeled packets with IPv4. If there are 2 links, one labeled and another non-labeled,
 Cisco use labeled path only.
 
+#### Note:
+When you issue the command: "no mpls ip propagate-ttl" on the ingress PE hides the entire MPLS core from end-user traceroute 
+by setting MPLS TTL to 255 instead of copying IP TTL. The core becomes invisible — appears as a single hop. 
+This is used by SPs for security and topology abstraction. Same principle as cloud networks hiding internal fabric.
+
+
 #### Reserved Labels
 - Label 0-15 are reserved labels. LSR cannot use them in normal case for forwarding packets
 - Label 3: Implicit Null Label: An egress LSR assigned implicit null label back to the LSR neighbor to a FEC if it doesn't
@@ -58,7 +65,10 @@ Note: Cisco only advertises implicit null label for connected routes and summari
 
 - Label 0: Explicit Null label: Explicit Null Label (O) can deliver EXP bit, QoS. Egress LSR look at label 0, it does a lookup
 and forward the packet. This case egress LSR will see the label but it will do two lookups, one for label 0, remove it and then
-ip lookup. in traceroute you will see one more labeled hop.
+ip lookup. 
+- Explicit null vs implicit null produces identifical traceroute output, the difference is only inside the egress PE forwarding
+pipeline - explicit null allows QoS classification via EXP bits before label removal, it never adds an entra hop.
+Basically explicit null the egress PE receives the labeled packet with label 0, removes the label, decrement the IP TLL and forwards the packet.
 
 #### Unreserved Labels: 
 Because label value has 20 bits, the labels from 16-1,048,575 are used for packet forwarding. 
@@ -104,7 +114,9 @@ parallel links that uses the same label space, for example: loopback address.
   - LDP identifier can also be found
 
 #### MPLS IGP Syncronization: 
-let LDP form first by advertising highest metric on that interface. After LDP is formed it change back the metric, Only OSPF supports it.
+If LDP session has a problem on that interface, OSPF advertises the max cost on that interface to prevent packets from traversing
+non-labeled LSP. Once LDP is back up then ospf removes the max metric from the interface and let mpls packets flow normally.
+For fast failure detection requires tuned IGP timers or BFD. MPLS convergence time = IDP detection time + SFP computation + LDP update.
 
 #### MPLS IDP Session Protection: 
 When a network flaps, LDP and IGP has to establish adjacency and advertise routes and labels all over again.
@@ -112,6 +124,9 @@ This can cause outage on a network, and to avoid this you can protect the LDP se
 reach that LSR. LDP adjancecy is removed on the port that is down but LDP session stays up through alternate path.
 - mpls ldp session protection [vrf name] [for acl] [duration seconds]
 You need to setup in both LSR, the other LSR you setup: mpls ldp discovery targeted-hello accept.
+When the link between two LSRs goes down, the session stays up so LFIB still have the labels, the traffic flow follows different LSP, 
+but once the link is back up, the labels are already there, no need to rebuild the LFIB. Traffic might failover depending on IGP settings.
+
 
 ### Chapter 6: Cisco Express Forwarding (CEF)
 
@@ -131,7 +146,7 @@ You need to setup in both LSR, the other LSR you setup: mpls ldp discovery targe
 - [x] Swap at transit (`show mpls forwarding-table` — incoming → outgoing label)
 - [x] PHP confirmed (penultimate hop shows "Pop Label")
 - [x] ECMP observed in traceroute (multiple paths per probe)
-- [ ] Confirmed traceroute unreliable with ECMP — use `show mpls forwarding-table` hop-by-hop instead
+- [x] Confirmed traceroute unreliable with ECMP — use `show mpls forwarding-table` hop-by-hop instead
 
 ### Tests To Do — Forwarding Behavior (Chapter 3)
 
@@ -141,30 +156,30 @@ You need to setup in both LSR, the other LSR you setup: mpls ldp discovery targe
   - Proves: EXP/QoS bits preserved to egress LSR
   - Revert: `no mpls ldp explicit-null`
 
-- [ ] **TTL Propagation**
+- [x] **TTL Propagation**
   - On R8: `no mpls ip propagate-ttl`
   - Traceroute again — MPLS hops should disappear (only source and destination visible)
   - Proves: hides MPLS infrastructure from external traceroute
   - Revert: `mpls ip propagate-ttl`
 
-- [ ] **Labeled vs Unlabeled path preference**
+- [x] **Labeled vs Unlabeled path preference**
   - Disable `mpls ip` on one link between two routers that have parallel paths
   - Verify traffic uses labeled path only (Cisco won't load-balance labeled + unlabeled)
   - Check with `show ip cef <prefix>` and `show mpls forwarding-table`
 
-- [ ] **MPLS MTU impact**
+- [x] **MPLS MTU impact**
   - `show mpls interface detail` — check MTU values
   - Understand: PUSH reduces room, POP increases room, SWAP no change
 
 ### Tests To Do — LDP Behavior (Chapter 4)
 
-- [ ] **Link failover / OSPF reconvergence**
+- [x] **Link failover / OSPF reconvergence**
   - Shut R5's Fa0/0 (toward R6): `shutdown`
   - Watch: `show mpls forwarding-table 2.2.2.2/32` — does the label path shift?
   - How fast does LDP reconverge? Does it follow OSPF?
   - Bring back up, verify it returns to original path
 
-- [ ] **LDP Session Protection**
+- [X] **LDP Session Protection**
   - On R5: `mpls ldp session protection`
   - On R6: `mpls ldp session protection` + `mpls ldp discovery targeted-hello accept`
   - Shut the direct link between R5↔R6
@@ -172,32 +187,32 @@ You need to setup in both LSR, the other LSR you setup: mpls ldp discovery targe
   - Verify: labels for FECs through that neighbor are maintained
   - Proves: session survives link failure, no label re-advertisement needed
 
-- [ ] **LDP IGP Synchronization**
+- [x] **LDP IGP Synchronization**
   - Under OSPF: `mpls ldp sync`
   - Shut a link, bring it back
   - Observe: OSPF advertises max-metric on that interface until LDP session re-forms
   - `show mpls ldp igp sync` — check state
   - Proves: prevents traffic blackholing during LDP convergence
 
-- [ ] **LDP transport address mismatch**
+- [x] **LDP transport address mismatch**
   - On one router: `mpls ldp discovery transport-address interface` (use a non-loopback)
   - Observe: LDP session to that neighbor fails to form
   - `show mpls ldp discovery` — transport addresses don't match
   - Proves: why loopback consistency is critical for LDP
 
-- [ ] **Kill MPLS but keep OSPF**
+- [x] **Kill MPLS but keep OSPF**
   - `no mpls ip` on one interface
   - OSPF stays up, labels disappear for that path
   - Does traffic still flow via IP? Or does it shift to labeled path only?
   - Proves: Cisco prefers labeled path; removing label forces IP fallback or reroute
 
-- [ ] **View all remote bindings (LIB vs LFIB)**
+- [x] **View all remote bindings (LIB vs LFIB)**
   - `show mpls ldp bindings 2.2.2.2/32`
   - See ALL labels advertised by ALL neighbors for that FEC
   - Only one is installed in LFIB (based on OSPF best path next-hop)
   - Proves: LIB stores everything, LFIB only uses the best
 
-- [ ] **LDP ID impact**
+- [x] **LDP ID impact**
   - Change a router's loopback IP (LDP router-id changes)
   - All LDP sessions tear down and re-form
   - Proves: LDP ID must be reachable, and changes are disruptive
