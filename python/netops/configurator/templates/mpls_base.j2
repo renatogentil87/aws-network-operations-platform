@@ -6,8 +6,9 @@ interface Loopback0
  ip address {{ loopback }} 255.255.255.255
  no shutdown
 !
-{% for interface in interfaces %}
-interface {{ interface }}
+{% for link in links %}
+ description {{link.description}}
+ ip address {{link.ip}} {{link.mask}}
  no shutdown
  mpls ip
 !
@@ -15,7 +16,8 @@ interface {{ interface }}
 router ospf 1
  router-id {{ loopback }}
  network {{ loopback }} 0.0.0.0 area {{ ospf_area }}
- network 0.0.0.0 255.255.255.255 area {{ ospf_area }}
+{% for link in links %}
+ network {{link.ip }} 0.0.0.3 area {{ ospf_area }}
 !
 mpls ldp router-id Loopback0 force
 !

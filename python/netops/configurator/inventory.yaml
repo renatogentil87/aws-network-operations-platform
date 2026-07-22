@@ -45,11 +45,45 @@ routers:
     loopback: 6.6.6.6
     ospf_area: 0
     role: P
+    links:
+      - name: FastEthernet0/0
+        ip: 172.16.26.2
+        mask: 255.255.255.252
+        description: "to R2"
+      - name: Gigabitethernet1/0
+        ip: 172.16.65.1
+        mask: 255.255.255.252
+        description: "to R5"
+      - name: GigabitEthernet2/0
+        ip: 172.16.67.1
+        mask: 255.255.255.252
+        description: "To R7"
+      - name: FasEthernet3/0
+        ip: 172.16.36.2
+        mask: 255.255.255.252
+        description: "To R3"
   R7:
     port: 5005
     loopback: 7.7.7.7
     ospf_area: 0
     role: P
+    links:
+      - name: FastEthernet0/0
+        ip: 172.16.78.1
+        mask: 255.255.255.252
+        description: "to R8"
+      - name: Gigabitethernet1/0
+        ip: 172.16.57.2
+        mask: 255.255.255.252
+        description: "to R5"
+      - name: GigabitEthernet2/0
+        ip: 172.16.37.2
+        mask: 255.255.255.252
+        description: "To R3"
+      - name: FasEthernet3/0
+        ip: 172.16.67.2
+        mask: 255.255.255.252
+        description: "To R6"
   R8:
     port: 5006
     loopback: 8.8.8.8
@@ -66,12 +100,20 @@ routers:
     ce_neighbor: 192.168.89.2
     ce_asn: 65001
     pe_neighbor: 2.2.2.2
+    customer_network: 192.168.12.0
 
   R9:
     port: 5007
     loopback: 9.9.9.9
     ospf_area: 0
     role: CE
+    bgp_asn: 65001
+    pe_neighbor: 192.168.89.1
+    pe_asn: 64512
+    loopback10: 99.99.99.99
+    pe_interface: GigabitEthernet1/0
+    local_ip: 192.168.89.2
+
   R10:
     port: 5008
     loopback: 10.10.10.10

@@ -6,9 +6,7 @@ A production-grade hybrid network operations platform implementing closed-loop a
 
 ## What This Is
 
-This platform manages the full lifecycle of hybrid network operations across a multi-account AWS environment connected to on-premises infrastructure via Direct Connect and Site-to-Site VPN. It combines infrastructure-as-code (Terraform), network validation (Python), on-premises automation (Ansible), and operational tooling into a unified system that detects drift, validates state, and remediates issues automatically.
-
-**This is not a learning project.** It is a working operations platform designed to the standards of a Principal Network Architect managing enterprise-scale hybrid connectivity.
+This platform manages the full lifecycle of hybrid network operations across a multi-account AWS environment connected to on-premises infrastructure via Site-to-Site VPN. It combines infrastructure-as-code (Terraform), network validation (Python), and operational tooling into a unified system that detects drift, validates state, and remediates issues automatically.
 
 ---
 
@@ -117,22 +115,14 @@ netops validate routes --region eu-west-1
 netops validate bgp --device router-edge1
 netops report health --format html
 ```
-
-### Ansible (On-Prem)
-```bash
-cd ansible
-ansible-playbook playbooks/bgp_config.yml -i inventory/gns3_lab.yml
-ansible-playbook playbooks/route_audit.yml -i inventory/gns3_lab.yml
-```
-
 ---
 
 ## Implementation Phases
 
 | Phase | Focus | Status |
 |-------|-------|--------|
-| 0 | Repository foundation + CI/CD | ✅ Complete |
-| 1 | Network foundation (TGW, VPCs, multi-account) | ✅ Complete |
+| 0 | Repository foundation + CI/CD | Complete |
+| 1 | Network foundation (TGW, VPCs, multi-account) | Complete |
 | 2 | Multi-region resilience | 🔲 Planned |
 | 3 | Observability platform | 🔲 Planned |
 | 4 | Python CLI framework | 🔲 Planned |

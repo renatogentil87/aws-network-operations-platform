@@ -1,21 +1,39 @@
 # Architecture Documentation
 
-Here you create architecture documentation and design decisions.
+## Network Diagrams
 
-## Files to Create
+### AWS Centralized Egress with Network Firewall
 
-- `network-topology.md` — Network diagrams (hub-spoke, TGW, VPN connectivity)
-- `multi-account-strategy.md` — Account structure and network segmentation
-- `decision-records/` — Architecture Decision Records (ADRs)
+Full traffic flow showing spoke VPCs → Transit Gateway → Inspection VPC → AWS Network Firewall → NAT Gateway → Internet. Includes TGW route tables, firewall subnet routing, and return path.
 
-## ADR Examples
+![Centralized Egress Flow](centralized-egress-flow.png)
 
-- `001-transit-gateway-over-peering.md`
-- `002-ipam-for-cidr-management.md`
-- `003-bgp-over-static-routes.md`
-- `004-gns3-for-network-simulation.md`
+- [Editable draw.io file](centralized-egress-flow.drawio)
 
-## Design Notes
+---
 
-- Diagrams use draw.io or Mermaid for version control
-- ADRs follow Michael Nygard's format (context, decision, consequences)
+### MPLS L3VPN Multi-Customer Lab Topology
+
+Service provider MPLS core (AS 64512) with 4 PE routers serving 5 customers across multiple sites. Used for MPLS fundamentals, L3VPN, traffic engineering, and BGP design labs.
+
+![MPLS L3VPN Topology](mpls-l3vpn-lab-topology.png)
+
+---
+
+## Design Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| Transit Gateway over VPC Peering | Centralized routing, segmentation, inspection path |
+| IPAM for CIDR management | Avoid overlap, automated allocation across accounts |
+| Centralized egress through inspection VPC | Single point for firewall policy, domain filtering, IPS |
+| Python/Netmiko over Ansible | GNS3 local uses telnet consoles, Ansible requires SSH |
+| Terraform state as source of truth for drift detection | Eliminates manual YAML maintenance |
+
+## Topology Summary
+
+| Environment | Purpose | Key Components |
+|-------------|---------|----------------|
+| AWS (eu-west-1) | Production network platform | TGW, Inspection VPC, Network Firewall, NAT GW, spoke VPCs |
+| GNS3 (local) | MPLS/BGP lab + Python automation | 20 Cisco routers, MPLS core, L3VPN, Netmiko automation |
+| EVE-NG (c5.metal, on-demand) | Advanced labs | EVPN/VXLAN, Segment Routing, VPN to AWS |

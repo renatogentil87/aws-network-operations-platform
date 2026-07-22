@@ -129,8 +129,43 @@ but once the link is back up, the labels are already there, no need to rebuild t
 
 
 ### Chapter 6: Cisco Express Forwarding (CEF)
+- Packets can be forwarded through the router in three basic ways: 1/Process switching, 2/ Interrupt switching, 3/ASIC (application specific integration circuit)
+- _Process switching_: the slowest of all switching methods. When switching a packet throguh the router, a Cisco IOS process copies of the packet to CPU memory
+and looks up at destination IP in the routing table.
+- _Fast Switching_: Build a cache called IP Fast Switching route cache. Some timers govern cache entry. If a packet doesn't traverse the switching 
+table for a while its removed from cache.
+- Build on demand as packets traverse the router. -- show ip cache verbose to see the cache table.
 
----
+- _CEF Switching_: Switching table is no longer build on demand, built in advance.
+- Each prefix in the routing table has an entry in the CEF switching table at the same time.
+- CEF Swtiching has two main data structures: FIB(Forwarding Information Base or CEF table); Adjacency table
+- The adjacency table is responsible for MAC or L2 rewrite. The L2 rewrite string contains the new L2 header that is used on the
+forwarded frame. For Ethernet, this is the new destination and source mac-address and the ethertype.
+- An important aspect of the CEF table is that recursive prefixes are immediatelly used. If, for instance, a BGP prefix is in the routing table and it
+points to a BGP next-hop - which is learned via IGP - the BGP prefix is inserted into the CEF table with the next-hop that is learned from recursing 
+to the BGP next hop.
+
+- show ip bgp 10.10.10.10 - next-hop 100.100.100.100
+- show ip cef 10.10.10.10 - next-hop 2.2.2.2 eth0/0 label 23
+- show ip cef 100.100.100.100 - next-hop 2.2.2.2. eth0/0 
+
+_Load Balacing_: 1/Per Packet: The load balancing of all packets is round-robin per packet on the outgoing links.
+- ip load-sharing per-packet - and you need to configure this command on all the outbound interfaces if you want to configure per-packet CEF load balancing.
+- default behavior is per destination, sourceip, destinationip.
+Cisco IOS can load-balance in CEF by hashing the source and destination IP address and pointing the result of that hash to a load sharing table.
+- This table holds 16 buckets, each of the 16 hash buckets points to one adjacency, and multiple buckets can point to the same adjacency.
+- show ip cef x.x.x.x internal / show ip cef exact-route source_address destination_address 
+16 hash buckets exist. These hash bucketd distribute the load of traffic among all possible outgoing paths in the best possible way. 
+For example: In the case of 2 outgoing paths, 8 hash buckets are assinged to each outgoing path. In the case of 3 outgoing path, 5 hash buckets
+are assigned and one bucket is unassigned.
+- Each bucket has an outgoing interface, so for each src+dst it hashes to a bucket, so every packet with that src+dst will go to the same bucket which has the same outgoing interface
+
+### Chapter 7 - MPLS VPN
+- RD: Route Distinguisher: resolve the problem of having overlapping ip by assigning a unique identifier to destinguish the same prefix from different customers.
+- RD is 64-bit field used to make VRF prefixes unique when MP-BGP carries them. 
+- Two formats: ASN:nn or ip-address:nn
+
+- RT: Route Target: The communication between sites (Customers A, B, C) is controlled by RTs.
 
 ## Lab 1 Notes: MPLS Forwarding Basics
 

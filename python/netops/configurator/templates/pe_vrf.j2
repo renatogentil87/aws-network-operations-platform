@@ -31,5 +31,6 @@ router bgp {{ bgp_asn}}
   neighbor {{ ce_neighbor }} remote-as {{ce_asn}}
   neighbor {{ ce_neighbor }} activate
   network {{ loopback10}} mask 255.255.255.255
+  network {{ customer_network }} mask 255.255.255.252
   exit
  !
