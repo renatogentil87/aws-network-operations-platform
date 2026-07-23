@@ -1,24 +1,16 @@
 ! Base configuration for CE routers
 !
 !
-interface Loopback0
- ip address {{ loopback }} 255.255.255.255
- no shutdown
+{% for link in links %}
+ interface {{ link.name }}
+    description {{ link.description }}
+    ip address {{ link.ip }} {{ link.mask }}
+    no shutdown
 !
-interface loopback10
- ip address {{ loopback10 }} 255.255.255.255
- no shut
+{% endfor %}
+router bgp {{ bgp_asn }}
+    bgp router-id {{ loopback0 }}
+    network {{ loopback0 }} mask 255.255.255.255
+    network {{ loopback10 }} mask 255.255.255.255
+    neighbor {{ neighbor_ip }} remote-as {{ pe_asn }}
 !
-interface {{ pe_interface }}
- no shutdown
- ip address {{ local_ip }} 255.255.255.252
-!
-
-router bgp {{bgp_asn}}
- bgp router-id {{ loopback }}
- bgp log-neighbor-changes
- redistribute connected
- neighbor {{ pe_neighbor }} remote-as {{ pe_asn }}
-!
-
-

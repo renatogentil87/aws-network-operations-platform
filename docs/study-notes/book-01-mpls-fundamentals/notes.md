@@ -166,7 +166,43 @@ are assigned and one bucket is unassigned.
 - Two formats: ASN:nn or ip-address:nn
 
 - RT: Route Target: The communication between sites (Customers A, B, C) is controlled by RTs.
+- RT is a BGP extended community that indicates which routes should be imported from MP-BGP into the VRF. 
+- Exporting an RT means that the export vpnv4 routes receives an additional BGP extended community
+- VRF-to-VRF traffic has two labels in the MPLS network. The TOP label is the IGP label and it is distributed
+by LDP or RSVP for TE between all P and PE routers hop by hop. The bottom label is the VPN Label that is advertised
+by MP-BGP from PE to PE. P routers use the IGP label to forward the packet to the correct egress PE router. The egress PE
+router uses the VPN Label to forward the ip packet to the correct CE router.
 
+- BGP Multiprotocol extensions and capabilities. BGP peers send each other the capabilities that they support. The ones
+both peer share can then be used. 
+- Sends an Open Message to its peer, it includes the capability optional parameter, listing all capabilities of this BGP peer
+- show ip bgp neighbors can show the capabilities
+
+- Multiprotocol Extension for BGPv4 define two new BGP Attributes:
+  - Multiprotocol Reachable NLRI
+  - Multiprotocol Unreachable NLRI
+- These attributes advertise or withdrawn routes. both of them hold two fields. Address Family Identifier (AFI) and 
+Subsequent Address Family Identifier (SAFI).
+- Basically it tells what is being carried. AFI could be Ipv4, IPv6, AppleTAlk. SAFI can be multicast, ipv4 and label.
+
+#### Note: Only BGP extended communities are sent by default to the vpnv4 neighbors. If you want to use standard communities
+you need to use send-community both for the bgp neighbor.
+
+#### Route Reflectors
+- An RR is a BGP speaker that reflects routes from other BGP speaker.
+- If you want to use RR with MPLS VPN, the RR should reflect vpnv4 prefixes, which carry labels. RRs only change the label if
+they become the next-hop for the routes, which they usually do not.
+- RRs differ in another way from the other BGP speakers in the MPLS VPN network. They don't inject vpnv4 routes when RT is not
+configured for acceptance on the RRs.
+- debug ip bgp vpnv4 unicast updates in - shows the capabilities 
+
+RR Group: You can group RR and combine which one accepts routes. This can help scale the network by creating groups of RR
+that knows about specific routes.
+- bgp rr-group NN
+- ip extcommunity-list 1 permit rt 1:1
+- ip extcommunity-list 1 deny rt 1:2
+This example, the group 1 would receive prefixes from 1:1 but deny from 1:2
+- 
 ## Lab 1 Notes: MPLS Forwarding Basics
 
 **Topology:** R1[CE] → R2[PE] → R3/R4/R5/R6/R7[P] → R8[PE] → R9[CE]

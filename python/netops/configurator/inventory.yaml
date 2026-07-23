@@ -134,11 +134,45 @@ routers:
     loopback: 13.13.13.13
     ospf_area: 0
     role: P
+    links:
+      - name: Fastethernet3/0
+        ip: 172.16.136.2
+        mask: 255.255.255.252
+        description: "To R6"
+      - name: Fastethernet0/0
+        ip: 172.16.137.1
+        mask: 255.255.255.252
+        description: "To R17"
+      - name: GigabitEthernet1/0
+        ip: 172.16.135.1
+        mask: 255.255.255.252
+        description: "To R15"
+      - name: GigabitEthernet2/0
+        ip: 172.16.134.1
+        mask: 255.255.255.252
+        description: "To R14"
   R14:
     port: 5013
     loopback: 14.14.14.14
     ospf_area: 0
     role: P
+    links:
+      - name: Fastethernet3/0
+        ip: 172.16.147.1
+        mask: 255.255.255.252
+        description: "To R7"
+      - name: Fastethernet0/0
+        ip: 172.16.148.1
+        mask: 255.255.255.252
+        description: "To R18"
+      - name: GigabitEthernet1/0
+        ip: 172.16.146.1
+        mask: 255.255.255.252
+        description: "To R16"
+      - name: GigabitEthernet2/0
+        ip: 172.16.134.2
+        mask: 255.255.255.252
+        description: "To R13"
   R15:
     port: 5014
     loopback: 15.15.15.15
@@ -152,8 +186,36 @@ routers:
   R17:
     port: 5016
     loopback: 17.17.17.17
+    loopback10: 171.171.171.171
     ospf_area: 0
     role: P
+    bgp_asn: 65412
+    ce_asn: 65019
+    vrf_name: Customer_C
+    rd: "65412:019"
+    rt_import: "65412:019"
+    rt_export: "65412:019"
+    customer_interface: Fastethernet3/0
+    customer_ip: 192.168.19.2
+    ce_neighbor: 192.168.19.1
+    customer_network: 192.168.19.0
+    links:
+      - name: FastEthernet0/0
+        ip: 172.16.173.1
+        mask: 255.255.255.252
+        description: "To R13"
+      - name: GigabitEthernet2/0
+        ip: 172.16.175.1
+        mask: 255.255.255.252
+        description: "To R15"
+    pe_neighbors:
+      - ip: 18.18.18.18
+        mask: 255.255.255.255
+      - ip: 2.2.2.2
+        mask: 255.255.255.255
+      - ip: 8.8.8.8
+        mask: 255.255.255.255
+
   R18:
     port: 5017
     loopback: 18.18.18.18
@@ -161,9 +223,26 @@ routers:
     role: P
   R19:
     port: 5018
-    loopback: 19.19.19.19
-    ospf_area: 0
+    loopback0: 19.19.19.19
+    loopback10: 191.191.191.191
     role: CE
+    bgp_asn: 65019
+    pe_asn: 65412
+    neighbor_ip: 192.168.19.2
+    links:
+      - name: FastEthernet3/0
+        ip: 192.168.19.1
+        mask: 255.255.255.252
+        description: "to R17"
+      - name: loopback0
+        ip: 19.19.19.19
+        mask: 255.255.255.255
+      - name: loopback10
+        ip: 191.191.191.191
+        mask: 255.255.255.255
+
+
+
   R20:
     port: 5019
     loopback: 20.20.20.20

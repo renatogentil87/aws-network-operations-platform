@@ -21,12 +21,31 @@ interface {{ customer_interface }}
  ip address {{customer_ip}} 255.255.255.252
  no shut
 !
+{% for link in links %}
+ interface {{ link.name }}
+    description {{ link.description }}
+    ip address {{ link.ip }} {{ link.mask }}
+    mpls ip
+    no shutdown
+{% endfor %}
+!
+router ospf 1
+ router-id {{ loopback }}
+ network {{ loopback }} 0.0.0.0 area {{ ospf_area }}
+{% for link in links %}
+ network {{link.ip }} 0.0.0.3 area {{ ospf_area }}
+!
+{% endfor %}
+mpls ldp router-id Loopback0 force
+!
 router bgp {{ bgp_asn}}
- neighbor {{ pe_neighbor }} remote-as {{ bgp_asn }}
- neighbor {{ pe_neighbor }} update-source loopback0
+ {% for neighbor in pe_neighbors %}
+ neighbor {{ neighbor.ip }} remote-as {{ bgp_asn }}
+ neighbor {{ neighbor.ip }} update-source loopback0
  address-family vpnv4
-  neighbor {{ pe_neighbor }} activate
+  neighbor {{ neighbor.ip }} activate
  exit-address-family
+ {% endfor %}
  address-family ipv4 vrf {{ vrf_name }}
   neighbor {{ ce_neighbor }} remote-as {{ce_asn}}
   neighbor {{ ce_neighbor }} activate
@@ -34,3 +53,4 @@ router bgp {{ bgp_asn}}
   network {{ customer_network }} mask 255.255.255.252
   exit
  !
+
