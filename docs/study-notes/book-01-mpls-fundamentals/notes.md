@@ -160,6 +160,10 @@ For example: In the case of 2 outgoing paths, 8 hash buckets are assinged to eac
 are assigned and one bucket is unassigned.
 - Each bucket has an outgoing interface, so for each src+dst it hashes to a bucket, so every packet with that src+dst will go to the same bucket which has the same outgoing interface
 
+---
+
+## Part 2: Advanced MPLS Topics
+
 ### Chapter 7 - MPLS VPN
 - RD: Route Distinguisher: resolve the problem of having overlapping ip by assigning a unique identifier to destinguish the same prefix from different customers.
 - RD is 64-bit field used to make VRF prefixes unique when MP-BGP carries them. 
@@ -202,7 +206,75 @@ that knows about specific routes.
 - ip extcommunity-list 1 permit rt 1:1
 - ip extcommunity-list 1 deny rt 1:2
 This example, the group 1 would receive prefixes from 1:1 but deny from 1:2
-- 
+-
+
+### Chapter 8: MPLS Traffic Engineering
+### Notes
+
+
+
+
+### Commands
+
+```
+
+```
+
+---
+
+### Chapter 9: IPv6 over MPLS (6PE/6VPE)
+
+### Notes
+
+
+
+
+### Commands
+
+```
+
+```
+
+---
+
+### Chapter 10: Any Transport over MPLS (AToM)
+
+### Notes
+
+
+
+
+### Commands
+
+```
+
+```
+
+---
+
+### Chapter 11: Virtual Private LAN Service (VPLS)
+
+### Notes
+
+
+
+
+### Commands
+
+```
+
+```
+
+---
+
+**Lab Checkpoint: After Chapters 7–8**
+
+| Lab | What to verify |
+|-----|---------------|
+| MPLS L3VPN | VRF, RD, RT import/export, PE-CE with BGP & OSPF, MP-BGP VPNv4 |
+| MPLS Traffic Engineering | RSVP-TE tunnels, explicit paths, FRR, bandwidth reservation |
+
+---
 ## Lab 1 Notes: MPLS Forwarding Basics
 
 **Topology:** R1[CE] → R2[PE] → R3/R4/R5/R6/R7[P] → R8[PE] → R9[CE]
@@ -306,95 +378,6 @@ show ip cef [prefix]
 traceroute [dest] source [src] probe 1
 show mpls ldp parameters
 ```
-
----
-
----
-
-## Part 2: Advanced MPLS Topics
-
-### Chapter 7: MPLS VPN
-
-### Notes
-
-
-
-
-### Commands
-
-```
-
-```
-
----
-
-### Chapter 8: MPLS Traffic Engineering
-
-### Notes
-
-
-
-
-### Commands
-
-```
-
-```
-
----
-
-### Chapter 9: IPv6 over MPLS (6PE/6VPE)
-
-### Notes
-
-
-
-
-### Commands
-
-```
-
-```
-
----
-
-### Chapter 10: Any Transport over MPLS (AToM)
-
-### Notes
-
-
-
-
-### Commands
-
-```
-
-```
-
----
-
-### Chapter 11: Virtual Private LAN Service (VPLS)
-
-### Notes
-
-
-
-
-### Commands
-
-```
-
-```
-
----
-
-**Lab Checkpoint: After Chapters 7–8**
-
-| Lab | What to verify |
-|-----|---------------|
-| MPLS L3VPN | VRF, RD, RT import/export, PE-CE with BGP & OSPF, MP-BGP VPNv4 |
-| MPLS Traffic Engineering | RSVP-TE tunnels, explicit paths, FRR, bandwidth reservation |
-
 ---
 
 ## Lab 2 Notes: MPLS L3VPN (Chapter 7)

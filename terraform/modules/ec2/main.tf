@@ -107,4 +107,8 @@ resource "aws_instance" "this" {
   tags = {
     Name = var.instance_name
   }
+
+  lifecycle {
+    ignore_changes = [ami]  # Prevent replacement when a newer AMI is found
+  }
 }
