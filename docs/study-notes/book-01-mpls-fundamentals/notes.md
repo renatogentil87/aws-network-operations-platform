@@ -210,12 +210,71 @@ This example, the group 1 would receive prefixes from 1:1 but deny from 1:2
 
 ### Chapter 8: MPLS Traffic Engineering
 ### Notes
+- MPLS TE provides efficient spreading of traffic throghout the network, avoiding underutilized or overutilized link.
+- MPLS TE takes into account the configured bandwidth of the links
+- MPLS TE takes links attributes into account (delay, jitter, metric)
+- MPLS TE adapts automatically to changing bw and links attributes. It's source based routing is applied to the traffic
+engineered load as opposed to IP destination-based routing.
 
+A TE tunnel is unidirectional, because LSP is unidirectional and it has the configuration only on the head end LSR and not on the 
+tail end LSR of the LSP.
+- TE Database is built from the TE information that the link state protocol sends. This database contains all the links that are enabled
+for MPLS TE and their characteristics or attributes. From this MPLS TE database, path calculation (PCALC) or Constrained SPF (CSPF) 
+calculates the shortest route that still adheres to all constraings(most importantly, BW) from the head end LSR to the tail end LSR.
 
+- RSVP Path Message:
+- When a head end router needs to reserve a path it sends a RSVP PATH message to the next-hop. The next P router will put that BW 
+in standby and forward upstream another RSVP Path message. When the RSVP PATH reaches the tail-end it respond back with RESV
+message and the label = POP/NUMBER, that RESV Message is forwarded back to the head-end router with a label with outgoing interface.
+- The head end use CSPF to find the best and use RSVP to reserve the BW along the path
 
+### Note:
+- In some Cisco IOS uses default of 75% of BW available on the interface if any given when configuring rsvp interface command.
+
+There are three ways to configure the tunnel: Dynamic, Explicit (Static), and Semi Dynamic
+- Dynamic let's the MPLS-TE router define the path based on the requirements configured on tunnel interface and rsvp interface.
+It uses info from type-10 LSA(OSPF) to know the BW available and which path can be selected based on the tunnel bw configured. (PCALC)
+- Static (Explicit) - The network operator directly define the path the network will take.
+- Semi-Dynamic - You let Dynamic select the path but you put constraints into it, such as exclude some paths from its calculation or 
+manually define some paths alongside of dynamic.
+
+on RSVP PATH Message there is BW, ERO (Explicit Route Object) add the next hop.
+
+OSPF OPAQUE LSAs
+- LSA Type 9 - Link SLA - can only be advertised locally - Opaque Link
+- LSA Type 10 - Area LSA - it is advertised all the area - Opaque AREA. It advertises the contraints of the link in the area.
+- LSA Type 11 - Inter-Area - can be advertised across areas - Opaque-AS
+
+Type 10 - 2 type of TLV (Type Length Value):
+- Route Address TLV: Loopback Address
+- Link State TLV: It contains sub-TLVs - these TLVs are interfaces running MPLS TE
+
+Sub TLVS:
+- Sub TLV 1: Contains the link type (point-to-point or multiaccess)
+- Sub TLV 2: contains the router id neighbor for p2p or DR id for multi-access
+- Sub TLV 3:  Local interface IP address
+- Sub TLV 4: Remote interface ip address
+- Sub TLV 5: Admin Metric - TE Metric, specify the TE metric
+- Sub TLV 6: Max BW - max bw can be used on this link, whatever configured with BW command.
+- Sub TLV 7: Max reservable BW - default is the same as interface bw
+- Sub TLV 8: Unreserved BW - value is the BW can be reserved with different priorities
+- Sub TLV 9: Resource Class
+
+RSVP: TSPEC: Tunnel Specifications - we need reserve of 1.200k
+- ERO - Explicit Route Object - the path for the packet
+
+Type 10 LSA contains several Links:
+- 1.0.0.0 - local link, for example loopback
+- 1.0.0.1 - first interface enabled for MPLS - TE
+- 1.0.0.2 - Second interface enabled for MPLS TE
 
 ### Commands
-
+show mpls traffic-eng tunnels tun0
+mpls traffic-eng tunnels
+ip rsvp bandwidth RESERVED BW
+tunnel mode mpls traffic-eng
+tunnel mpls traffic-end bw BW
+tunnel mpls traffic-eng path-option NAME/NUMBER Dyamic/Explicit
 ```
 
 ```

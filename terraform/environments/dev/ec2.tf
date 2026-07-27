@@ -12,6 +12,12 @@ data "aws_ami" "ubuntu" {
     values = ["hvm"]
   }
 }
+
+data "aws_ssm_parameter" "eveng_allowed_cidrs" {
+  provider = aws.eveng
+  name     = "/eveng/allowed-cidrs"
+}
+
 module "ec2" {
   source = "../../modules/ec2"
    providers = {
@@ -24,8 +30,8 @@ module "ec2" {
   key_pair_name = "eu-west-1-keypair"
   vpc_id = module.eveng_vpc.vpc_id
   associate_public_ip = true
-  allowed_https_cidrs = ["64.43.143.251/32"]
-  allowed_ssh_cidrs = ["64.43.143.251/32"]
+  allowed_https_cidrs = split(",", data.aws_ssm_parameter.eveng_allowed_cidrs.value)
+  allowed_ssh_cidrs   = split(",", data.aws_ssm_parameter.eveng_allowed_cidrs.value)
   depends_on = [aws_key_pair.ireland-key-pair]
 }
 
