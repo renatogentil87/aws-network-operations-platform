@@ -1,250 +1,418 @@
 # GNS3 Lab Inventory
 # Each router is accessible via telnet on localhost:<console_port>
-# Variables per router are used by Jinja2 templates to render configs
 
 routers:
   R1:
     port: 5009
     loopback: 1.1.1.1
-    ospf_area: 0
     role: CE
+    bgp_asn: 65001
+    pe_neighbor: 192.168.12.2
+    pe_asn: 64512
+    links:
+      - name: FastEthernet0/0
+        ip: 192.168.12.1
+        mask: 255.255.255.252
+        description: "to R2 PE"
+
   R2:
     port: 5000
     loopback: 2.2.2.2
-    ospf_area: 0
     role: PE
-    loopback10: 22.22.22.22
+    label_range_min: 200
+    label_range_max: 299
     bgp_asn: 64512
-    rd: "64512:100"
     vrf_name: Customer_A
+    rd: "64512:100"
     rt_export: "64512:100"
     rt_import: "64512:100"
-    customer_interface: Fasethernet0/0
-    customer_ip: 192.168.12.2
-    ce_neighbor: 192.168.12.1
-    ce_asn: 65001
     pe_neighbor: 8.8.8.8
+    links:
+      - name: FastEthernet0/0
+        ip: 192.168.12.2
+        mask: 255.255.255.252
+        description: "to R1 CE"
+        vrf: Customer_A
+      - name: GigabitEthernet1/0
+        ip: 172.16.23.1
+        mask: 255.255.255.252
+        description: "to R3"
+      - name: GigabitEthernet2/0
+        ip: 172.16.26.1
+        mask: 255.255.255.252
+        description: "to R6"
+      - name: FastEthernet3/0
+        ip: 10.12.2.2
+        mask: 255.255.255.252
+        description: "to R12 CE"
+        vrf: Customer_B
 
   R3:
     port: 5001
     loopback: 3.3.3.3
-    ospf_area: 0
     role: P
+    label_range_min: 300
+    label_range_max: 399
+    links:
+      - name: FastEthernet0/0
+        ip: 172.16.34.1
+        mask: 255.255.255.252
+        description: "to R4"
+      - name: GigabitEthernet1/0
+        ip: 172.16.23.2
+        mask: 255.255.255.252
+        description: "to R2"
+      - name: GigabitEthernet2/0
+        ip: 172.16.37.1
+        mask: 255.255.255.252
+        description: "to R7"
+      - name: FastEthernet3/0
+        ip: 172.16.36.1
+        mask: 255.255.255.252
+        description: "to R6"
+
   R4:
     port: 5002
     loopback: 4.4.4.4
-    ospf_area: 0
     role: P
+    label_range_min: 400
+    label_range_max: 499
+    links:
+      - name: FastEthernet0/0
+        ip: 172.16.34.2
+        mask: 255.255.255.252
+        description: "to R3"
+      - name: GigabitEthernet1/0
+        ip: 172.16.45.1
+        mask: 255.255.255.252
+        description: "to R5"
+
   R5:
     port: 5003
     loopback: 5.5.5.5
-    ospf_area: 0
     role: P
+    label_range_min: 500
+    label_range_max: 599
+    links:
+      - name: FastEthernet0/0
+        ip: 172.16.65.2
+        mask: 255.255.255.252
+        description: "to R6"
+      - name: GigabitEthernet1/0
+        ip: 172.16.45.2
+        mask: 255.255.255.252
+        description: "to R4"
+      - name: GigabitEthernet2/0
+        ip: 172.16.58.1
+        mask: 255.255.255.252
+        description: "to R8"
+      - name: FastEthernet3/0
+        ip: 172.16.57.1
+        mask: 255.255.255.252
+        description: "to R7"
+
   R6:
     port: 5004
     loopback: 6.6.6.6
-    ospf_area: 0
     role: P
+    label_range_min: 600
+    label_range_max: 699
     links:
       - name: FastEthernet0/0
-        ip: 172.16.26.2
-        mask: 255.255.255.252
-        description: "to R2"
-      - name: Gigabitethernet1/0
         ip: 172.16.65.1
         mask: 255.255.255.252
         description: "to R5"
-      - name: GigabitEthernet2/0
-        ip: 172.16.67.1
-        mask: 255.255.255.252
-        description: "To R7"
-      - name: FasEthernet3/0
+      - name: GigabitEthernet1/0
         ip: 172.16.36.2
         mask: 255.255.255.252
-        description: "To R3"
+        description: "to R3"
+      - name: GigabitEthernet2/0
+        ip: 172.16.26.2
+        mask: 255.255.255.252
+        description: "to R2"
+      - name: FastEthernet3/0
+        ip: 172.16.67.1
+        mask: 255.255.255.252
+        description: "to R7"
+      - name: FastEthernet4/0
+        ip: 172.16.136.1
+        mask: 255.255.255.252
+        description: "to R13"
+
   R7:
     port: 5005
     loopback: 7.7.7.7
-    ospf_area: 0
     role: P
+    label_range_min: 700
+    label_range_max: 799
     links:
       - name: FastEthernet0/0
         ip: 172.16.78.1
         mask: 255.255.255.252
         description: "to R8"
-      - name: Gigabitethernet1/0
+      - name: GigabitEthernet1/0
         ip: 172.16.57.2
         mask: 255.255.255.252
         description: "to R5"
       - name: GigabitEthernet2/0
         ip: 172.16.37.2
         mask: 255.255.255.252
-        description: "To R3"
-      - name: FasEthernet3/0
+        description: "to R3"
+      - name: FastEthernet3/0
         ip: 172.16.67.2
         mask: 255.255.255.252
-        description: "To R6"
+        description: "to R6"
+      - name: FastEthernet4/0
+        ip: 172.16.147.2
+        mask: 255.255.255.252
+        description: "to R14"
+
   R8:
     port: 5006
     loopback: 8.8.8.8
-    loopback10: 88.88.88.88
-    ospf_area: 0
     role: PE
+    label_range_min: 800
+    label_range_max: 899
     bgp_asn: 64512
-    rd: "64512:100"
     vrf_name: Customer_A
+    rd: "64512:100"
     rt_export: "64512:100"
     rt_import: "64512:100"
-    customer_interface: GigabitEthernet1/0
-    customer_ip: 192.168.89.1
-    ce_neighbor: 192.168.89.2
-    ce_asn: 65001
     pe_neighbor: 2.2.2.2
-    customer_network: 192.168.12.0
+    loopback10: 88.88.88.88
+    links:
+      - name: FastEthernet0/0
+        ip: 172.16.78.2
+        mask: 255.255.255.252
+        description: "to R7"
+      - name: GigabitEthernet1/0
+        ip: 192.168.89.1
+        mask: 255.255.255.252
+        description: "to R9 CE"
+        vrf: Customer_A
+      - name: GigabitEthernet2/0
+        ip: 172.16.58.2
+        mask: 255.255.255.252
+        description: "to R5"
+      - name: FastEthernet4/0
+        ip: 10.8.11.1
+        mask: 255.255.255.252
+        description: "to R11 CE"
+        vrf: Customer_C
 
   R9:
     port: 5007
     loopback: 9.9.9.9
-    ospf_area: 0
     role: CE
     bgp_asn: 65001
     pe_neighbor: 192.168.89.1
     pe_asn: 64512
     loopback10: 99.99.99.99
-    pe_interface: GigabitEthernet1/0
-    local_ip: 192.168.89.2
+    links:
+      - name: GigabitEthernet1/0
+        ip: 192.168.89.2
+        mask: 255.255.255.252
+        description: "to R8 PE"
 
   R10:
     port: 5008
     loopback: 10.10.10.10
-    ospf_area: 0
-    role: P
+    role: CE
+    bgp_asn: 65001
+    pe_asn: 64512
+    links: []
+
   R11:
     port: 5010
     loopback: 11.11.11.11
-    ospf_area: 0
     role: CE
+    bgp_asn: 65011
+    pe_asn: 64512
+    links:
+      - name: FastEthernet0/0
+        ip: 10.8.11.2
+        mask: 255.255.255.252
+        description: "to R8 PE"
+
   R12:
     port: 5011
     loopback: 12.12.12.12
-    ospf_area: 0
     role: CE
+    bgp_asn: 65012
+    pe_asn: 64512
+    links:
+      - name: GigabitEthernet2/0
+        ip: 10.12.2.1
+        mask: 255.255.255.252
+        description: "to R2 PE"
+
   R13:
     port: 5012
     loopback: 13.13.13.13
-    ospf_area: 0
     role: P
+    label_range_min: 1300
+    label_range_max: 1399
     links:
-      - name: Fastethernet3/0
+      - name: FastEthernet0/0
+        ip: 10.13.17.13
+        mask: 255.255.255.252
+        description: "to R17"
+      - name: GigabitEthernet1/0
+        ip: 10.13.15.13
+        mask: 255.255.255.252
+        description: "to R15"
+      - name: GigabitEthernet2/0
+        ip: 10.13.14.13
+        mask: 255.255.255.252
+        description: "to R14"
+      - name: FastEthernet3/0
         ip: 172.16.136.2
         mask: 255.255.255.252
-        description: "To R6"
-      - name: Fastethernet0/0
-        ip: 172.16.137.1
-        mask: 255.255.255.252
-        description: "To R17"
-      - name: GigabitEthernet1/0
-        ip: 172.16.135.1
-        mask: 255.255.255.252
-        description: "To R15"
-      - name: GigabitEthernet2/0
-        ip: 172.16.134.1
-        mask: 255.255.255.252
-        description: "To R14"
+        description: "to R6"
+
   R14:
     port: 5013
     loopback: 14.14.14.14
-    ospf_area: 0
     role: P
+    label_range_min: 1400
+    label_range_max: 1499
     links:
-      - name: Fastethernet3/0
+      - name: FastEthernet0/0
+        ip: 10.18.14.2
+        mask: 255.255.255.252
+        description: "to R18"
+      - name: GigabitEthernet1/0
+        ip: 10.14.16.14
+        mask: 255.255.255.252
+        description: "to R16"
+      - name: GigabitEthernet2/0
+        ip: 10.13.14.14
+        mask: 255.255.255.252
+        description: "to R13"
+      - name: FastEthernet3/0
         ip: 172.16.147.1
         mask: 255.255.255.252
-        description: "To R7"
-      - name: Fastethernet0/0
-        ip: 172.16.148.1
-        mask: 255.255.255.252
-        description: "To R18"
-      - name: GigabitEthernet1/0
-        ip: 172.16.146.1
-        mask: 255.255.255.252
-        description: "To R16"
-      - name: GigabitEthernet2/0
-        ip: 172.16.134.2
-        mask: 255.255.255.252
-        description: "To R13"
+        description: "to R7"
+
   R15:
     port: 5014
     loopback: 15.15.15.15
-    ospf_area: 0
     role: P
+    label_range_min: 1500
+    label_range_max: 1599
+    links:
+      - name: FastEthernet0/0
+        ip: 10.15.16.15
+        mask: 255.255.255.252
+        description: "to R16"
+      - name: GigabitEthernet1/0
+        ip: 10.13.15.15
+        mask: 255.255.255.252
+        description: "to R13"
+      - name: GigabitEthernet2/0
+        ip: 10.15.17.15
+        mask: 255.255.255.252
+        description: "to R17"
+
   R16:
     port: 5015
     loopback: 16.16.16.16
-    ospf_area: 0
     role: P
+    label_range_min: 1600
+    label_range_max: 1699
+    links:
+      - name: FastEthernet0/0
+        ip: 10.15.16.16
+        mask: 255.255.255.252
+        description: "to R15"
+      - name: GigabitEthernet1/0
+        ip: 10.18.16.2
+        mask: 255.255.255.252
+        description: "to R18"
+      - name: GigabitEthernet2/0
+        ip: 10.14.16.16
+        mask: 255.255.255.252
+        description: "to R14"
+
   R17:
     port: 5016
     loopback: 17.17.17.17
+    role: PE
+    label_range_min: 1700
+    label_range_max: 1799
+    bgp_asn: 64512
+    vrf_name: Customer_D
+    rd: "64512:400"
+    rt_export: "64512:400"
+    rt_import: "64512:400"
+    pe_neighbor: 2.2.2.2
     loopback10: 171.171.171.171
-    ospf_area: 0
-    role: P
-    bgp_asn: 65412
-    ce_asn: 65019
-    vrf_name: Customer_C
-    rd: "65412:019"
-    rt_import: "65412:019"
-    rt_export: "65412:019"
-    customer_interface: Fastethernet3/0
-    customer_ip: 192.168.19.2
-    ce_neighbor: 192.168.19.1
-    customer_network: 192.168.19.0
     links:
       - name: FastEthernet0/0
-        ip: 172.16.173.1
+        ip: 10.13.17.1
         mask: 255.255.255.252
-        description: "To R13"
+        description: "to R13"
       - name: GigabitEthernet2/0
-        ip: 172.16.175.1
+        ip: 10.15.17.1
         mask: 255.255.255.252
-        description: "To R15"
-    pe_neighbors:
-      - ip: 18.18.18.18
-        mask: 255.255.255.255
-      - ip: 2.2.2.2
-        mask: 255.255.255.255
-      - ip: 8.8.8.8
-        mask: 255.255.255.255
+        description: "to R15"
+      - name: FastEthernet3/0
+        ip: 192.168.19.2
+        mask: 255.255.255.252
+        description: "to R19 CE"
+        vrf: Customer_D
 
   R18:
     port: 5017
     loopback: 18.18.18.18
-    ospf_area: 0
-    role: P
+    role: PE
+    label_range_min: 1800
+    label_range_max: 1899
+    bgp_asn: 64512
+    vrf_name: Customer_E
+    rd: "64512:500"
+    rt_export: "64512:500"
+    rt_import: "64512:500"
+    pe_neighbor: 2.2.2.2
+    loopback10: 181.181.181.181
+    links:
+      - name: FastEthernet0/0
+        ip: 10.18.14.1
+        mask: 255.255.255.252
+        description: "to R14"
+      - name: GigabitEthernet1/0
+        ip: 10.18.16.1
+        mask: 255.255.255.252
+        description: "to R16"
+      - name: GigabitEthernet2/0
+        ip: 192.168.120.1
+        mask: 255.255.255.252
+        description: "to R20 CE"
+        vrf: Customer_E
+
   R19:
     port: 5018
-    loopback0: 19.19.19.19
-    loopback10: 191.191.191.191
+    loopback: 19.19.19.19
     role: CE
     bgp_asn: 65019
-    pe_asn: 65412
-    neighbor_ip: 192.168.19.2
+    pe_neighbor: 192.168.19.2
+    pe_asn: 64512
+    loopback10: 191.191.191.191
     links:
       - name: FastEthernet3/0
         ip: 192.168.19.1
         mask: 255.255.255.252
-        description: "to R17"
-      - name: loopback0
-        ip: 19.19.19.19
-        mask: 255.255.255.255
-      - name: loopback10
-        ip: 191.191.191.191
-        mask: 255.255.255.255
-
-
+        description: "to R17 PE"
 
   R20:
     port: 5019
     loopback: 20.20.20.20
-    ospf_area: 0
     role: CE
+    bgp_asn: 65020
+    pe_neighbor: 192.168.120.1
+    pe_asn: 64512
+    links:
+      - name: GigabitEthernet2/0
+        ip: 192.168.120.2
+        mask: 255.255.255.252
+        description: "to R18 PE"

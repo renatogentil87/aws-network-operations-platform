@@ -697,8 +697,244 @@ ping mpls pseudowire <peer-ip> <vc-id>
 
 | Lab | Triggered After | Key Concepts | Status |
 |-----|----------------|--------------|--------|
-| **Lab 1: MPLS Forwarding Basics** | Chapters 2–4, 6 | LDP, label allocation, push/swap/pop, PHP, ECMP | 🟡 In Progress |
-| **Lab 2: MPLS L3VPN** | Chapter 7 | VRF, RD, RT, PE-CE routing, MP-BGP VPNv4, 2-label stack | ⬜ Not Started |
-| **Lab 3: MPLS Traffic Engineering** | Chapter 8 | RSVP-TE, explicit paths, FRR, bandwidth, autoroute | ⬜ Not Started |
+| **Lab 1: MPLS Forwarding Basics** | Chapters 2–4, 6 | LDP, label allocation, push/swap/pop, PHP, ECMP | ✅ Complete |
+| **Lab 2: MPLS L3VPN** | Chapter 7 | VRF, RD, RT, PE-CE routing, MP-BGP VPNv4, 2-label stack | 🟡 In Progress |
+| **Lab 3: MPLS Traffic Engineering** | Chapter 8 | RSVP-TE, explicit paths, FRR, bandwidth, autoroute | 🟡 In Progress |
 | **Lab 4: L2VPN (AToM + VPLS)** | Chapters 10–11 | Pseudowires, xconnect, VPLS, MAC learning, VC labels | ⬜ Not Started |
 | **Lab 5: MPLS QoS + OAM** | Chapters 12–14 | EXP bits, LSP ping/traceroute, VCCV, BFD for MPLS | ⬜ Not Started |
+| **Lab 6: Advanced L3VPN** | Post Chapter 7 | Inter-VRF leaking, hub-spoke VPN, multi-homed CE, SOO | ⬜ Not Started |
+| **Lab 7: Advanced TE** | Post Chapter 8 | FRR, affinity bits, preemption, auto-bandwidth | ⬜ Not Started |
+| **Lab 8: BGP Design** | Post Book 2 | Route Reflectors, communities, path manipulation | ⬜ Not Started |
+| **Lab 9: Automation** | Ongoing | Python provisioning, state collection, validation | 🟡 In Progress |
+
+---
+
+## Lab 6 Notes: Advanced L3VPN Scenarios
+
+**Topology:** Full 20-router topology. 4 PEs (R2, R8, R17, R18), multiple customers across VRFs.
+**Goal:** Production-level VPN designs beyond basic connectivity.
+
+### Tests To Do
+
+- [ ] **Inter-VRF Route Leaking (Shared Services)**
+  - Create VRF Shared_Services on one PE
+  - Import RT from Customer_A AND Customer_B into Shared_Services VRF
+  - Export Shared_Services RT, import it into Customer_A and Customer_B
+  - Verify: shared services VRF can reach both customers
+  - Verify: Customer_A still cannot reach Customer_B directly
+
+- [ ] **Hub-and-Spoke VPN**
+  - One CE is the hub (e.g., R1), others are spokes (R9, R11)
+  - Hub PE exports with RT 64512:100, imports RT 64512:200
+  - Spoke PEs export RT 64512:200, import RT 64512:100
+  - Verify: spokes can reach hub, spokes cannot reach each other directly
+  - All spoke-to-spoke traffic goes through the hub
+
+- [ ] **Multi-homed CE (dual PE)**
+  - Connect one CE to two PEs (e.g., R1 connected to both R2 and R17)
+  - Run eBGP to both PEs
+  - Verify: traffic uses best path, failover works if one PE-CE link drops
+  - Test: AS-PATH manipulation to prefer one PE over the other
+
+- [ ] **SOO (Site of Origin) — loop prevention**
+  - On multi-homed CE scenario above
+  - Configure `set extcommunity soo 64512:1` on both PE-CE sessions for R1
+  - Verify: R1's routes advertised to R2 don't come back to R1 via R17
+  - Proves: prevents routing loops with multi-homed sites
+
+- [ ] **Internet Access for VPN Customer**
+  - Inject default route into VRF Customer_A on one PE
+  - `default-information originate` or static `0.0.0.0/0` in VRF redistributed into BGP
+  - Verify: CE can reach "internet" (simulate with a loopback in global table)
+  - Verify: only the intended VRF gets the default route
+
+- [ ] **PE-CE with OSPF (one site BGP, another OSPF)**
+  - R1 uses eBGP to R2 (already done)
+  - Change R9 to use OSPF with R8: `router ospf 2 vrf Customer_A`
+  - Redistribute OSPF into BGP VRF, and BGP into OSPF
+  - Verify: R1 and R9 can still reach each other
+  - Check OSPF domain-id, DN bit (down bit) for loop prevention
+
+### Key Commands
+
+```
+show ip vrf detail
+show ip bgp vpnv4 all community
+show ip extcommunity-list
+show ip route vrf <name> | include source-of-origin
+show ip bgp vpnv4 vrf <name> <prefix>
+```
+
+---
+
+## Lab 7 Notes: Advanced MPLS TE
+
+**Topology:** Same core. Multiple TE tunnels with different constraints.
+**Goal:** Production-level TE designs beyond basic explicit paths.
+
+### Tests To Do
+
+- [ ] **Fast Reroute (FRR) — link protection**
+  - Enable on tunnel: `tunnel mpls traffic-eng fast-reroute`
+  - Create backup tunnel on transit router (next-hop or next-next-hop backup)
+  - Shut a link in the primary path
+  - Verify: traffic switches to backup in <50ms (compare with path-option failover ~2 seconds)
+  - `show mpls traffic-eng fast-reroute database`
+
+- [ ] **Affinity / Attribute Bits (link colouring)**
+  - Assign colours to links: `mpls traffic-eng attribute-flags 0x1` (red), `0x2` (blue)
+  - Tunnel avoids red links: `tunnel mpls traffic-eng affinity 0x0 mask 0x1`
+  - Tunnel prefers blue links: `tunnel mpls traffic-eng affinity 0x2 mask 0x2`
+  - Verify: CSPF excludes/includes links based on affinity
+  - Use case: avoid satellite links, prefer low-latency paths
+
+- [ ] **Preemption (setup/hold priority)**
+  - Tunnel A: priority 7 7 (low priority, setup 7 hold 7)
+  - Tunnel B: priority 0 0 (high priority)
+  - Both request bandwidth that exceeds a shared link's capacity
+  - Verify: Tunnel B preempts Tunnel A (kicks it off the link)
+  - Tunnel A falls to backup path or goes down
+  - `show ip rsvp reservation` — check which tunnel holds the reservation
+
+- [ ] **Auto-Bandwidth**
+  - `tunnel mpls traffic-eng auto-bw max-bw 500000 min-bw 1000`
+  - Generate traffic through the tunnel (ping flood or similar)
+  - Watch tunnel adjust bandwidth reservation over time
+  - `show mpls traffic-eng tunnels tun0 | include auto-bw`
+  - Proves: tunnel adapts to actual demand without manual intervention
+
+- [ ] **Load-sharing between TE tunnels**
+  - Two tunnels to same destination, both with `autoroute announce`
+  - Verify CEF load-balances across both tunnels
+  - `show ip cef <destination> internal` — should show both tunnels in hash buckets
+  - Test with different bandwidth values: `tunnel mpls traffic-eng load-share`
+
+- [ ] **TE Metric vs IGP Metric**
+  - Set different TE metric on a link: `mpls traffic-eng administrative-weight 1000`
+  - Dynamic tunnel should now avoid that link (TE metric is worse)
+  - IGP routing unchanged (regular traffic still uses IGP metric)
+  - Proves: TE path calculation independent from IGP path calculation
+
+### Key Commands
+
+```
+show mpls traffic-eng fast-reroute database
+show mpls traffic-eng topology | include attribute
+show ip rsvp reservation detail
+show mpls traffic-eng tunnels [name] detail
+show mpls traffic-eng tunnels auto-bw
+show mpls traffic-eng link-management bandwidth-allocation
+```
+
+---
+
+## Lab 8 Notes: BGP Design
+
+**Topology:** Full 20-router topology. Convert from full-mesh iBGP to Route Reflectors.
+**Goal:** Scalable BGP design for SP/enterprise MPLS networks.
+
+### Tests To Do
+
+- [ ] **Route Reflectors (replace full-mesh iBGP)**
+  - Designate R3 and R7 as Route Reflectors (redundancy)
+  - All PEs (R2, R8, R17, R18) peer with RRs only (not each other)
+  - `neighbor <PE> route-reflector-client` on the RRs
+  - Remove direct PE-to-PE iBGP sessions
+  - Verify: vpnv4 routes still reach all PEs via RR reflection
+  - Check: ORIGINATOR_ID and CLUSTER_LIST attributes
+
+- [ ] **RR Cluster design**
+  - R3 and R7 in the same cluster: `bgp cluster-id 1`
+  - Verify: redundancy works — shut R3, routes still reflected via R7
+  - Verify: no routing loops (cluster-list prevents)
+
+- [ ] **BGP Communities for Policy**
+  - CE R1 tags routes with community 64512:100
+  - PE R8 applies policy: routes with 64512:100 get local-pref 200
+  - Verify: traffic from R8 side prefers routes tagged by R1
+  - `show ip bgp vpnv4 vrf Customer_A community 64512:100`
+
+- [ ] **BGP Best Path Manipulation**
+  - Multi-homed CE connected to R2 and R17
+  - Use local-pref to prefer R2 path (set higher on R2)
+  - Use AS-PATH prepend to make R17 backup (CE prepends on R17 link)
+  - Verify: traffic flows via R2, failover to R17 when R2 link down
+
+- [ ] **BGP Graceful Restart**
+  - Enable on PE: `bgp graceful-restart`
+  - Shut the BGP session on one PE — routes should be retained for restart timer
+  - Verify: traffic continues flowing during restart period
+  - Proves: no traffic loss during planned PE maintenance
+
+- [ ] **Conditional Route Advertisement**
+  - PE advertises a route to CE only if another route exists (e.g., only advertise default if VPN routes exist)
+  - `neighbor <CE> advertise-map ADV condition-map COND`
+  - Verify: remove condition route — advertisement withdraws
+
+### Key Commands
+
+```
+show ip bgp vpnv4 all summary
+show ip bgp vpnv4 all
+show ip bgp neighbors <ip> | include Cluster|ORIGINATOR
+show ip bgp community <community>
+show ip bgp vpnv4 all neighbors <ip> advertised-routes
+show ip bgp vpnv4 all neighbors <ip> routes
+debug ip bgp updates
+```
+
+---
+
+## Lab 9 Notes: Python Automation
+
+**Topology:** All 20 routers via GNS3 telnet.
+**Goal:** Automate provisioning, state collection, and validation.
+
+### Tests To Do
+
+- [x] **Push MPLS base config to all P routers** (Jinja2 + Netmiko)
+- [x] **Push PE VRF config** (Jinja2 template + inventory)
+- [x] **Push CE config** (Jinja2 template)
+- [x] **Dry-run mode** (render and print without pushing)
+- [ ] **New customer VRF provisioning**
+  - Add new customer to inventory (VRF name, RD, RT, CE interface, CE AS)
+  - Run push_config → new VRF appears on all relevant PEs
+  - Verify with show commands automatically after push
+
+- [ ] **State collector: OSPF neighbors**
+  - Connect to all P routers, run `show ip ospf neighbor`
+  - Parse output, report which adjacencies are Full vs not
+  - Alert if any neighbor is missing
+
+- [ ] **State collector: LDP neighbors**
+  - Connect to all P/PE routers, run `show mpls ldp neighbor`
+  - Parse Peer LDP Ident and Up Time
+  - Report all neighbors and flag any that are down
+
+- [ ] **State collector: BGP VPNv4 summary**
+  - Connect to all PEs, run `show ip bgp vpnv4 all summary`
+  - Parse neighbor state and prefix count
+  - Alert if any PE has 0 prefixes received
+
+- [ ] **State collector: TE tunnel status**
+  - Run `show mpls traffic-eng tunnels brief` on head-end PEs
+  - Parse tunnel state (up/down, which path-option active)
+  - Report any tunnels that are down or on backup path
+
+- [ ] **Validator: Full health check**
+  - Run all collectors
+  - Compare against expected state (all OSPF Full, all LDP up, all tunnels up, all BGP sessions established)
+  - Print summary: PASS/FAIL per check
+
+- [ ] **Config backup**
+  - Connect to all 20 routers, run `show running-config`
+  - Save each to a file: `configs/R1.cfg`, `configs/R2.cfg`, etc.
+  - Version control in git — run before and after changes
+
+### Key Files
+
+```
+python/netops/configurator/push_config.py
+python/netops/configurator/inventory.yaml
+python/netops/configurator/templates/*.j2
+```

@@ -1,12 +1,16 @@
 # AWS Network Operations Platform
 
-A production-grade hybrid network operations platform implementing closed-loop automation for enterprise AWS environments. Built to operate cloud and on-premises networks as a single system through desired-state validation, automated remediation, and continuous compliance.
+A production-grade hybrid network operations platform combining cloud infrastructure (Terraform), network automation (Python/Netmiko/Jinja2), and an MPLS service provider lab environment. Built to demonstrate Principal Network Architect-level skills across AWS networking, protocol design, and programmability.
 
 ---
 
 ## What This Is
 
-This platform manages the full lifecycle of hybrid network operations across a multi-account AWS environment connected to on-premises infrastructure via Site-to-Site VPN. It combines infrastructure-as-code (Terraform), network validation (Python), and operational tooling into a unified system that detects drift, validates state, and remediates issues automatically.
+This platform manages the full lifecycle of hybrid network operations across a multi-account AWS environment connected to on-premises infrastructure. It combines:
+
+- **Infrastructure-as-Code (Terraform)** — multi-account AWS networking with centralized inspection
+- **Network Automation (Python)** — configuration management, state validation, and drift detection
+- **MPLS SP Lab (GNS3)** — 20-router service provider topology for protocol design and testing
 
 ---
 
@@ -15,22 +19,23 @@ This platform manages the full lifecycle of hybrid network operations across a m
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                    Hybrid Network Operations Platform                     │
-├─────────────────┬──────────────────┬──────────────────┬─────────────────┤
-│   Terraform     │     Python       │     Ansible      │   Operations    │
-│  (Cloud Infra)  │  (Validation)    │  (On-Prem Auto)  │  (Runbooks)     │
-├─────────────────┼──────────────────┼──────────────────┼─────────────────┤
-│ • TGW           │ • Route drift    │ • BGP config     │ • BGP flap      │
-│ • VPC + Subnets │ • BGP health     │ • OSPF config    │   response      │
-│ • IPAM          │ • VPN state      │ • VPN tunnels    │ • VPN tunnel    │
-│ • Multi-account │ • Isolation audit│ • Route audit    │   down          │
-│ • EC2 (lab)     │ • Hybrid compare │ • Emergency      │ • Route leak    │
-│ • RAM shares    │ • HTML reports   │   shutdown       │   detection     │
-└─────────────────┴──────────────────┴──────────────────┴─────────────────┘
+├─────────────────┬───────────────────────────────┬───────────────────────┤
+│   Terraform     │          Python               │     Operations        │
+│  (Cloud Infra)  │  (Automation + Validation)    │     (Runbooks)        │
+├─────────────────┼───────────────────────────────┼───────────────────────┤
+│ • TGW           │ • Router config via Netmiko   │ • BGP flap response   │
+│ • VPC + Subnets │ • Jinja2 templates            │ • VPN tunnel down     │
+│ • Network FW    │ • AWS drift detection         │ • Route leak          │
+│ • IPAM          │ • OSPF/LDP/BGP collectors     │   detection           │
+│ • Multi-account │ • Health check validators     │                       │
+│ • NAT/IGW       │ • Config backup               │                       │
+│ • RAM shares    │ • GNS3 telnet automation      │                       │
+└─────────────────┴───────────────────────────────┴───────────────────────┘
                               │
                     ┌─────────┴─────────┐
-                    │   Desired State    │
-                    │  (Source of Truth) │
-                    │  YAML definitions  │
+                    │  Terraform State   │
+                    │ (Source of Truth)  │
+                    │   S3 Backend       │
                     └───────────────────┘
 ```
 
@@ -40,101 +45,122 @@ This platform manages the full lifecycle of hybrid network operations across a m
 
 ```
 ├── terraform/                      Cloud infrastructure (CI/CD pipeline active)
-│   ├── modules/                    Reusable modules (VPC, TGW, EC2, VPN, Route53, etc.)
-│   ├── environments/dev/           Environment composition layer
+│   ├── modules/                    Reusable modules (VPC, TGW, EC2, TGW-routing)
+│   ├── environments/dev/           Environment composition (main.tf, firewall.tf, ec2.tf)
+│   │   └── rules/                  Suricata rules for Network Firewall
 │   ├── pipeline/                   CodePipeline + CodeBuild CI/CD
 │   └── global/                     State backend (S3 + DynamoDB)
 │
-├── python/                         Network validation & operations CLI
+├── python/                         Network automation & validation
 │   ├── netops/
-│   │   ├── validators/             Route validation, drift detection, BGP health
-│   │   ├── collectors/             Gather state from AWS + on-prem devices
-│   │   ├── remediators/            Auto-fix (shutdown peer, failover, create ticket)
-│   │   ├── reporters/              HTML reports, metrics export
-│   │   └── cli.py                  CLI entry point: netops validate|collect|report
+│   │   ├── configurator/           Router config automation (Netmiko + Jinja2)
+│   │   │   ├── push_config.py      Engine: render template → push via telnet
+│   │   │   ├── inventory.yaml      All 20 GNS3 routers with ports and variables
+│   │   │   └── templates/          Jinja2 templates (mpls_base, pe_vrf, ce_router)
+│   │   ├── validators/             AWS drift detection (VPC routes, TGW state)
+│   │   ├── collectors/             Gather state from AWS APIs (assume-role)
+│   │   ├── reporters/              Output formatting
+│   │   └── remediators/            Auto-fix (future)
 │   └── tests/                      pytest test suite
-│
-├── ansible/                        On-prem network automation
-│   ├── inventory/                  Device inventories (lab + production)
-│   ├── playbooks/                  BGP config, OSPF config, route audit, emergency shutdown
-│   └── roles/                      Reusable roles (base_router, bgp_peer, vpn_to_aws)
 │
 ├── operations/                     Operational tooling
 │   ├── runbooks/                   Incident response procedures
-│   ├── dashboards/                 CloudWatch + Grafana definitions
+│   ├── dashboards/                 CloudWatch definitions
 │   └── alerting/                   EventBridge rules, Lambda monitors
 │
-├── desired-state/                  Source of truth (YAML)
-│   ├── desired-routes-tgw.yaml     Expected TGW route table state
-│   └── desired-bgp-peers.yaml     Expected BGP sessions
-│
-├── docs/                           Architecture documentation
-│   ├── phases/                     Implementation phase plans (0-13)
-│   ├── architecture/               Architecture decision records
-│   └── cross-account-deployment.md Cross-account Terraform patterns
+├── docs/                           Documentation
+│   ├── architecture/               Diagrams (centralized egress, MPLS topology)
+│   ├── study-notes/                MPLS/BGP book notes + lab workbooks
+│   └── phases/                     Implementation phase plans
 │
 └── .github/                        CI/CD workflows
+    └── workflows/                  GitHub Actions (deploy-routers.yml)
 ```
 
 ---
 
-## Key Design Principles
-
-- **Desired state as YAML** — Define what the network SHOULD look like, validate continuously
-- **Validate before and after** — Every change runs validators pre/post
-- **Closed-loop operations** — Detect → Alert → Validate → Remediate → Verify
-- **Cloud and on-prem are one system** — One platform that sees both sides
-- **Multi-account by default** — Cross-account roles, RAM sharing, centralized TGW
-
----
-
-## Infrastructure
+## AWS Infrastructure (Deployed)
 
 | Component | Account | Details |
 |-----------|---------|---------|
-| Transit Gateway | Network (hub) | Central routing, multi-account RAM share, auto-accept |
-| Inspection VPC | Network | Centralized firewall path (future Network Firewall) |
-| Workload VPCs | Spoke accounts | IPAM-allocated /22, TGW-attached, segmented routing |
+| Transit Gateway | Networking | 4 route tables (fullmesh, shared, firewall, isolated) |
+| Inspection VPC | Networking | Network Firewall + NAT GW + centralized egress |
+| Network Firewall | Networking | Domain allow-list, Suricata IPS rules, stateless filtering |
+| Spoke VPCs | Spoke accounts | IPAM-allocated /22, TGW-attached, default route to inspection |
+| Shared VPC | Networking | Future shared services (DNS, endpoints) |
+| EVE-NG VPC | Lab account | c5.metal for advanced labs (SR, EVPN, SD-WAN) |
 | CI/CD Pipeline | Management | CodePipeline → CodeBuild → Terraform plan/apply |
-| State Backend | Management | S3 + DynamoDB locking |
+
+---
+
+## MPLS Lab (GNS3 Local)
+
+20-router service provider topology running locally:
+
+| Role | Routers | Protocols |
+|------|---------|-----------|
+| PE | R2, R8, R17, R18 | MP-BGP vpnv4, MPLS TE, VRF |
+| P | R3, R4, R5, R6, R7, R13, R14, R15, R16 | OSPF area 0, LDP, RSVP-TE |
+| CE | R1, R9, R10 (Customer A), R12 (B), R11 (C), R19 (D), R20 (E) | eBGP |
+
+Labs cover: MPLS forwarding, L3VPN, Traffic Engineering, BGP design, Python automation.
 
 ---
 
 ## Usage
 
-### Terraform (Infrastructure)
+### Terraform (AWS Infrastructure)
 ```bash
 cd terraform/environments/dev
 terraform init && terraform plan
 ```
 
-### Python (Validation)
+### Python — Router Automation (GNS3)
 ```bash
-cd python && pip install -e .
-netops validate routes --region eu-west-1
-netops validate bgp --device router-edge1
-netops report health --format html
+cd python
+source .venv/bin/activate
+
+# Configure a single router
+python -m netops.configurator.push_config --router R13 --template mpls_base.j2
+
+# Configure all P routers at once
+python -m netops.configurator.push_config --role P --template mpls_base.j2
+
+# Configure all PE routers with VRF template
+python -m netops.configurator.push_config --role PE --template pe_vrf.j2
+
+# Configure all CE routers
+python -m netops.configurator.push_config --role CE --template ce_router.j2
+
+# Dry run (preview without pushing)
+python -m netops.configurator.push_config --all --template mpls_base.j2 --dry-run
 ```
+
+### Python — AWS Validation
+```bash
+cd python
+source .venv/bin/activate
+
+# Validate VPC routes in a spoke account
+python -m netops.validators.vpc_routes_validator --account-id <SPOKE_ACCOUNT> --region eu-west-1
+```
+
 ---
 
 ## Implementation Phases
 
 | Phase | Focus | Status |
 |-------|-------|--------|
-| 0 | Repository foundation + CI/CD | Complete |
-| 1 | Network foundation (TGW, VPCs, multi-account) | Complete |
-| 2 | Multi-region resilience | 🔲 Planned |
-| 3 | Observability platform | 🔲 Planned |
-| 4 | Python CLI framework | 🔲 Planned |
-| 5 | Inventory engine | 🔲 Planned |
-| 6 | Validation framework | 🔲 Planned |
-| 7 | Automated network testing | 🔲 Planned |
-| 8 | Drift detection | 🔲 Planned |
-| 9 | Automated recovery | 🔲 Planned |
-| 10 | Chaos engineering | 🔲 Planned |
-| 11 | Operational runbooks | 🔲 Planned |
-| 12 | Reporting | 🔲 Planned |
-| 13 | Operational maturity scoring | 🔲 Planned |
+| 1 | Network foundation (TGW, VPCs, multi-account) | ✅ Complete |
+| 2 | Segmentation & Inspection (Network Firewall, centralized egress) | ✅ Complete |
+| 3 | Shared Services (Route 53, VPC Endpoints) | 🔲 Planned |
+| 4 | Observability (Flow Logs, CloudWatch, Alarms) | 🔲 Planned |
+| 5 | Hybrid Connectivity (AWS VPN + On-Prem) | 🔲 Planned |
+| 6 | Python AWS Validation (drift detection, route validators) | 🟡 In Progress |
+| 7 | Python Network Automation (Netmiko + Jinja2 for GNS3 lab) | 🟡 In Progress |
+| 8 | MPLS Lab (L3VPN, Traffic Engineering, BGP Design) | 🟡 In Progress |
+| 9 | Multi-Region | 🔲 Planned |
+| 10 | Production Hardening | 🔲 Planned |
 
 ---
 

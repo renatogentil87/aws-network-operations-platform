@@ -1,23 +1,34 @@
-! Base MPLS configuration for {{ hostname }}
+! Base MPLS configuration for {{ hostname }} ({{ role }})
 !
 ip cef
+!
+{% if label_range_min is defined %}
+mpls label range {{ label_range_min }} {{ label_range_max }}
+{% endif %}
 !
 interface Loopback0
  ip address {{ loopback }} 255.255.255.255
  no shutdown
 !
 {% for link in links %}
- description {{link.description}}
- ip address {{link.ip}} {{link.mask}}
+{% if link.vrf is not defined %}
+interface {{ link.name }}
+ description {{ link.description }}
+ ip address {{ link.ip }} {{ link.mask }}
  no shutdown
  mpls ip
+ mpls ldp discovery transport-address {{ loopback }}
+{% endif %}
 !
 {% endfor %}
 router ospf 1
  router-id {{ loopback }}
- network {{ loopback }} 0.0.0.0 area {{ ospf_area }}
+ network {{ loopback }} 0.0.0.0 area 0
 {% for link in links %}
- network {{link.ip }} 0.0.0.3 area {{ ospf_area }}
+{% if link.vrf is not defined %}
+ network {{ link.ip }} 0.0.0.0 area 0
+{% endif %}
+{% endfor %}
 !
 mpls ldp router-id Loopback0 force
 !
