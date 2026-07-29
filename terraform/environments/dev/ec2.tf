@@ -1,48 +1,26 @@
-
-data "aws_ami" "ubuntu" {
-  provider = aws.eveng
-  most_recent = true
-  owners = ["099720109477"]
-  filter {
-    name = "name"
-    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
-  }
-  filter {
-    name = "virtualization-type"
-    values = ["hvm"]
-  }
-}
-
-data "aws_ssm_parameter" "eveng_allowed_cidrs" {
-  provider = aws.eveng
-  name     = "/eveng/allowed-cidrs"
-}
-
-module "ec2" {
-  source = "../../modules/ec2"
-   providers = {
-    aws = aws.eveng
-  }
-  ami_id = data.aws_ami.ubuntu.id
-  instance_type = "c5.metal"
-  instance_name = "eveng-instance"
-  subnet_id = module.eveng_vpc.public_subnet[0]
-  key_pair_name = "eu-west-1-keypair"
-  vpc_id = module.eveng_vpc.vpc_id
-  associate_public_ip = true
-  allowed_https_cidrs = split(",", data.aws_ssm_parameter.eveng_allowed_cidrs.value)
-  allowed_ssh_cidrs   = split(",", data.aws_ssm_parameter.eveng_allowed_cidrs.value)
-  depends_on = [aws_key_pair.ireland-key-pair]
-}
-
-data "aws_ssm_parameter" "ec2_public_key" {
-  provider = aws.eveng
-  name     = "/ec2/keypair/eu-west-1-public-key"
-}
-
-resource "aws_key_pair" "ireland-key-pair" {
-  provider   = aws.eveng
-  public_key = data.aws_ssm_parameter.ec2_public_key.value
-  key_name   = "eu-west-1-keypair"
-  tags       = { Name = "eveng-key-pair" }
-}
+# =============================================================================
+# EVE-NG Instance — MANAGED MANUALLY (NOT by Terraform)
+# =============================================================================
+#
+# The EVE-NG c5.metal instance is intentionally managed outside Terraform.
+# It was removed from Terraform on Jul 29, 2026 because the pipeline kept
+# replacing the instance (destroying labs and images) on every code push.
+#
+# Instance details:
+#   Instance ID: i-04939401fd6d01d7f
+#   Type: c5.metal
+#   AMI: ami-099541a07a9bdb365 (Ubuntu 22.04)
+#   Key: eu-west-1-keypair
+#   Security Group: sg-077bd78afdc4130f9 (eveng-manual-sg)
+#   EBS: 100GB gp3, DeleteOnTermination=false (volume persists)
+#   Tag: ManagedBy=manual-not-terraform
+#
+# To update SG rules:
+#   aws ec2 authorize-security-group-ingress --group-id sg-077bd78afdc4130f9 \
+#     --protocol tcp --port 22 --cidr YOUR_IP/32 --region eu-west-1
+#
+# To start/stop:
+#   aws ec2 start-instances --instance-ids i-04939401fd6d01d7f --region eu-west-1
+#   aws ec2 stop-instances --instance-ids i-04939401fd6d01d7f --region eu-west-1
+#
+# =============================================================================

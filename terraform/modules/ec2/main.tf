@@ -109,6 +109,7 @@ resource "aws_instance" "this" {
   }
 
   lifecycle {
-    ignore_changes = [ami]  # Prevent replacement when a newer AMI is found
+    ignore_changes = [ami, user_data, user_data_base64]  # Prevent replacement
+    prevent_destroy = true  # Block any terraform destroy of this instance
   }
 }
