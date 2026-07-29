@@ -20,6 +20,14 @@ Service provider MPLS core (AS 64512) with 4 PE routers serving 5 customers acro
 
 ---
 
+### GNS3 Lab — Physical Topology with Interconnections
+
+Full 20-router GNS3 topology showing all physical links, interface names, and IP addressing between P, PE, and CE routers.
+
+![GNS3 Lab Topology](gns3-lab-topology.png)
+
+---
+
 ## Design Decisions
 
 | Decision | Rationale |
