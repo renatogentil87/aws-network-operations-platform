@@ -50,6 +50,17 @@
 - [ ] Validate: blocked domain returns RST/timeout
 - [ ] Validate: source IP from spoke is the NAT GW EIP
 
+### TGW Policy-Based Routing (PBR) — NEW (launched Jul 30, 2026)
+- [ ] Create TGW policy table via Terraform (or CLI)
+- [ ] Associate policy table with a spoke VPC attachment
+- [ ] Define PBR rule: steer HTTPS (tcp/443) from dev VPC → inspection route table
+- [ ] Define PBR rule: allow SSH (tcp/22) from prod VPC → fullmesh route table (direct)
+- [ ] Define PBR rule: route by source IP — prod subnet → DX path, dev subnet → VPN path
+- [ ] Validate: traffic matches rules (first-match-wins logic)
+- [ ] Validate: non-matching traffic falls to default route table behavior
+- [ ] Document: blog post or book chapter section on PBR use cases vs traditional multi-hop inspection
+- [ ] LinkedIn: publish PBR post (drafted ~/Desktop/tgw-pbr-linkedin-post.md)
+
 ---
 
 ## Phase 3 — Shared Services

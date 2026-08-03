@@ -1,0 +1,247 @@
+# MPLS-TE Lab — 40 Node Hierarchical Architecture
+# Route Reflectors, PEs, P routers, CEs
+# Deploy: clab deploy -t mpls-te-40-node.yaml
+# Destroy: clab destroy -t mpls-te-40-node.yaml
+
+name: mpls-te-lab
+
+topology:
+  defaults:
+    kind: vr-vjunos
+    image: vrnetlab/vr-vjunos:26.2R1.7
+
+  kinds:
+    vr-vjunos:
+      image: vrnetlab/vr-vjunos:26.2R1.7
+    linux:
+      image: ghcr.io/frrouting/frr:latest
+
+  nodes:
+    # ═══════════════════════════════════════════════════════════════
+    # CORE P ROUTERS (Level-2 Backbone) — 4 nodes
+    # Full mesh between core P routers
+    # ═══════════════════════════════════════════════════════════════
+    core-p1:
+      kind: vr-vjunos
+    core-p2:
+      kind: vr-vjunos
+    core-p3:
+      kind: vr-vjunos
+    core-p4:
+      kind: vr-vjunos
+
+    # ═══════════════════════════════════════════════════════════════
+    # ROUTE REFLECTORS — 4 nodes
+    # 2x Core RR (Level-2, cluster-id 0.0.0.1)
+    # 2x Regional RR (Level-1, for West region demo)
+    # ═══════════════════════════════════════════════════════════════
+    core-rr1:
+      kind: vr-vjunos
+    core-rr2:
+      kind: vr-vjunos
+    reg-rr-west1:
+      kind: vr-vjunos
+    reg-rr-east1:
+      kind: vr-vjunos
+
+    # ═══════════════════════════════════════════════════════════════
+    # REGION WEST — P routers (Level-1) — 3 nodes
+    # ═══════════════════════════════════════════════════════════════
+    west-p1:
+      kind: vr-vjunos
+    west-p2:
+      kind: vr-vjunos
+    west-p3:
+      kind: vr-vjunos
+
+    # ═══════════════════════════════════════════════════════════════
+    # REGION CORE — P routers (Level-1) — 3 nodes
+    # ═══════════════════════════════════════════════════════════════
+    central-p1:
+      kind: vr-vjunos
+    central-p2:
+      kind: vr-vjunos
+    central-p3:
+      kind: vr-vjunos
+
+    # ═══════════════════════════════════════════════════════════════
+    # REGION EAST — P routers (Level-1) — 3 nodes
+    # ═══════════════════════════════════════════════════════════════
+    east-p1:
+      kind: vr-vjunos
+    east-p2:
+      kind: vr-vjunos
+    east-p3:
+      kind: vr-vjunos
+
+    # ═══════════════════════════════════════════════════════════════
+    # PE ROUTERS — 9 nodes (3 per region)
+    # Head-end/tail-end for MPLS-TE LSPs, VRF termination
+    # ═══════════════════════════════════════════════════════════════
+    west-pe1:
+      kind: vr-vjunos
+    west-pe2:
+      kind: vr-vjunos
+    west-pe3:
+      kind: vr-vjunos
+    central-pe1:
+      kind: vr-vjunos
+    central-pe2:
+      kind: vr-vjunos
+    central-pe3:
+      kind: vr-vjunos
+    east-pe1:
+      kind: vr-vjunos
+    east-pe2:
+      kind: vr-vjunos
+    east-pe3:
+      kind: vr-vjunos
+
+    # ═══════════════════════════════════════════════════════════════
+    # CE ROUTERS — 10 nodes (FRRouting — lightweight)
+    # Customer-A: ce1, ce2, ce3, ce4, ce5 (VRF-A across regions)
+    # Customer-B: ce6, ce7, ce8, ce9, ce10 (VRF-B across regions)
+    # ═══════════════════════════════════════════════════════════════
+    ce1:
+      kind: linux
+    ce2:
+      kind: linux
+    ce3:
+      kind: linux
+    ce4:
+      kind: linux
+    ce5:
+      kind: linux
+    ce6:
+      kind: linux
+    ce7:
+      kind: linux
+    ce8:
+      kind: linux
+    ce9:
+      kind: linux
+    ce10:
+      kind: linux
+
+    # ═══════════════════════════════════════════════════════════════
+    # MANAGEMENT / TOOLING — 4 nodes
+    # ═══════════════════════════════════════════════════════════════
+    mgmt1:
+      kind: linux
+      image: alpine:latest
+    mgmt2:
+      kind: linux
+      image: alpine:latest
+    mgmt3:
+      kind: linux
+      image: alpine:latest
+    mgmt4:
+      kind: linux
+      image: alpine:latest
+
+  links:
+    # ═══════════════════════════════════════════════════════════════
+    # CORE BACKBONE — Full mesh between core P routers
+    # ═══════════════════════════════════════════════════════════════
+    - endpoints: ["core-p1:eth1", "core-p2:eth1"]
+    - endpoints: ["core-p1:eth2", "core-p3:eth1"]
+    - endpoints: ["core-p1:eth3", "core-p4:eth1"]
+    - endpoints: ["core-p2:eth2", "core-p3:eth2"]
+    - endpoints: ["core-p2:eth3", "core-p4:eth2"]
+    - endpoints: ["core-p3:eth3", "core-p4:eth3"]
+
+    # ═══════════════════════════════════════════════════════════════
+    # CORE RR connections (to core P routers for reachability)
+    # ═══════════════════════════════════════════════════════════════
+    - endpoints: ["core-rr1:eth1", "core-p1:eth4"]
+    - endpoints: ["core-rr1:eth2", "core-p2:eth4"]
+    - endpoints: ["core-rr2:eth1", "core-p3:eth4"]
+    - endpoints: ["core-rr2:eth2", "core-p4:eth4"]
+
+    # ═══════════════════════════════════════════════════════════════
+    # CORE to REGIONAL — P router interconnections
+    # ═══════════════════════════════════════════════════════════════
+    # West region connects to core-p1 and core-p2
+    - endpoints: ["core-p1:eth5", "west-p1:eth1"]
+    - endpoints: ["core-p2:eth5", "west-p2:eth1"]
+    - endpoints: ["core-p1:eth6", "west-p3:eth1"]
+
+    # Central region connects to core-p2 and core-p3
+    - endpoints: ["core-p2:eth6", "central-p1:eth1"]
+    - endpoints: ["core-p3:eth5", "central-p2:eth1"]
+    - endpoints: ["core-p3:eth6", "central-p3:eth1"]
+
+    # East region connects to core-p3 and core-p4
+    - endpoints: ["core-p4:eth4", "east-p1:eth1"]
+    - endpoints: ["core-p4:eth5", "east-p2:eth1"]
+    - endpoints: ["core-p4:eth6", "east-p3:eth1"]
+
+    # ═══════════════════════════════════════════════════════════════
+    # REGIONAL P mesh (intra-region)
+    # ═══════════════════════════════════════════════════════════════
+    # West
+    - endpoints: ["west-p1:eth2", "west-p2:eth2"]
+    - endpoints: ["west-p2:eth3", "west-p3:eth2"]
+    - endpoints: ["west-p1:eth3", "west-p3:eth3"]
+
+    # Central
+    - endpoints: ["central-p1:eth2", "central-p2:eth2"]
+    - endpoints: ["central-p2:eth3", "central-p3:eth2"]
+    - endpoints: ["central-p1:eth3", "central-p3:eth3"]
+
+    # East
+    - endpoints: ["east-p1:eth2", "east-p2:eth2"]
+    - endpoints: ["east-p2:eth3", "east-p3:eth2"]
+    - endpoints: ["east-p1:eth3", "east-p3:eth3"]
+
+    # ═══════════════════════════════════════════════════════════════
+    # REGIONAL RR connections
+    # ═══════════════════════════════════════════════════════════════
+    - endpoints: ["reg-rr-west1:eth1", "west-p1:eth4"]
+    - endpoints: ["reg-rr-west1:eth2", "west-p2:eth4"]
+    - endpoints: ["reg-rr-east1:eth1", "east-p1:eth4"]
+    - endpoints: ["reg-rr-east1:eth2", "east-p2:eth4"]
+
+    # ═══════════════════════════════════════════════════════════════
+    # PE to REGIONAL P connections
+    # ═══════════════════════════════════════════════════════════════
+    # West PEs
+    - endpoints: ["west-pe1:eth1", "west-p1:eth5"]
+    - endpoints: ["west-pe1:eth2", "west-p2:eth5"]
+    - endpoints: ["west-pe2:eth1", "west-p2:eth6"]
+    - endpoints: ["west-pe2:eth2", "west-p3:eth4"]
+    - endpoints: ["west-pe3:eth1", "west-p3:eth5"]
+    - endpoints: ["west-pe3:eth2", "west-p1:eth6"]
+
+    # Central PEs
+    - endpoints: ["central-pe1:eth1", "central-p1:eth4"]
+    - endpoints: ["central-pe1:eth2", "central-p2:eth4"]
+    - endpoints: ["central-pe2:eth1", "central-p2:eth5"]
+    - endpoints: ["central-pe2:eth2", "central-p3:eth4"]
+    - endpoints: ["central-pe3:eth1", "central-p3:eth5"]
+    - endpoints: ["central-pe3:eth2", "central-p1:eth5"]
+
+    # East PEs
+    - endpoints: ["east-pe1:eth1", "east-p1:eth5"]
+    - endpoints: ["east-pe1:eth2", "east-p2:eth4"]
+    - endpoints: ["east-pe2:eth1", "east-p2:eth5"]
+    - endpoints: ["east-pe2:eth2", "east-p3:eth4"]
+    - endpoints: ["east-pe3:eth1", "east-p3:eth5"]
+    - endpoints: ["east-pe3:eth2", "east-p1:eth6"]
+
+    # ═══════════════════════════════════════════════════════════════
+    # CE to PE connections (Customer-A: ce1-5, Customer-B: ce6-10)
+    # ═══════════════════════════════════════════════════════════════
+    # Customer A
+    - endpoints: ["ce1:eth1", "west-pe1:eth3"]     # VRF-A West
+    - endpoints: ["ce2:eth1", "west-pe2:eth3"]     # VRF-A West
+    - endpoints: ["ce3:eth1", "central-pe1:eth3"]  # VRF-A Central
+    - endpoints: ["ce4:eth1", "central-pe2:eth3"]  # VRF-A Central
+    - endpoints: ["ce5:eth1", "east-pe1:eth3"]     # VRF-A East
+
+    # Customer B
+    - endpoints: ["ce6:eth1", "west-pe3:eth3"]     # VRF-B West
+    - endpoints: ["ce7:eth1", "central-pe3:eth3"]  # VRF-B Central
+    - endpoints: ["ce8:eth1", "east-pe2:eth3"]     # VRF-B East
+    - endpoints: ["ce9:eth1", "east-pe3:eth3"]     # VRF-B East
+    - endpoints: ["ce10:eth1", "west-pe1:eth4"]    # VRF-B West (dual-homed)
