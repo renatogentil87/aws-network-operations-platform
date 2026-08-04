@@ -137,7 +137,7 @@
 6. Shut the MPLS core link (simulate VPN failure) — verify R9 falls back to backdoor - done
 7. Bring core back — verify traffic returns to VPN path - done
 
-### Challenge 2: Per-Prefix Label Mode
+### Challenge 2: Per-Prefix Label Mode -- DONE
 
 1. On R8: `show mpls forwarding-table vrf Customer_A` — note how many labels are assigned (default: one per VRF or per-CE) - done
 2. Change to per-prefix: `mpls label mode vrf Customer_A protocol bgp-vpnv4 per-prefix` - done
@@ -147,30 +147,31 @@
 6. Revert to default and compare - done
 7. Research: when is per-prefix needed? (Answer: when you need per-prefix TE or per-prefix accounting) - done
 
-### Challenge 3: RT-Constrained Distribution (RFC 4684)
+### Challenge 3: RT-Constrained Distribution (RFC 4684) -- DONE
 
 **Prerequisite:** RRs from Task 9 must be in place.
 
-1. On R3 (RR): enable RT-constraint: `address-family rtfilter unicast` + activate all PE neighbors
-2. On each PE: enable RT-constraint toward the RR
-3. Verify: R17 (only has Customer_D, RT 64512:400) does NOT receive Customer_A routes (RT 64512:100)
-4. On R17: `show ip bgp vpnv4 all` — should only show Customer_D prefixes
-5. Add Customer_A VRF to R17 (import RT 64512:100) — verify R17 now receives Customer_A routes
-6. Remove it — verify routes disappear again
-7. Proves: RR only sends what each PE actually needs
+1. On R3 (RR): enable RT-constraint: `address-family rtfilter unicast` + activate all PE neighbors - done
+2. On each PE: enable RT-constraint toward the RR - done
+3. Verify: R17 (only has Customer_D, RT 64512:400) does NOT receive Customer_A routes (RT 64512:100) - done
+4. On R17: `show ip bgp vpnv4 all` — should only show Customer_D prefixes - done
+5. Add Customer_A VRF to R17 (import RT 64512:100) — verify R17 now receives Customer_A routes - done
+6. Remove it — verify routes disappear again - done
+7. Proves: RR only sends what each PE actually needs - done
 
 ### Challenge 4: Inter-AS Option A (Back-to-Back VRF)
 
-1. Split the topology: AS 64512 (R2, R3, R4, R5, R6) and AS 64513 (R7, R8, R13-R18)
-2. R6 and R7 are ASBRs — remove their iBGP peering to the other AS
-3. On R6 (ASBR): create VRF Customer_A, assign the interface toward R7 into the VRF
-4. On R7 (ASBR): create VRF Customer_A, assign the interface toward R6 into the VRF
-5. Configure eBGP between R6 and R7 under VRF Customer_A (AS 64512 ↔ AS 64513)
-6. On R6: vpnv4 peering with R2 (within AS 64512). On R7: vpnv4 peering with R8 (within AS 64513)
-7. Verify: R1 (behind R2 in AS 64512) can reach R9 (behind R8 in AS 64513)
-8. Verify: traceroute shows the ASBR hop (VPN traffic is de-encapsulated and re-encapsulated at ASBRs)
+1. Split the topology: AS 64512 (R2, R3, R4, R5, R6) and AS 64513 (R7, R8, R13-R18) - done
+2. R6 and R7 are ASBRs — remove their iBGP peering to the other AS - done
+3. On R6 (ASBR): create VRF Customer_A, assign the interface toward R7 into the VRF - done
+4. On R7 (ASBR): create VRF Customer_A, assign the interface toward R6 into the VRF - done
+5. Configure eBGP between R6 and R7 under VRF Customer_A (AS 64512 ↔ AS 64513) - done
+6. On R6: vpnv4 peering with R2 (within AS 64512). On R7: vpnv4 peering with R8 (within AS 64513) - done
+7. Verify: R1 (behind R2 in AS 64512) can reach R9 (behind R8 in AS 64513) - done
+8. Verify: traceroute shows the ASBR hop (VPN traffic is de-encapsulated and re-encapsulated at ASBRs) - done
 
-### Challenge 5: Internet Access for VPN Customers
+
+### Challenge 5: Internet Access for VPN Customers - DONE
 
 1. On R2: add a loopback in the global table (200.200.200.200) to simulate an internet router
 2. Redistribute this into BGP under VRF Customer_A as a default route:
@@ -181,15 +182,15 @@
 5. Verify: only Customer_A gets the default — Customer_B, D, E do not
 6. Remove the route — verify default disappears from R1
 
-### Challenge 6: Export-Map for Selective RT Tagging
+### Challenge 6: Export-Map for Selective RT Tagging - DONE
 
-1. Customer_A has loopback routes (1.1.1.1, 11.11.11.11) and connected routes (192.168.12.0/30)
-2. On R2: create an export-map that tags loopback routes with an additional RT 64512:999
-3. Connected routes keep only RT 64512:100 (no extra tag)
-4. On R8: `show ip bgp vpnv4 vrf Customer_A` — verify loopback routes have two RTs, connected has one
-5. Create a VRF "Monitor" on R8 that only imports RT 64512:999
-6. Verify: Monitor VRF only has the loopback routes (not connected)
-7. Use case: selective route leaking — shared services only sees specific prefixes
+1. Customer_A has loopback routes (1.1.1.1, 11.11.11.11) and connected routes (192.168.12.0/30) - done
+2. On R2: create an export-map that tags loopback routes with an additional RT 64512:999 - done 
+3. Connected routes keep only RT 64512:100 (no extra tag)- done
+4. On R8: `show ip bgp vpnv4 vrf Customer_A` — verify loopback routes have two RTs, connected has one - done
+5. Create a VRF "Monitor" on R8 that only imports RT 64512:999 - done
+6. Verify: Monitor VRF only has the loopback routes (not connected) - done
+7. Use case: selective route leaking — shared services only sees specific prefixes - done
 
 ---
 
@@ -197,16 +198,16 @@
 
 By the end of this lab, your network has:
 
-- [ ] 5 customers fully isolated (Customer_A, B, C, D, E)
-- [ ] 4 PEs (R2, R8, R17, R18) with vpnv4 peering via Route Reflectors (R3, R7)
-- [ ] Mixed PE-CE: eBGP (R1, R12, R11, R19), OSPF (R9), Static (R20)
-- [ ] AS-override for same-AS CEs
-- [ ] DN bit preventing OSPF loops on OSPF PE-CE sites
-- [ ] Full label stack understanding (transport + VPN, verified hop-by-hop)
-- [ ] RR redundancy (one RR down, VPN still works)
-- [ ] (CCIE+) Sham-link with OSPF backdoor
-- [ ] (CCIE+) Per-prefix label mode understood
-- [ ] (CCIE+) RT-constraint reducing unnecessary route distribution
-- [ ] (CCIE+) Inter-AS Option A between two ASes
-- [ ] (CCIE+) Internet access via VRF route leaking
-- [ ] (CCIE+) Export-map for selective RT tagging
+- [x] 5 customers fully isolated (Customer_A, B, C, D, E)
+- [x] 4 PEs (R2, R8, R17, R18) with vpnv4 peering via Route Reflectors (R3, R7)
+- [x] Mixed PE-CE: eBGP (R1, R12, R11, R19), OSPF (R9), Static (R20)
+- [x] AS-override for same-AS CEs
+- [x] DN bit preventing OSPF loops on OSPF PE-CE sites
+- [x] Full label stack understanding (transport + VPN, verified hop-by-hop)
+- [x] RR redundancy (one RR down, VPN still works)
+- [x] (CCIE+) Sham-link with OSPF backdoor
+- [x] (CCIE+) Per-prefix label mode understood
+- [x] (CCIE+) RT-constraint reducing unnecessary route distribution
+- [x] (CCIE+) Inter-AS Option A between two ASes
+- [x] (CCIE+) Internet access via VRF route leaking
+- [x] (CCIE+) Export-map for selective RT tagging
