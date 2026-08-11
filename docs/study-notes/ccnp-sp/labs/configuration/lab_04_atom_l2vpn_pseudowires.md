@@ -10,7 +10,7 @@
 
 ## Section 1: First Pseudowire — Ethernet over MPLS (EoMPLS)
 
-### Task 1: Simple Point-to-Point Pseudowire (R2 ↔ R8)
+### Task 1: Simple Point-to-Point Pseudowire (R2 ↔ R8) - DONE
 
 1. On R2: configure `xconnect` on Fa0/0 (the interface toward R1):
    - `interface FastEthernet0/0`
@@ -26,7 +26,7 @@
 8. Verify: R1 can ping R9 (10.0.0.2) — L2 frame crosses the MPLS core transparently
 9. On R1: `show arp` — R9's MAC address should be learned directly (as if they're on the same LAN)
 
-### Task 2: Understand the Label Stack
+### Task 2: Understand the Label Stack - DONE
 
 1. From R1: `traceroute 10.0.0.2` — observe the hops
 2. On R2: `show mpls l2transport vc 100 detail` — note the VC label (imposed by R2) and the transport label (to reach 8.8.8.8)
@@ -37,7 +37,7 @@
 5. On R3 (P router): `show mpls forwarding-table` — P routers only swap the transport label (never see the VC label)
 6. Compare with L3VPN: L3VPN uses transport + VPN label. AToM uses transport + VC label. Same two-label concept.
 
-### Task 3: Verify L2 Transparency
+### Task 3: Verify L2 Transparency - DONE
 
 1. On R1: change IP to something completely different (e.g., 172.16.99.1/24)
 2. On R9: change IP to 172.16.99.2/24
@@ -50,7 +50,7 @@
 
 ## Section 2: Multiple Pseudowires — Scale the L2VPN Service
 
-### Task 4: Second Pseudowire — Different Customers
+### Task 4: Second Pseudowire — Different Customers - DONE
 
 1. On R2: configure `xconnect` on Fa3/0 (toward R12):
    - `xconnect 8.8.8.8 200 encapsulation mpls` (VC ID 200 — different customer)
@@ -64,7 +64,7 @@
 8. Verify: R12 CANNOT ping R1 (different pseudowire = complete isolation)
 9. Verify: R1 CANNOT ping R11 (different pseudowire)
 
-### Task 5: Pseudowire Between Different PE Pairs
+### Task 5: Pseudowire Between Different PE Pairs 0 DONE
 
 1. On R17: configure `xconnect` on Fa3/0 (toward R19):
    - `xconnect 18.18.18.18 300 encapsulation mpls` (VC ID 300, peer = R18)
@@ -77,7 +77,7 @@
 7. Verify: R19 can ping R20 — pseudowire crosses R13-R16 core segment
 8. You now have three independent pseudowires across the MPLS core
 
-### Task 6: Multiple VCs on the Same Interface (VLAN-Based)
+### Task 6: Multiple VCs on the Same Interface (VLAN-Based) - DONE
 
 1. On R2: create sub-interfaces for Fa0/0:
    - First remove the existing xconnect from Fa0/0
@@ -103,7 +103,7 @@
 
 ## Section 3: Pseudowire Signalling and Control Plane
 
-### Task 7: Understand LDP-Based Signalling (Targeted LDP)
+### Task 7: Understand LDP-Based Signalling (Targeted LDP) - DONE
 
 1. On R2: `show mpls ldp neighbor 8.8.8.8 detail` — note this is a TARGETED LDP session (not link-based)
 2. The pseudowire uses targeted LDP between PE loopbacks to exchange VC labels
@@ -114,7 +114,7 @@
    - Remote label (what R8 assigned — R2 uses this as VC label when sending)
    - Signalling protocol: LDP
 
-### Task 8: VC Status and Troubleshooting
+### Task 8: VC Status and Troubleshooting  - DONE
 
 1. On R8: shut the interface toward R9 (Gi1/0)
 2. On R2: `show mpls l2transport vc 100` — status should change to DOWN
@@ -132,7 +132,7 @@
 
 ---
 
-## Section 4: Pseudowire with QoS
+## Section 4: Pseudowire with QoS - DONE
 
 ### Task 9: Set EXP Bits on Pseudowire Traffic
 
@@ -145,7 +145,7 @@
 4. On R3 (P router): the core can now differentiate voice vs data pseudowire traffic based on EXP
 5. If QoS on xconnect is not supported directly, apply the policy on the ingress physical interface
 
-### Task 10: Pseudowire Bandwidth Shaping
+### Task 10: Pseudowire Bandwidth Shaping - DONE
 
 1. On R2: create a policy-map that shapes pseudowire traffic to 50 Mbps:
    - `policy-map PW-SHAPE` → `class class-default` → `shape average 50000000`
@@ -158,7 +158,7 @@
 
 ## Section 5: Pseudowire OAM
 
-### Task 11: VCCV Ping — Test the Pseudowire Path
+### Task 11: VCCV Ping — Test the Pseudowire Path - DONE
 
 1. On R2: `ping mpls pseudowire 8.8.8.8 100` (ping the pseudowire with VC ID 100)
 2. Verify: replies received — proves the VC label path is healthy end-to-end
@@ -169,7 +169,7 @@
 7. Fix: restore correct VC ID on R8
 8. Verify: VC returns to UP, VCCV ping succeeds again
 
-### Task 12: Monitor Pseudowire with IP SLA
+### Task 12: Monitor Pseudowire with IP SLA - DONE 
 
 1. On R2: create IP SLA probe for the pseudowire:
    - `ip sla 10`
@@ -185,7 +185,7 @@
 
 ## CCIE+ Challenges
 
-### Challenge 1: L2VPN and L3VPN Coexisting on Same PE
+### Challenge 1: L2VPN and L3VPN Coexisting on Same PE - DONE
 
 1. R2 currently has pseudowires on Fa0/0 (L2VPN to R1) — reconfigure
 2. Use sub-interfaces:
@@ -197,7 +197,7 @@
 6. Verify: L2VPN traffic and L3VPN traffic are completely independent
 7. **This is standard SP design:** one access port, multiple services via VLANs
 
-### Challenge 2: Pseudowire Class Configuration
+### Challenge 2: Pseudowire Class Configuration - DONE
 
 1. Create a pseudowire class for standardized settings:
    - `pseudowire-class STANDARD-PW`
@@ -209,7 +209,7 @@
 5. Without control word: if core has ECMP, frames may arrive out of order
 6. With control word: P routers can identify it's a pseudowire and avoid reordering
 
-### Challenge 3: MTU Considerations
+### Challenge 3: MTU Considerations - DONE
 
 1. Customer sends 1500-byte Ethernet frames through the pseudowire
 2. The PE adds: 14 bytes Ethernet header (or keeps original) + 4 bytes VC label + 4 bytes transport label
@@ -219,7 +219,7 @@
 6. Reduce core MTU artificially — verify large pings fail (proves MTU matters)
 7. Restore proper MTU — verify large pings succeed again
 
-### Challenge 4: Local Switching (Hairpin Pseudowire)
+### Challenge 4: Local Switching (Hairpin Pseudowire) - DONE
 
 1. On R2: create a local xconnect between two interfaces (no remote PE):
    - `connect LOCAL-SWITCH FastEthernet0/0 FastEthernet3/0`
@@ -229,7 +229,7 @@
 4. Use case: two customer ports on the same PE that need L2 connectivity
 5. Verify: `show connection name LOCAL-SWITCH` — status UP
 
-### Challenge 5: Pseudowire Fragmentation and Reassembly
+### Challenge 5: Pseudowire Fragmentation and Reassembly - DONE
 
 1. If customer sends jumbo frames (9000 bytes) but core MTU is 1500:
    - `pseudowire-class FRAGMENT-PW`
@@ -246,17 +246,17 @@
 
 By the end of this lab, your network has:
 
-- [ ] Point-to-point EoMPLS pseudowire operational (R2↔R8, VC 100)
-- [ ] L2 transparency proven (any IP, broadcasts cross the pseudowire)
-- [ ] Label stack understood (transport + VC label, same concept as L3VPN)
-- [ ] Multiple pseudowires coexisting (VC 100, 200, 300 on different PE pairs)
-- [ ] Complete isolation between pseudowires (no cross-contamination)
-- [ ] VLAN-based pseudowires (multiple VCs on one physical interface)
-- [ ] Targeted LDP signalling understood (VC label exchange between PE loopbacks)
-- [ ] Pseudowire status monitoring and failure detection
-- [ ] QoS marking (EXP bits) applied to pseudowire traffic
-- [ ] VCCV or IP SLA monitoring the pseudowire health
-- [ ] (CCIE+) L2VPN and L3VPN coexisting on same PE/interface
-- [ ] (CCIE+) Control word preventing ECMP reordering
-- [ ] (CCIE+) MTU planning for label overhead verified
-- [ ] (CCIE+) Local switching (hairpin) for same-PE L2 connectivity
+- [x] Point-to-point EoMPLS pseudowire operational (R2↔R8, VC 100)
+- [x] L2 transparency proven (any IP, broadcasts cross the pseudowire)
+- [x] Label stack understood (transport + VC label, same concept as L3VPN)
+- [x] Multiple pseudowires coexisting (VC 100, 200, 300 on different PE pairs)
+- [x] Complete isolation between pseudowires (no cross-contamination)
+- [x] VLAN-based pseudowires (multiple VCs on one physical interface)
+- [x] Targeted LDP signalling understood (VC label exchange between PE loopbacks)
+- [x] Pseudowire status monitoring and failure detection
+- [x] QoS marking (EXP bits) applied to pseudowire traffic
+- [x] VCCV or IP SLA monitoring the pseudowire health
+- [x] (CCIE+) L2VPN and L3VPN coexisting on same PE/interface
+- [x] (CCIE+) Control word preventing ECMP reordering
+- [x] (CCIE+) MTU planning for label overhead verified
+- [x] (CCIE+) Local switching (hairpin) for same-PE L2 connectivity

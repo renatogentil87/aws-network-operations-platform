@@ -1,15 +1,22 @@
 # Troubleshooting Lab 6: MPLS Traffic Engineering Advanced — 20 Tickets
 
 **Platform:** GNS3 Local (Cisco 7200, IOS 15.2)
-**Topology:** 14 routers — 4 PEs (R1, R5, R9, R14), 8 P routers, 2 CEs
+**Topology:** 20 routers — same physical topology
 **Difficulty:** CCNP-SP to CCIE-SP progressive
+**Prerequisite:** Golden-state snapshot (OSPF + LDP + L3VPN + TE tunnels working)
+
+---
+
+## Lab Context
+
+Your SP core has multiple TE tunnels carrying VPN traffic. This lab tests advanced TE scenarios: CSPF failures, bandwidth admission, affinity/admin-groups, FRR (node/link protection), make-before-break, autoroute vs forwarding-adjacency, and inter-area TE.
 
 ---
 
 ## Lab Rules
 
 - Do NOT change hostnames, enable passwords, or console/VTY configuration
-- Do NOT change IGP areas or AS numbers
+- Do NOT change OSPF areas, AS numbers, or VPN configurations
 - Do NOT add new interfaces or IP addresses unless explicitly required
 - Do NOT remove existing features to resolve a ticket — fix the root cause
 - Static routes are NOT permitted unless preconfigured
@@ -24,32 +31,33 @@
 
 | Role | Routers |
 |---|---|
-| PE (headend) | R1, R14 |
-| PE (tailend) | R5, R9 |
-| P (core-north) | R2, R3, R4 |
-| P (core-south) | R6, R7, R8 |
-| P (cross-connect) | R10, R11 |
-| CE | R20 (AS 65001), R21 (AS 65002) |
+| PE (headend) | R2, R17 |
+| PE (tailend) | R8, R18 |
+| P (north core) | R3, R4, R5, R6, R7 |
+| P (south core) | R13, R14, R15, R16 |
+| RR | R3, R7 |
+| CE | R1, R9, R11, R12, R19, R20 |
 
 **TE Tunnels (pre-configured):**
-- Tunnel0: R1→R5 (dynamic, BW 50000, autoroute)
-- Tunnel1: R1→R9 (explicit via north path: R2→R3→R4→R9, BW 80000)
-- Tunnel2: R14→R5 (dynamic, BW 30000, FRR protected)
-- Tunnel3: R14→R9 (affinity-constrained, BW 60000)
+- Tunnel0: R2→R8 (dynamic path, BW 50000, autoroute announce)
+- Tunnel1: R2→R8 (explicit: R3→R4→R5→R8, BW 80000, backup for Tunnel0)
+- Tunnel2: R2→R17 (dynamic, BW 30000, autoroute announce)
+- Tunnel3: R17→R8 (explicit: R13→R14→R7→R8, BW 60000, affinity 0x1)
+- Tunnel10: R2→R8 (FRR — NHOP backup via R6)
 
-**IGP:** OSPF Area 0 with TE extensions
+**IGP:** OSPF Area 0 with TE extensions (opaque LSAs)
 **RSVP:** Bandwidth 100000 on all core interfaces
-**Affinities:** Links R6-R7, R7-R8 colored "gold" (0x1); all others "standard" (0x0)
+**Affinities:** R6↔R13 link colored "gold" (0x1); all others default (0x0)
 
 ---
 
 ## Ticket 1
 
-Tunnel0 on R1 (dynamic path to R5) is DOWN. The MPLS TE topology database on R1 shows all routers and links. RSVP signaling is not reaching the tailend. Debug shows "no path found."
+Tunnel0 on R2 (dynamic path to R8) is DOWN. The TE topology database on R2 shows all routers and links populated. RSVP signaling is not succeeding. Debug shows "no path satisfying constraints found."
 
 Fix the network so that Tunnel0 comes UP with a valid dynamic path.
 
-Verify: `show mpls traffic-eng tunnels tunnel0` shows state UP with a valid ERO.
+Verify: `show mpls traffic-eng tunnels tunnel0` shows Admin/Oper: up/up.
 
 Score: 2 Points
 
@@ -57,11 +65,11 @@ Score: 2 Points
 
 ## Ticket 2
 
-Tunnel1 on R1 (explicit path R2→R3→R4→R9) is DOWN with "path not found." The explicit path is configured with strict hops. All routers on the path are reachable and TE-enabled.
+Tunnel1 on R2 (explicit path R3→R4→R5→R8) will not signal. RSVP PATH message reaches R3 but is rejected. The explicit-path is configured correctly and all routers in the path have TE enabled.
 
-Fix the network so that Tunnel1 signals successfully on its explicit path.
+Fix the network so that Tunnel1 signals along the explicit path.
 
-Verify: `show mpls traffic-eng tunnels tunnel1` shows state UP with the path R1→R2→R3→R4→R9.
+Verify: `show mpls traffic-eng tunnels tunnel1` shows state UP with ERO matching R3→R4→R5→R8.
 
 Score: 2 Points
 
@@ -69,11 +77,11 @@ Score: 2 Points
 
 ## Ticket 3
 
-Tunnel2 on R14 is UP but with 0 bandwidth reserved. The tunnel was configured to request 30000 kbps but admission control is not reserving bandwidth on the path. RSVP shows "admitted" but with BW=0.
+Tunnel0 is UP but taking a 5-hop path (R2→R6→R5→R4→R3→R7→R8) when a 2-hop path exists (R2→R3→R7→R8 or R2→R6→R5→R8). The tunnel is dynamic — CSPF should find the shortest path.
 
-Fix the network so that Tunnel2 reserves its requested bandwidth along the path.
+Fix the network so that Tunnel0 uses the shortest constrained path.
 
-Verify: `show mpls traffic-eng tunnels tunnel2` shows bandwidth 30000. `show ip rsvp reservation` on path routers shows the BW allocated.
+Verify: `show mpls traffic-eng tunnels tunnel0` shows ERO with minimum hops (2-3).
 
 Score: 2 Points
 
@@ -81,11 +89,11 @@ Score: 2 Points
 
 ## Ticket 4
 
-Tunnel3 on R14 requires affinity "gold" links (bit 0x1 set). The tunnel is DOWN because CSPF cannot find a path that satisfies the affinity constraint. However, the gold-colored links (R6-R7, R7-R8) exist and have available bandwidth.
+Tunnel2 (R2→R17, dynamic, BW 30000) is DOWN. The TE topology database on R2 does NOT contain R17's loopback or ANY south-core links (R13-R16). North-core links are all present. OSPF adjacency between R6 and R13 is FULL.
 
-Fix the network so that Tunnel3 uses the gold-affinity path and comes UP.
+Fix the network so that TE topology includes south-core routers and Tunnel2 comes UP.
 
-Verify: `show mpls traffic-eng tunnels tunnel3` shows state UP with path through R6→R7→R8 (gold links).
+Verify: `show mpls traffic-eng topology` on R2 includes R13, R14, R15, R16, R17. Tunnel2 is UP.
 
 Score: 3 Points
 
@@ -93,11 +101,11 @@ Score: 3 Points
 
 ## Ticket 5
 
-RSVP bandwidth reservation on link R3→R4 is at 100% (fully reserved). A new tunnel requesting bandwidth on this link is being rejected. However, `show mpls traffic-eng link-management bandwidth-allocation` shows that the reservations don't match actual tunnel usage — phantom reservations exist from a torn-down tunnel.
+Tunnel3 on R17 (explicit: R13→R14→R7→R8, affinity 0x1) is DOWN. The tunnel requires links with attribute-flag 0x1, but only the R6↔R13 link has this flag. The explicit path doesn't even traverse R6↔R13.
 
-Fix the network so that stale RSVP reservations are cleared and legitimate tunnels can reserve bandwidth.
+Fix the network so that Tunnel3 can signal along its explicit path with proper affinity constraints.
 
-Verify: `show ip rsvp reservation` on R3 shows only active tunnel reservations. The new tunnel can signal through R3→R4.
+Verify: `show mpls traffic-eng tunnels tunnel3` shows UP with ERO R13→R14→R7→R8. Affinity constraint satisfied.
 
 Score: 3 Points
 
@@ -105,11 +113,11 @@ Score: 3 Points
 
 ## Ticket 6
 
-Tunnel0 is UP but using a suboptimal path (6 hops instead of the shortest 3 hops). The path avoids links that have available bandwidth and TE enabled. The TE topology database shows all links correctly, but CSPF is computing a long path.
+RSVP bandwidth admission control: Tunnel1 (BW 80000) on R2 is requesting more bandwidth than available on R4→R5 link. The link shows only 50000 remaining (because Tunnel0 already reserved 50000 on that link). Tunnel1 fails to signal.
 
-Fix the network so that CSPF selects the shortest path with available bandwidth.
+Fix the network so that Tunnel1 can signal with its requested bandwidth (80000) without removing Tunnel0.
 
-Verify: `show mpls traffic-eng tunnels tunnel0` shows the shortest path (3 hops). `show mpls traffic-eng topology` confirms all links visible with correct TE metrics.
+Verify: Both Tunnel0 and Tunnel1 are UP. `show ip rsvp interface` shows sufficient bandwidth on the path.
 
 Score: 3 Points
 
@@ -117,11 +125,11 @@ Score: 3 Points
 
 ## Ticket 7
 
-RSVP refresh reduction is not working between two P routers. RSVP state is timing out every 30 seconds, causing brief tunnel flaps. Both routers have refresh reduction configured but the summary-refresh messages are being rejected.
+TE tunnel preemption: Tunnel1 (priority setup 6, hold 6) should preempt Tunnel0 (priority setup 7, hold 7) on the shared link when bandwidth is insufficient. But preemption is not happening — Tunnel1 stays DOWN while Tunnel0 holds the bandwidth.
 
-Fix the network so that RSVP refresh reduction works and state is maintained without full refresh timeouts.
+Fix the network so that preemption works correctly.
 
-Verify: `show ip rsvp` shows refresh reduction active. Tunnels remain stable without periodic flaps.
+Verify: Tunnel1 comes UP (preempts Tunnel0's reservation). Tunnel0 re-signals via alternate path.
 
 Score: 2 Points
 
@@ -129,11 +137,11 @@ Score: 2 Points
 
 ## Ticket 8
 
-TE tunnel auto-bandwidth is configured on Tunnel0 but it's not adjusting. The tunnel was provisioned at 50000 kbps but actual traffic is only 5000 kbps. Auto-bandwidth should have adjusted down to save reservable bandwidth for other tunnels. The adjustment interval has passed multiple times.
+Autoroute announce on Tunnel0: The tunnel is UP but VPN traffic from R2 to R8 is NOT using it. CEF on R2 shows the next-hop for 8.8.8.8 as a physical interface (not Tunnel0). Autoroute announce is supposedly configured.
 
-Fix the network so that auto-bandwidth adjusts the tunnel bandwidth based on measured traffic.
+Fix the network so that autoroute injects R8's loopback into R2's IGP RIB via Tunnel0.
 
-Verify: `show mpls traffic-eng tunnels tunnel0` shows adjusted bandwidth closer to actual usage (after the next interval). `show mpls traffic-eng tunnels tunnel0 auto-bw` shows bandwidth sampling working.
+Verify: `show ip route 8.8.8.8` on R2 shows Tunnel0 as outgoing interface. `show ip cef vrf Customer_A 9.9.9.9` shows Tunnel0.
 
 Score: 3 Points
 
@@ -141,11 +149,11 @@ Score: 3 Points
 
 ## Ticket 9
 
-Tunnel2 has FRR (Fast Reroute) configured (facility backup). A backup tunnel exists on the PLR (penultimate router) but the primary tunnel is NOT using it. `show mpls traffic-eng fast-reroute database` shows the primary tunnel is "unprotected."
+Make-before-break (MBB) is not working: When R2's Tunnel0 is re-optimized (timer fires or `mpls traffic-eng reoptimize`), traffic drops for 2-3 seconds. MBB should provide hitless re-optimization.
 
-Fix the network so that the primary tunnel is FRR-protected and the backup tunnel is assigned.
+Fix the network so that re-optimization is hitless (MBB active).
 
-Verify: `show mpls traffic-eng tunnels tunnel2` shows "FRR enabled" and "backup assigned." `show mpls traffic-eng fast-reroute database` shows the tunnel as protected.
+Verify: Run `mpls traffic-eng reoptimize` on R2 — traffic counters on Tunnel0 show zero drops during transition. New path is computed before old is torn down.
 
 Score: 2 Points
 
@@ -153,11 +161,11 @@ Score: 2 Points
 
 ## Ticket 10
 
-FRR (Ticket 9 resolved): The backup tunnel exists and is assigned, but when the protected link is shut down, traffic does NOT reroute to the backup within 50ms. Instead, the headend recomputes a new path (taking 2-3 seconds).
+FRR (Fast Reroute) link protection: Tunnel10 on R2 is configured with FRR but the backup tunnel is not created. When the primary path's first link (R2→R3) goes down, traffic is lost for full IGP convergence time instead of sub-50ms.
 
-Fix the network so that FRR local repair happens at the PLR within 50ms of link failure.
+Fix the network so that FRR provides fast protection for Tunnel10's primary path.
 
-Verify: Shut the protected link — traffic reroutes immediately via the backup tunnel. `show mpls traffic-eng fast-reroute database` shows "Active" state during the failure.
+Verify: `show mpls traffic-eng tunnels tunnel10` shows "FRR: Enabled, Protection: Ready." `show mpls traffic-eng fast-reroute database` shows a backup path.
 
 Score: 2 Points
 
@@ -165,11 +173,11 @@ Score: 2 Points
 
 ## Ticket 11
 
-TE tunnel path-protection (1:1): Tunnel1 has a primary explicit path and a secondary (standby) path. The secondary path will NOT pre-signal. It remains in "path option standby" but never establishes an LSP to be ready for failover.
+FRR node protection: The FRR backup tunnel protects against R3 node failure (not just R2→R3 link failure). However, the bypass tunnel is only configured as link-protection. If R3 itself fails, the backup path still traverses R3.
 
-Fix the network so that the secondary path is pre-signaled and ready for immediate switchover.
+Fix the network so that node-protection is provided (bypass avoids R3 entirely).
 
-Verify: `show mpls traffic-eng tunnels tunnel1` shows both primary and secondary paths signaled. Failover happens in <100ms when primary path fails.
+Verify: `show mpls traffic-eng tunnels` shows bypass tunnel as node-protecting. Bypass path avoids R3.
 
 Score: 3 Points
 
@@ -177,11 +185,11 @@ Score: 3 Points
 
 ## Ticket 12
 
-Multiple TE tunnels are contending for bandwidth on the same link. Priority/preemption should resolve this — higher-priority tunnels should preempt lower ones. However, a low-priority tunnel (setup=7, hold=7) is NOT being preempted by a high-priority tunnel (setup=1, hold=1).
+Path-option fallback: Tunnel1 has `path-option 1 explicit` and `path-option 2 dynamic`. The explicit path is broken (link down) but the tunnel is NOT falling back to dynamic. It stays DOWN.
 
-Fix the network so that TE preemption works correctly and the high-priority tunnel gets bandwidth.
+Fix the network so that path-option fallback works (dynamic path used when explicit fails).
 
-Verify: The high-priority tunnel is UP with reserved bandwidth. The low-priority tunnel is rerouted to an alternate path or is DOWN. `show ip rsvp reservation` confirms correct priority allocation.
+Verify: With explicit path broken, `show mpls traffic-eng tunnels tunnel1` shows UP with "path-option 2 (dynamic)" active.
 
 Score: 3 Points
 
@@ -189,11 +197,11 @@ Score: 3 Points
 
 ## Ticket 13
 
-PCEP (Path Computation Element Protocol): The headend (R1) is configured to delegate path computation to an external PCE (simulated). The PCEP session is Established but the PCE is returning a path with a strict hop that doesn't exist in the topology. The tunnel won't signal because the computed path is invalid.
+Inter-area TE: Tunnel2 (R2→R17) crosses from the north-core into the south-core. The tunnel uses a loose hop in the explicit path (`next-address loose 17.17.17.17`). But the ABR (R6/R13 boundary) is not expanding the loose hop. Tunnel stays DOWN.
 
-Fix the network so that the PCE delegation produces a valid path OR the headend falls back to local CSPF.
+Fix the network so that the loose-hop ERO is expanded at the area boundary and Tunnel2 signals.
 
-Verify: Tunnel comes UP with a valid signaled path. `show mpls traffic-eng tunnels` shows either PCE-computed valid path or local CSPF path.
+Verify: `show mpls traffic-eng tunnels tunnel2` shows UP with full ERO expanded through south-core.
 
 Score: 4 Points
 
@@ -201,11 +209,11 @@ Score: 4 Points
 
 ## Ticket 14
 
-Inter-area TE: Tunnel1 needs to cross an OSPF area boundary (R4 is an ABR into a stub area containing R9). The TE topology database on R1 does NOT contain links beyond the ABR. CSPF fails because it has incomplete topology information.
+Forwarding-adjacency: Tunnel0 (R2→R8) is configured with `mpls traffic-eng forwarding-adjacency` instead of autoroute. The tunnel should appear as a link in OSPF. However, other routers in the network are NOT seeing this TE "link" in their OSPF database.
 
-Fix the network so that the TE tunnel can be signaled across the area boundary to R9.
+Fix the network so that the forwarding-adjacency is advertised in OSPF and used for forwarding.
 
-Verify: `show mpls traffic-eng tunnels tunnel1` shows state UP with path traversing the area boundary. `show mpls traffic-eng topology` shows topology information for both areas (or loose-hop signaling works).
+Verify: `show ip ospf database` on R3 shows a link (Type-1 LSA) corresponding to R2's Tunnel0. Remote routers' SPF considers this link.
 
 Score: 4 Points
 
@@ -213,11 +221,11 @@ Score: 4 Points
 
 ## Ticket 15
 
-Shared Risk Link Group (SRLG): Two physically diverse tunnels (primary and backup) are supposed to use disjoint paths. However, both tunnels have been routed over the same physical fiber bundle (same SRLG). If that fiber cuts, BOTH tunnels fail.
+RSVP reservation tear: After R5 is reloaded, all TE tunnels traversing R5 remain UP on the headend (R2) but traffic is being blackholed at R5. R5 lost the RSVP soft-state but the headend hasn't detected the failure.
 
-Fix the network so that the backup tunnel avoids all SRLGs used by the primary tunnel.
+Fix the network so that RSVP state is refreshed/resynchronized after the reload and traffic flows.
 
-Verify: `show mpls traffic-eng tunnels` — primary and backup have NO shared SRLG values. `show mpls traffic-eng link-management srlg` confirms SRLG exclusion.
+Verify: `show ip rsvp reservation` on R5 shows active reservations matching Tunnel0/Tunnel1. Traffic flows through R5.
 
 Score: 4 Points
 
@@ -225,11 +233,11 @@ Score: 4 Points
 
 ## Ticket 16
 
-Make-before-break (MBB) reoptimization: Tunnel0 is UP on a suboptimal path because the optimal path was unavailable when it first signaled. The optimal path is now available, but the tunnel is NOT reoptimizing. Reoptimization timer has been configured and has expired multiple times.
+Tunnel load-sharing: R2 has both Tunnel0 and Tunnel1 to R8 UP, but all traffic uses Tunnel0. Both tunnels have `autoroute announce` and `tunnel mpls traffic-eng load-share` but ECMP over tunnels is not happening.
 
-Fix the network so that the tunnel reoptimizes to the better path using make-before-break.
+Fix the network so that traffic is load-shared across both tunnels to R8.
 
-Verify: `show mpls traffic-eng tunnels tunnel0` shows the optimal (shorter) path. `show mpls traffic-eng tunnels tunnel0 history` shows the reoptimization event.
+Verify: `show ip cef 8.8.8.8` on R2 shows BOTH Tunnel0 and Tunnel1 in the load-share set.
 
 Score: 4 Points
 
@@ -237,11 +245,11 @@ Score: 4 Points
 
 ## Ticket 17
 
-DS-TE (DiffServ-aware TE): Two class-types (CT0 = best-effort, CT1 = premium) are configured with bandwidth constraints (MAM model). A CT1 tunnel is being rejected because the CT1 bandwidth pool is exhausted, even though the CT0 pool has ample bandwidth. The CT1 tunnel should be able to borrow from CT0 under the configured model.
+Auto-bandwidth: Tunnel0 has `auto-bw` configured to adjust bandwidth based on traffic. The tunnel currently reserves 50000 but actual traffic is 90000. Auto-bandwidth should have increased the reservation but it hasn't changed in 24 hours.
 
-Fix the network so that the DS-TE bandwidth constraint model allows appropriate sharing and the CT1 tunnel signals.
+Fix the network so that auto-bandwidth adjusts Tunnel0's reservation to match actual load.
 
-Verify: `show mpls traffic-eng tunnels` — CT1 tunnel is UP. `show mpls traffic-eng link-management bandwidth-allocation` shows correct DS-TE pool allocation.
+Verify: `show mpls traffic-eng tunnels tunnel0` shows auto-bw active with reservation adjusted toward actual traffic rate.
 
 Score: 4 Points
 
@@ -249,11 +257,11 @@ Score: 4 Points
 
 ## Ticket 18
 
-Complete FRR failure: A link goes down and instead of fast local repair, ALL tunnels traversing that link go DOWN simultaneously. The PLR has backup tunnels configured and assigned. RSVP state is correct. The issue is in the forwarding plane — the LFIB is not switching to the backup path.
+All TE tunnels on R2 (Tunnel0, Tunnel1, Tunnel2) are simultaneously DOWN. The TE topology database is EMPTY. OSPF adjacencies are all FULL. The issue is TE not populating from OSPF.
 
-Fix the network so that FRR local repair works in the data plane (LFIB switchover within 50ms).
+Fix the network so that the TE topology populates and all tunnels re-signal.
 
-Verify: Shut the protected link — all affected tunnels remain UP via backup. `show mpls forwarding-table` on PLR shows backup label swap entries active. Traffic loss < 50ms.
+Verify: `show mpls traffic-eng topology` shows all links. All tunnels come UP.
 
 Score: 5 Points
 
@@ -261,11 +269,11 @@ Score: 5 Points
 
 ## Ticket 19
 
-TE tunnel flapping: Tunnel3 is cycling UP/DOWN every 45-60 seconds. Each time it comes UP, RSVP PATH goes out, RESV comes back, LSP is established — then 45-60 seconds later the LSP is torn down. No link flaps, no IGP changes, no bandwidth contention.
+RSVP authentication: Tunnel1's explicit path traverses R3→R4→R5. RSVP authentication has been enabled between R4 and R5 but the keys don't match. Tunnel1 was working before auth was added — now PATH messages are rejected at R5.
 
-Fix the network so that Tunnel3 remains stable and UP indefinitely.
+Fix the network so that RSVP authentication works and Tunnel1 signals through the authenticated link.
 
-Verify: `show mpls traffic-eng tunnels tunnel3` — uptime exceeds 5 minutes with no flaps. `show log` shows no tunnel state changes.
+Verify: `show ip rsvp interface` shows authentication active. Tunnel1 is UP. `debug ip rsvp` shows no auth failures.
 
 Score: 5 Points
 
@@ -273,15 +281,11 @@ Score: 5 Points
 
 ## Ticket 20
 
-Multi-tunnel failure scenario:
-- Tunnel0 (dynamic): DOWN — CSPF finds no path despite all links visible
-- Tunnel1 (explicit): DOWN — path exists but RSVP signaling rejected at midpoint
-- Tunnel2 (FRR): UP but unprotected — backup assignment broken
-- Tunnel3 (affinity): DOWN — affinity links exist but not visible in TE topology
+Complex multi-tunnel failure: Tunnel0 (autoroute, carries Customer_A), Tunnel2 (autoroute, carries Customer_D to R17), and FRR backup are all impacted simultaneously. Multiple root causes: bandwidth exhaustion on one link, affinity mismatch on another, and missing TE on a third. All VPN traffic is falling back to LDP paths.
 
-Fix ALL four tunnels simultaneously.
+Fix the network so that all TE tunnels re-establish and VPN traffic rides the intended tunnels.
 
-Verify: All tunnels UP. Tunnel0 dynamic shortest path. Tunnel1 explicit through north path. Tunnel2 FRR-protected with backup assigned. Tunnel3 using gold-affinity links.
+Verify: All tunnels UP. `show ip cef vrf Customer_A 9.9.9.9` on R2 shows Tunnel0. `show ip cef vrf Customer_D 19.19.19.19` on R2 shows Tunnel2.
 
 Score: 5 Points
 
@@ -301,3 +305,32 @@ Score: 5 Points
 
 **Passing:** 49/65 (75%)
 **CCIE-ready:** 59/65 (90%)
+
+---
+
+## Injection Notes (for AI fault injector)
+
+**Base state:** Golden-state + all TE tunnels pre-configured and working
+
+| Ticket | Router(s) | Fault |
+|---|---|---|
+| 1 | R2 | Tunnel0 BW set to 999999 (exceeds all links) |
+| 2 | R3 | `no mpls traffic-eng tunnels` under interface to R4 |
+| 3 | R5→R8 Gi2/0 | `mpls traffic-eng attribute-flags 0x2` (forces CSPF away) |
+| 4 | R13 | `no mpls traffic-eng area 0` under OSPF (TE opaque LSAs not generated) |
+| 5 | R14 | Link R13→R14 attribute-flags 0x0 (doesn't satisfy Tunnel3's 0x1 requirement) |
+| 6 | R4 Gi1/0 | `ip rsvp bandwidth 50000` (not enough for 80000) |
+| 7 | Tunnel0 | Setup/hold priority same as Tunnel1 (no preemption possible) |
+| 8 | R2 Tunnel0 | `no tunnel mpls traffic-eng autoroute announce` |
+| 9 | R2 | `no mpls traffic-eng reoptimize events` or MBB disabled |
+| 10 | R2 | Missing backup tunnel or `no mpls traffic-eng fast-reroute` on Tunnel10 |
+| 11 | Bypass tunnel | Path traverses R3 (link-protect only, not node-protect) |
+| 12 | R2 Tunnel1 | Missing `path-option 2 dynamic` |
+| 13 | R6/R13 | Missing `mpls traffic-eng area 0 stub` or loose-hop expansion disabled |
+| 14 | R2 Tunnel0 | Missing `ospf-adjacency` or OSPF not including the FA link |
+| 15 | R5 | `clear ip rsvp reservation *` (simulates state loss) |
+| 16 | R2 | Different `load-share` values or missing on one tunnel |
+| 17 | R2 Tunnel0 | `auto-bw max-bw 50000` (capped too low) |
+| 18 | R2 | `no mpls traffic-eng area 0` under OSPF |
+| 19 | R4 or R5 | RSVP auth key mismatch |
+| 20 | Multiple | BW exhaustion + affinity mismatch + missing TE on link |

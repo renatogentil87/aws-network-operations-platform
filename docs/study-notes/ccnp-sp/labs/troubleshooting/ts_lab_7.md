@@ -1,15 +1,24 @@
 # Troubleshooting Lab 7: Segment Routing (SR-MPLS) — 20 Tickets
 
-**Platform:** GNS3 Local (Cisco XRv 9000, IOS-XR 7.x)
-**Topology:** 14 routers — 4 PEs (R1, R5, R9, R14), 8 P routers, 2 CEs
+**Platform:** GNS3 Local (Cisco 7200, IOS 15.2 with SR support) OR EVE-NG (IOS-XRv)
+**Topology:** 20 routers — same physical topology, IS-IS + SR replaces OSPF + LDP
 **Difficulty:** CCNP-SP to CCIE-SP progressive
+**Prerequisite:** SR-enabled snapshot (IS-IS with SR extensions, LDP removed)
+
+---
+
+## Lab Context
+
+Your SP network has been modernized from OSPF+LDP to IS-IS+Segment Routing. No LDP sessions exist — all label forwarding uses prefix-SIDs and adjacency-SIDs. This lab tests SR-specific troubleshooting: prefix-SID conflicts, SRGB issues, SR-TE policies, TI-LFA, and Flex-Algo.
+
+**Note:** If running on GNS3/IOS 15.2, SR features are limited. For full SR (Flex-Algo, SR-TE with PCE), use EVE-NG with IOS-XRv. Tickets 1-12 are achievable on IOS 15.2; tickets 13-20 require IOS-XR or can be done as config-review exercises.
 
 ---
 
 ## Lab Rules
 
 - Do NOT change hostnames, enable passwords, or console/VTY configuration
-- Do NOT change IS-IS areas or segment routing global block (SRGB) ranges
+- Do NOT change IS-IS area assignments or SRGB ranges (16000-23999)
 - Do NOT add new interfaces or IP addresses unless explicitly required
 - Do NOT remove existing features to resolve a ticket — fix the root cause
 - Static routes are NOT permitted unless preconfigured
@@ -22,29 +31,29 @@
 
 ## Topology Reference
 
-| Role | Routers | Prefix-SID |
-|---|---|---|
-| PE | R1 (SID 101), R5 (SID 105), R9 (SID 109), R14 (SID 114) | 16000+index |
-| P (north) | R2 (SID 102), R3 (SID 103), R4 (SID 104) | 16000+index |
-| P (south) | R6 (SID 106), R7 (SID 107), R8 (SID 108) | 16000+index |
-| P (cross) | R10 (SID 110), R11 (SID 111) | 16000+index |
-| CE | R20 (AS 65001), R21 (AS 65002) |
+| Role | Routers | Prefix-SID (index) | Label |
+|---|---|---|---|
+| PE | R2 (idx 2), R8 (idx 8), R17 (idx 17), R18 (idx 18) | 64512 | 16002, 16008, 16017, 16018 |
+| P (north) | R3 (idx 3), R4 (idx 4), R5 (idx 5), R6 (idx 6), R7 (idx 7) | — | 16003-16007 |
+| P (south) | R13 (idx 13), R14 (idx 14), R15 (idx 15), R16 (idx 16) | — | 16013-16016 |
+| CE | R1, R9, R11, R12, R19, R20 (no SR participation) |
 
 **SRGB:** 16000-23999 (all routers)
-**IGP:** IS-IS single-area (49.0001) with SR extensions
-**SR Policy:** On-Demand Next-hop (ODN) for VPN traffic
-**TI-LFA:** Enabled on all core links
-**Flex-Algo:** Algo 128 (low-latency) on south path (R6-R7-R8)
+**IGP:** IS-IS single-area 49.0001, wide metrics, SR extensions enabled
+**Prefix-SID formula:** Label = 16000 + router-index (e.g., R5 → 16005)
+**SR-TE:** Policies for VPN steering (on PEs)
+**TI-LFA:** Enabled on all core links for sub-50ms protection
+**Flex-Algo 128:** Low-latency path using south-core links (R13-R16) — GigE preferred
 
 ---
 
 ## Ticket 1
 
-R1's prefix-SID (16101) is not being advertised in IS-IS. Other routers cannot reach R1 via the SR label path (LFIB shows no entry for label 16101). R1's IS-IS adjacencies are healthy.
+R2's prefix-SID (16002) is not being advertised in IS-IS. Other routers cannot forward to R2 via SR labels (no LFIB entry for 16002 on any router). R2's IS-IS adjacencies are healthy and its loopback IS in the IS-IS database.
 
-Fix the network so that R1 advertises its prefix-SID into IS-IS.
+Fix the network so that R2 advertises its prefix-SID and all routers install label 16002.
 
-Verify: `show isis database detail` on R3 shows R1's prefix-SID in the SR sub-TLV. `show mpls forwarding` on R3 shows label 16101 with a valid outgoing path.
+Verify: `show isis database detail` on R3 shows R2's prefix-SID sub-TLV. `show mpls forwarding-table labels 16002` on R5 shows a valid entry.
 
 Score: 2 Points
 
@@ -52,11 +61,11 @@ Score: 2 Points
 
 ## Ticket 2
 
-R5 has a prefix-SID conflict with another router — both are advertising SID index 105. The IS-IS database shows the conflict and SR is not installing labels for either prefix. One router needs its SID index changed.
+Prefix-SID conflict: R4 and R14 are both advertising prefix-SID index 4 (label 16004). This creates ambiguity — routers cannot determine which destination label 16004 refers to. R14 should be using index 14.
 
-Fix the network so that all prefix-SIDs are unique and labels are installed for both prefixes.
+Fix the network so that each router has a unique prefix-SID index with no conflicts.
 
-Verify: `show isis segment-routing prefix-sid-map` shows no conflicts. `show mpls forwarding` shows valid entries for both previously conflicting prefixes.
+Verify: `show isis segment-routing prefix-sid-map` shows no conflicts. `show mpls forwarding-table labels 16004` resolves to R4 only. Label 16014 resolves to R14.
 
 Score: 2 Points
 
@@ -64,11 +73,11 @@ Score: 2 Points
 
 ## Ticket 3
 
-The SRGB on one P router is misconfigured (different range than all others). Its locally allocated labels don't align with the global prefix-SID values. LSPs traversing this router break because label values are inconsistent.
+R8's prefix-SID (16008) is advertised but the LFIB on R5 shows "no route" for label 16008. R5 has IS-IS reachability to 8.8.8.8 but the SR label is not programmed. Other prefix-SIDs on R5 are working.
 
-Fix the network so that the SRGB is consistent across all routers.
+Fix the network so that R5's LFIB has a valid entry for label 16008.
 
-Verify: `show isis segment-routing` on all routers shows the same SRGB range. `traceroute mpls segment-routing` from R1 to R5 shows complete LSP.
+Verify: `show mpls forwarding-table labels 16008` on R5 shows outgoing label and interface toward R8.
 
 Score: 2 Points
 
@@ -76,11 +85,11 @@ Score: 2 Points
 
 ## Ticket 4
 
-SR-MPLS forwarding is working between PEs for infrastructure (ping between loopbacks succeeds), but VPN traffic (L3VPN) is NOT using SR transport. VPN routes exist in the BGP table with valid next-hops, but the label stack shows LDP labels instead of SR prefix-SIDs.
+SRGB mismatch: R6 has been configured with SRGB 17000-23999 (shifted by 1000) while all other routers use 16000-23999. Packets arriving at R6 with label 16005 (meant for R5) are being dropped because R6's local SRGB doesn't include 16005.
 
-Fix the network so that VPN traffic uses SR-MPLS transport labels (prefix-SIDs) instead of LDP.
+Fix the network so that R6's SRGB is consistent with the rest of the network.
 
-Verify: `show cef vrf Customer_A <remote-prefix>` shows the transport label is a prefix-SID (16xxx range). VPN traffic works.
+Verify: `show segment-routing mpls state` on R6 shows SRGB 16000-23999. Labels 16000-16020 are properly forwarded by R6.
 
 Score: 3 Points
 
@@ -88,11 +97,11 @@ Score: 3 Points
 
 ## Ticket 5
 
-TI-LFA (Topology Independent Loop-Free Alternate) is configured but NOT providing backup paths on R3. When the R3-R4 link fails, traffic to R4/R5/R9 is black-holed for 1-2 seconds (full IGP convergence time) instead of using a pre-computed backup.
+Adjacency-SID: R3→R7 has an adjacency-SID allocated, but traffic steered to this adj-SID is not being forwarded by R3. The adj-SID label exists in R3's LFIB but points to a wrong interface (not the R3→R7 link).
 
-Fix the network so that TI-LFA provides sub-50ms protection on R3 for the R3-R4 link.
+Fix the network so that the adjacency-SID for R3→R7 correctly forwards out the right interface.
 
-Verify: `show isis fast-reroute` on R3 shows TI-LFA backup path computed for R4's prefix. Link failure test shows <50ms traffic loss.
+Verify: `show mpls forwarding-table labels <adj-SID>` on R3 shows outgoing interface Gi2/0 (toward R7).
 
 Score: 3 Points
 
@@ -100,11 +109,11 @@ Score: 3 Points
 
 ## Ticket 6
 
-TI-LFA backup path on R2 requires a repair label (additional SID in the label stack to steer traffic around the failure). However, the backup label stack shows only the prefix-SID of the destination without the repair SID. Traffic during failure takes a loop.
+SR-TE explicit path: An SR-TE policy on R2 steers Customer_A traffic via explicit SID-list [16003, 16007, 16008] (R3→R7→R8). The policy shows "inactive" — the SID-list cannot be resolved.
 
-Fix the network so that TI-LFA computes the correct repair label stack (P-node or Q-node SID).
+Fix the network so that the SR-TE policy becomes active and steers Customer_A traffic.
 
-Verify: `show isis fast-reroute detail` on R2 shows the backup path with the repair segment(s). Failure test shows loop-free recovery.
+Verify: `show segment-routing traffic-eng policy` on R2 shows status Active. Customer_A traffic follows the R3→R7→R8 path.
 
 Score: 3 Points
 
@@ -112,11 +121,11 @@ Score: 3 Points
 
 ## Ticket 7
 
-SR Policy (explicit path via segment-list) from R1 to R9 through the north path (R2→R3→R4→R9) is not installing in the forwarding table. The policy is configured with a segment-list containing adjacency-SIDs, but one adjacency-SID value is incorrect.
+TI-LFA backup path: R5→R8 (primary path for traffic to R8) has TI-LFA computed, but the backup path is invalid. When R5→R8 link fails, traffic to 16008 is dropped instead of being rerouted via the pre-computed backup.
 
-Fix the network so that the SR Policy installs with the correct segment-list.
+Fix the network so that TI-LFA provides a valid backup path for R5→R8 link failure.
 
-Verify: `show segment-routing traffic-eng policy` on R1 shows the policy as active with a valid forwarding entry. `traceroute segment-routing` confirms the explicit north path.
+Verify: `show isis fast-reroute` on R5 shows a valid TI-LFA backup for prefix 8.8.8.8/32. Shut R5→R8 — traffic converges sub-50ms.
 
 Score: 2 Points
 
@@ -124,11 +133,11 @@ Score: 2 Points
 
 ## Ticket 8
 
-Flex-Algo 128 (low-latency) is configured on the south-path routers (R6, R7, R8) and PEs. R1 should be able to steer traffic to R9 via the low-latency path by using a Flex-Algo prefix-SID. However, R1's LFIB shows no entry for R9's Flex-Algo SID (16209).
+PHP (Penultimate Hop Popping) for prefix-SID: R7 is the penultimate hop for traffic destined to R8 (16008). R7 should pop the label (PHP) but instead forwards with label 16008 intact, causing R8 to receive labeled packets it cannot process.
 
-Fix the network so that Flex-Algo 128 SIDs are computed and installed on all participating routers.
+Fix the network so that PHP works correctly for prefix-SID 16008 at the penultimate hop.
 
-Verify: `show isis flex-algo 128` shows participating routers and their prefix-SIDs. `show mpls forwarding labels 16209` on R1 shows a valid path via the south nodes.
+Verify: `show mpls forwarding-table labels 16008` on R7 shows "Pop" as outgoing label. R8 receives packets unlabeled on the connected interface.
 
 Score: 3 Points
 
@@ -136,11 +145,11 @@ Score: 3 Points
 
 ## Ticket 9
 
-Microloop avoidance using SR: After a link failure, a transient microloop forms for 1-2 seconds before all routers converge. SR microloop avoidance (local delay) is configured but not activating — traffic still loops briefly during convergence.
+SR-prefer not enabled: Both LDP and SR are running simultaneously (migration state). Traffic should prefer SR labels over LDP, but the LFIB shows LDP labels being used for all destinations. SR labels are allocated but not installed in LFIB.
 
-Fix the network so that SR microloop avoidance prevents transient loops during convergence.
+Fix the network so that SR labels are preferred over LDP where both exist.
 
-Verify: Link failure test — no packet loss from loops (may see brief sub-second loss from the convergence itself but no looping). `show isis microloop-avoidance` confirms the feature is active.
+Verify: `show mpls forwarding-table` shows SR-originated labels (16xxx) for all PE loopbacks, not LDP labels.
 
 Score: 2 Points
 
@@ -148,11 +157,11 @@ Score: 2 Points
 
 ## Ticket 10
 
-On-Demand Next-hop (ODN) for L3VPN: BGP vpnv4 routes with a color community (color 100) should trigger automatic SR Policy creation to reach the BGP next-hop via a constrained path. The ODN policy is not being created — VPN traffic uses the default IGP path.
+Mapping-server: R3 is configured as a mapping-server to advertise prefix-SID mappings for routers that don't support SR natively. The mapping entries for R13 (index 13) and R14 (index 14) are configured on R3 but NOT being advertised in IS-IS.
 
-Fix the network so that ODN creates SR Policies for colored BGP next-hops.
+Fix the network so that the mapping-server advertises prefix-to-SID mappings.
 
-Verify: `show segment-routing traffic-eng policy color 100` shows auto-created policies. VPN traffic uses the SR Policy path instead of shortest IGP path.
+Verify: `show isis segment-routing prefix-sid-map received` on R5 shows entries from R3's mapping-server for R13 and R14.
 
 Score: 2 Points
 
@@ -160,11 +169,11 @@ Score: 2 Points
 
 ## Ticket 11
 
-Anycast-SID: R3 and R7 are configured with the same anycast prefix-SID (16200) for load-balancing. However, traffic from R1 always goes to R3 (never R7). The anycast SID should distribute traffic to the nearest instance.
+Microloop avoidance: After R5→R8 link comes back up after a failure, a temporary microloop forms between R3 and R7 during IS-IS convergence. Traffic bounces for 1-2 seconds before stabilizing.
 
-Fix the network so that the anycast-SID correctly resolves to the topologically closest node from each source.
+Fix the network so that microloop avoidance is active and prevents transient loops during convergence.
 
-Verify: From R1, `show mpls forwarding labels 16200` points toward R3 (closer). From R14, it points toward R7 (closer). Both resolve correctly based on IGP distance.
+Verify: `show isis microloop-avoidance` shows active. After link restoration, no traffic loops observed (traceroute shows clean path immediately).
 
 Score: 3 Points
 
@@ -172,11 +181,11 @@ Score: 3 Points
 
 ## Ticket 12
 
-SR-MPLS ping/traceroute (OAM) is failing. `traceroute mpls segment-routing` from R1 to R5 shows "!N" (no FEC) at intermediate hops. The data plane works (VPN traffic flows), but the OAM mechanism cannot validate the LSP.
+SR global label collision with static MPLS: R2 has a static MPLS label binding (label 16005) configured for a local application. This collides with R5's prefix-SID (also 16005). Traffic to R5 from R2 is misdirected.
 
-Fix the network so that SR-MPLS OAM (ping/traceroute) works end-to-end.
+Fix the network so that no static label collides with the SR global block.
 
-Verify: `traceroute mpls segment-routing ipv4 5.5.5.5/32` from R1 shows successful responses from each hop along the path.
+Verify: `show mpls forwarding-table labels 16005` on R2 correctly points toward R5 (SR prefix-SID). No static conflicts.
 
 Score: 3 Points
 
@@ -184,11 +193,11 @@ Score: 3 Points
 
 ## Ticket 13
 
-Binding-SID: An SR Policy has been created with binding-SID 15001 to represent an end-to-end path. Remote routers should be able to steer traffic into this policy by pushing label 15001. However, the binding-SID is not being programmed in the LFIB.
+Flex-Algo 128: PEs should steer low-latency VPN traffic via Flex-Algo 128 (south-core path: R13→R14→R15→R16). The Flex-Algo definition exists but R17 is not computing Algo-128 paths. Its LFIB shows no entries for Algo-128 SIDs.
 
-Fix the network so that the binding-SID is installed and remote routers can use it to steer traffic into the SR Policy.
+Fix the network so that R17 participates in Flex-Algo 128 and installs Algo-128 prefix-SIDs.
 
-Verify: `show mpls forwarding labels 15001` on R1 shows the binding-SID mapped to the SR Policy path. Traffic pushed with label 15001 follows the policy.
+Verify: `show segment-routing mpls forwarding flex-algo 128` on R17 shows entries for Algo-128 destinations. Low-latency traffic follows south-core path.
 
 Score: 4 Points
 
@@ -196,11 +205,11 @@ Score: 4 Points
 
 ## Ticket 14
 
-SR Policy with weighted ECMP (multiple segment-lists, different weights): A policy has two candidate paths — 70% via north, 30% via south. However, all traffic is going 50/50 or 100% on one path. The weighted load-balancing is not being respected.
+SR-TE On-Demand Next-hop (ODN): R2 should create dynamic SR-TE policies for VPN prefixes using color communities. Customer_A routes carry color 100 (low-latency). R2 should auto-create an SR-TE policy to R8 via Flex-Algo 128. The policy is NOT being created.
 
-Fix the network so that traffic distribution matches the configured weights (70/30 split).
+Fix the network so that ODN creates SR-TE policies based on color community.
 
-Verify: `show segment-routing traffic-eng policy detail` shows both segment-lists active with correct weights. Traffic counters confirm approximate 70/30 distribution.
+Verify: `show segment-routing traffic-eng policy color 100` on R2 shows a dynamically created policy to R8 via Algo-128 path.
 
 Score: 4 Points
 
@@ -208,11 +217,11 @@ Score: 4 Points
 
 ## Ticket 15
 
-TI-LFA with SR Policy interaction: An SR Policy forces traffic via a specific path, but when TI-LFA activates (link failure on the policy path), the backup path conflicts with the SR Policy intent. Traffic is rerouted to a path that violates the policy constraint (e.g., goes through a node it should avoid).
+PCE (Path Computation Element): R3 acts as PCE for the network. SR-TE policies on R2 delegate path computation to R3 (PCE-initiated). The PCEP session between R2 and R3 is DOWN.
 
-Fix the network so that TI-LFA backup paths respect SR Policy constraints.
+Fix the network so that the PCEP session establishes and R2 receives PCE-computed paths.
 
-Verify: During a link failure, traffic stays within the SR Policy's allowed topology. `show segment-routing traffic-eng policy detail` shows the policy with updated backup path that maintains constraints.
+Verify: `show segment-routing traffic-eng pcc` on R2 shows PCEP session to R3 as UP. PCE-delegated policies show computed paths.
 
 Score: 4 Points
 
@@ -220,11 +229,11 @@ Score: 4 Points
 
 ## Ticket 16
 
-Prefix-SID vs Adjacency-SID interaction: A segment-list uses both prefix-SIDs and adjacency-SIDs. The adjacency-SID at one hop is a dynamic value that changed after a router reload. The segment-list has the stale adjacency-SID value, causing the LSP to break at that hop.
+Binding-SID: An SR-TE policy on R2 has binding-SID 15001 allocated. Remote routers should be able to steer traffic to R2 using this binding-SID. However, label 15001 is not in R2's LFIB — it's rejected because it falls outside the SRGB and SRLB.
 
-Fix the network so that the SR Policy uses stable (persistent/static) adjacency-SIDs that survive reloads.
+Fix the network so that the binding-SID is properly allocated and functions for traffic steering.
 
-Verify: `show isis adjacency-log` — adjacency-SID remains constant across reload. The SR Policy path is valid after router reload.
+Verify: `show mpls forwarding-table labels 15001` on R2 shows it mapped to the SR-TE policy. Traffic arriving with label 15001 is steered per-policy.
 
 Score: 4 Points
 
@@ -232,11 +241,11 @@ Score: 4 Points
 
 ## Ticket 17
 
-Flex-Algo constraint propagation: Flex-Algo 128 should avoid R10 and R11 (exclude affinity "maintenance"). The algo definition is correct on the Flex-Algo definition router, but R6 is NOT receiving the constraint — it still includes R10 in its Flex-Algo SPF computation.
+IS-IS SR advertisement suppression: R8 has `segment-routing prefix-sid-map advertise-local` configured but is NOT advertising its prefix-SID in LSP. The prefix-SID index is assigned correctly under the loopback interface but isn't in the TLV.
 
-Fix the network so that ALL Flex-Algo 128 participants receive and honor the exclude constraint.
+Fix the network so that R8's prefix-SID is advertised in its IS-IS LSP.
 
-Verify: `show isis flex-algo 128` on all participating routers shows the same constraints. The computed Flex-Algo tree excludes R10 and R11.
+Verify: `show isis database detail R8` shows the SR prefix-SID sub-TLV for 8.8.8.8/32 with index 8.
 
 Score: 4 Points
 
@@ -244,11 +253,11 @@ Score: 4 Points
 
 ## Ticket 18
 
-Complete SR forwarding failure: All SR label entries have disappeared from the LFIB on R3. IS-IS adjacencies are UP, prefix-SIDs are advertised by peers, but R3 shows an empty `show mpls forwarding` table. LDP is not configured (SR-only network). All traffic through R3 is being dropped.
+Network-wide SR label forwarding failure: ALL prefix-SIDs show in IS-IS databases correctly, but NO router has LFIB entries for SR labels. Traffic falls back to IP forwarding. The label manager is not programming labels.
 
-Fix the network so that R3's LFIB is populated with SR label entries and forwarding is restored.
+Fix the network so that SR labels are installed in the LFIB across the network.
 
-Verify: `show mpls forwarding` on R3 shows entries for all prefix-SIDs. Traffic transiting R3 is forwarded correctly. `traceroute mpls` through R3 succeeds.
+Verify: `show mpls forwarding-table` on all P routers shows 16xxx labels with valid outgoing interfaces. VPN traffic uses SR labels.
 
 Score: 5 Points
 
@@ -256,11 +265,11 @@ Score: 5 Points
 
 ## Ticket 19
 
-SR Policy path computation loop: An SR Policy from R1 to R9 with a dynamic path (computed by headend) is constantly being recomputed every 5 seconds. Each computation produces a DIFFERENT path. No topology changes are occurring. The headend is oscillating between two equal-cost paths but never settling.
+TI-LFA + Flex-Algo interaction: TI-LFA backup paths for Flex-Algo 128 destinations are computed using the default algorithm (Algo 0) instead of Algo 128. This means backup paths route through links excluded by Algo 128's constraint.
 
-Fix the network so that the SR Policy computation is stable and the path remains constant.
+Fix the network so that TI-LFA backup paths honor Flex-Algo constraints.
 
-Verify: `show segment-routing traffic-eng policy` — path remains unchanged for 5+ minutes. No recomputation events in the log.
+Verify: `show isis fast-reroute flex-algo 128` shows backup paths only using Algo-128 eligible links. Protection maintains the latency guarantee.
 
 Score: 5 Points
 
@@ -268,15 +277,11 @@ Score: 5 Points
 
 ## Ticket 20
 
-Multi-failure scenario:
-- R1→R5: SR transport broken (prefix-SID not installed on intermediate router)
-- R1→R9: SR Policy active but using wrong path (affinity constraint violated)
-- R14→R5: TI-LFA backup computes but doesn't install in LFIB
-- Flex-Algo 128: Only 2 of 5 participating routers have the algo active
+Complete SR control-plane rebuild: R2 cannot reach R8, R17, or R18 via SR labels. IS-IS adjacencies are ALL UP. Prefix-SIDs are advertised. But LFIB is empty across multiple routers. Multiple issues: SRGB conflict on one router, missing SR config on another, and a static label collision on a third.
 
-Fix ALL SR issues simultaneously so that complete SR-MPLS functionality is restored.
+Fix the network so that full SR label forwarding works across all paths.
 
-Verify: All PE-to-PE SR paths work. TI-LFA provides protection. Flex-Algo 128 path available on all participants. SR Policies follow constraints.
+Verify: `ping 8.8.8.8 source 2.2.2.2 mpls` (or equivalent labeled ping) succeeds. `show mpls forwarding-table` on all P routers shows valid SR labels for all PE destinations.
 
 Score: 5 Points
 
@@ -296,3 +301,32 @@ Score: 5 Points
 
 **Passing:** 49/65 (75%)
 **CCIE-ready:** 59/65 (90%)
+
+---
+
+## Injection Notes (for AI fault injector)
+
+**Base state:** IS-IS + SR snapshot (no OSPF, no LDP, all SR prefix-SIDs configured)
+
+| Ticket | Router(s) | Fault |
+|---|---|---|
+| 1 | R2 | Missing `segment-routing mpls` under IS-IS or prefix-SID not assigned to loopback |
+| 2 | R14 | `prefix-sid index 4` (conflicts with R4) → change to index 14 |
+| 3 | R5 | `segment-routing mpls sr-prefer` missing (LDP taking over) |
+| 4 | R6 | SRGB set to 17000-23999 |
+| 5 | R3 | Adj-SID manually set to wrong interface index |
+| 6 | R2 | SID-list references non-existent SID or router down |
+| 7 | R5 | `no isis fast-reroute ti-lfa` on interface toward R8 |
+| 8 | R8 | `explicit-null` configured (overrides PHP) |
+| 9 | All | `segment-routing mpls sr-prefer` missing globally |
+| 10 | R3 | Missing `segment-routing prefix-sid-map advertise-local` |
+| 11 | All | `microloop-avoidance` not enabled under IS-IS |
+| 12 | R2 | `mpls static label 16005 ...` conflicting with SRGB |
+| 13 | R17 | Missing `flex-algo 128` participation |
+| 14 | R2 | Missing ODN template or color-community not set on routes |
+| 15 | R2/R3 | PCEP config mismatch (wrong source/peer IP) |
+| 16 | R2 | SRLB not configured (binding-SID outside allocated range) |
+| 17 | R8 | `no segment-routing mpls` under interface Loopback0 |
+| 18 | Multiple | `segment-routing mpls` not connected to forwarding |
+| 19 | TI-LFA | Missing algo-constraint awareness in backup computation |
+| 20 | Multiple | SRGB conflict + missing SR + static collision |

@@ -1,47 +1,119 @@
 # Troubleshooting Labs
 
-Each troubleshooting lab corresponds to a configuration lab and contains 10+ scenarios to diagnose and fix.
+All troubleshooting labs use the **same 20-router GNS3 topology** — the same physical wiring, same router hardware (Cisco 7200, IOS 15.2), same telnet ports. Each lab loads a different configuration snapshot appropriate to its technology area.
 
-**How it works:**
-1. You build the GNS3 topology (same 20-router topology as configuration labs)
-2. You tell the AI which troubleshooting lab you want
-3. The AI connects to your routers via telnet and configures the base + broken state
+**Total: 9 labs × 20 tickets = 180 troubleshooting tickets**
+**Total points available: 585**
+
+---
+
+## How It Works
+
+1. Load the appropriate GNS3 snapshot for the lab you want
+2. Tell the AI which lab + ticket(s) you want injected
+3. The AI connects to routers via telnet and configures the broken state
 4. You receive ONLY the symptoms — then troubleshoot blind
 5. You fix the issue and verify
-
-**Platform:** GNS3 Local — same 20-router topology (Cisco 7200, IOS 15.2)
+6. Each lab is progressive (INE-style): fixing all 20 tickets results in a fully working topology
 
 ---
 
-## Troubleshooting Labs (To Be Created After Each Config Lab Is Complete)
+## Lab Overview
 
-| TS Lab | Matches Config Lab | Topics | Status |
+| TS Lab | Technology | Snapshot Required | Status |
 |---|---|---|---|
-| ts_lab_1.md | Lab 1 (MPLS Basics) | OSPF adjacency, LDP sessions, label allocation, PHP, LFIB | ⬜ |
-| ts_lab_2.md | Lab 2 (L3VPN) | VRF, RT/RD, vpnv4 reflection, PE-CE protocols, as-override, RR | ⬜ |
-| ts_lab_3.md | Lab 3 (MPLS TE) | Tunnel UP/DOWN, CSPF, bandwidth, affinity, autoroute, FRR | ⬜ |
-| ts_lab_4.md | Lab 4 (AToM) | Pseudowire UP/DOWN, VC labels, targeted LDP, AC status | ⬜ |
-| ts_lab_5.md | Lab 5 (AToM + TE) | PW preferred-path, fallback, redundancy, VLAN interworking | ⬜ |
-| ts_lab_6.md | Lab 6 (Advanced L3VPN) | Shared services RT, hub-spoke, SOO, extranet, import-map | ⬜ |
-| ts_lab_7.md | Lab 7 (OAM & Protection) | LSP ping failures, BFD, LFA, LDP sync, graceful restart | ⬜ |
-| ts_lab_8.md | Lab 8 (BGP Policy) | Path selection, communities, max-prefix, RT-constraint | ⬜ |
-| ts_lab_9.md | Lab 9 (Python Automation) | Script failures, connectivity, parsing errors | ⬜ |
-| ts_lab_10.md | Lab 10 (IS-IS) | Adjacency, levels, route leaking, authentication, overload | ⬜ |
-| ts_lab_11.md | Lab 11 (VPLS) | VFI, MAC learning, split-horizon, BUM flooding | ⬜ |
-| ts_lab_12.md | Lab 12 (6PE/6VPE) | vpnv6, send-label, IPv6 VRF, address-family activation | ⬜ |
-| ts_lab_13.md | Lab 13 (mVPN) | MDT, PIM VRF, core multicast, IGMP, data MDT | ⬜ |
-| ts_lab_14.md | Lab 14 (Security) | CoPP blocking legitimate traffic, uRPF drops, ACL issues | ⬜ |
-| ts_lab_15.md | Lab 15 (QoS) | Wrong class, EXP mapping, policing drops, queuing config | ⬜ |
+| **ts_lab_1** | IS-IS as SP IGP | Topology D (IS-IS replaces OSPF) | ✅ Ready |
+| **ts_lab_2** | MPLS SP Core (OSPF+LDP+L3VPN+TE) | Golden-state (Topology A) | ✅ Active — Tickets 4-20 injected |
+| **ts_lab_3** | MP-BGP & Route Reflectors | Golden-state (Topology A) | ✅ Ready |
+| **ts_lab_4** | L3VPN Advanced (Inter-AS, Hub-Spoke) | Golden-state + Inter-AS config | ✅ Ready |
+| **ts_lab_5** | L2VPN & VPLS | L2VPN-Base (Topology B) | ✅ Ready |
+| **ts_lab_6** | MPLS TE Advanced | Golden-state + TE tunnels | ✅ Ready |
+| **ts_lab_7** | Segment Routing (SR-MPLS) | SR snapshot (IS-IS + SR, no LDP) | ✅ Ready |
+| **ts_lab_8** | QoS in SP Networks | Golden-state + QoS policies | ✅ Ready |
+| **ts_lab_9** | Multicast VPN (mVPN) | Golden-state + mVPN overlay | ✅ Ready |
 
 ---
 
-## Workflow Per Troubleshooting Session
+## Topology (All Labs)
 
 ```
-You: "Give me ts_lab_2 scenario 3"
-AI:  Connects to routers → configures base + break → "Ready. Symptoms: R1 cannot ping R9..."
-You: Troubleshoot using show commands
-You: Fix the issue
-You: "Done — verify"
-AI:  Confirms fix or tells you what's still broken
+                    ┌─────────── NORTH CORE ───────────┐
+                    │                                   │
+    R1(CE)──R2(PE)──R3(P/RR)──R4(P)──R5(P)──R8(PE)──R9(CE)
+    R12(CE)─┘       │    │              │    │    └──R11(CE)
+                     R6(P)──────────────R7(P/RR)
+                     │                   │
+                    ┌┘                   └┐
+                    │   SOUTH CORE        │
+                   R13(P)──R14(P)──R15(P)──R16(P)
+                    │       │              │
+                   R17(PE)  R18(PE)       
+                    │        │
+                   R19(CE)  R20(CE)
 ```
+
+| Role | Routers | ASN |
+|---|---|---|
+| PE | R2, R8, R17, R18 | 64512 |
+| P (north) | R3, R4, R5, R6, R7 | — |
+| P (south) | R13, R14, R15, R16 | — |
+| RR | R3, R7 | 64512 |
+| CE | R1, R9, R10, R11, R12, R19, R20 | Various |
+
+---
+
+## Difficulty Progression (per lab)
+
+| Tickets | Level | Points Each |
+|---|---|---|
+| 1-3 | CCNP-SP ⭐⭐ | 2 |
+| 4-6 | CCNP-SP ⭐⭐⭐ | 3 |
+| 7-9 | CCNP/CCIE ⭐⭐⭐ | 2-3 |
+| 10-12 | CCNP→CCIE ⭐⭐⭐ | 2-3 |
+| 13-17 | CCIE-SP ⭐⭐⭐⭐ | 4 |
+| 18-20 | CCIE-SP ⭐⭐⭐⭐⭐ | 5 |
+
+**Passing per lab:** 75% (≈49/65 points)
+**CCIE-ready per lab:** 90% (≈59/65 points)
+
+---
+
+## Workflow
+
+```
+You: "Inject ts_lab_3 tickets 1-6"
+AI:  Connects to routers → configures base + 6 faults → "Ready. Start with Ticket 1."
+You: Troubleshoot using show commands
+You: Fix each issue
+You: "Done with ticket 1 — verify"
+AI:  Confirms fix or tells you what's still broken
+You: Move to ticket 2...
+```
+
+---
+
+## GNS3 Snapshots Needed
+
+| Snapshot | Labs Using It |
+|---|---|
+| **Golden-State** (OSPF+LDP+L3VPN+RR+TE) | ts_lab_2, ts_lab_3, ts_lab_6, ts_lab_8, ts_lab_9 |
+| **L2VPN-Base** (OSPF+LDP, no L3VPN on PE-CE) | ts_lab_5 |
+| **IS-IS** (IS-IS replaces OSPF) | ts_lab_1 |
+| **SR** (IS-IS+SR, no LDP) | ts_lab_7 |
+| **Inter-AS** (Golden-state + R6↔R13 inter-AS VRF) | ts_lab_4 |
+| **mVPN** (Golden-state + PIM-SM + MDT + mdt SAFI) | ts_lab_9 |
+| **QoS** (Golden-state + DiffServ policies) | ts_lab_8 |
+
+---
+
+## Recommended Study Order
+
+1. **ts_lab_2** — MPLS SP Core fundamentals (do this first — covers OSPF, LDP, L3VPN, TE basics)
+2. **ts_lab_3** — BGP/RR deep-dive (after you're comfortable with VPN control plane)
+3. **ts_lab_6** — TE Advanced (after you understand basic TE from ts_lab_2 tickets 8-9, 12)
+4. **ts_lab_1** — IS-IS (when ready for IGP migration scenarios)
+5. **ts_lab_4** — Inter-AS (after mastering single-domain L3VPN)
+6. **ts_lab_5** — L2VPN/VPLS (different PE-CE model, separate snapshot)
+7. **ts_lab_8** — QoS (overlay on working topology)
+8. **ts_lab_9** — Multicast/mVPN (most complex overlay)
+9. **ts_lab_7** — Segment Routing (modern SP, may need EVE-NG for full coverage)

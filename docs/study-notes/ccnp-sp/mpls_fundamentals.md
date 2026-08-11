@@ -294,10 +294,11 @@ Add an attribute to the link so it can be added or removed from path calculation
 - 32 bits length - hexa character starting from 0x00000000 - 0xffffffff
 After configuring attribute-flag you setup the affinity in the tunnel hexa mask hexa.
 - When mask = 1 it means the bit is important on attribute flag, if mask =0 not important
-
 0x00000001 - attribute flag - this is equal to - 0000 0000 0000 000 000 000 000 0001 - 1 important bit
 0x0000000f - mask - this is equal to - 0000 000 000 000 000 000 000 1111 - mas bit, the last bit is matching which is the important bit.
 If the hexa doesn't match the link is excluded from the path calculation.
+
+If the tunnel has affinity flag configured but the links doesn't then the tunnel won't come up as it is not matching the affinity flags.
 
 **NOTE** By default, Cisco IOS doesn't trigger reoptimization when a link in the network is available to TE again, either by configuration or link is operational again.
 To enable the optimization when a link becomes operational for MPLS TE: - mpls traffic-eng reoptimize events link-up
@@ -367,13 +368,9 @@ Feature only for dynamic tunnels
 MPLS TE AUTOROUTE - Another function to forward traffic to the tunnels, we don't need to configure static route or PBR.
 You setup autoroute - mpls traffic-eng autoroute announce on interface and it will be advertise onto the IGP.
 
-MPLS TE Forwarding Adjacency
-Forwarding methods so far:
- - Static
- - PBR
- - Autoroute announce
- - Forwarding Adjacency: Create a bidrectional virtual link between head-end and tail-end routers.
-You configure two tunnels, from R1 to R4, R4 to R1 then enable forwarding adjacency and they can exchange traffic. It is used for load balancing
+**MPLS TE Forwarding Adjacency**
+It generates a Router LSA as the tunnel interface. So other routers in the OSPF/ISIS domain will see this tunnel link and depending on the igp metric may prefer
+the tunnel to route traffic to the destination.
 
 OSPF sees the tunnel as a link with IGP metric, other route include this link in CSPF. They can only see it a link when forwarding adjacency is enabled on both directions.
 
@@ -475,6 +472,7 @@ We don't need the reservation anymore.
 
 **Link Manager**
 Link Manager is part of Cisco router that does link admission control, keeps track of reserved bw reserved by RSVP.
+Runs on every router in the path. Tracks how much bandwidth is allocated per interface per priority. Decides admit/reject when an RSVP PATH arrives
 In Path Message there is TSPEC = 64000 bytes/sec(example). Router needs to validate whether it has the requested bw to send path message forward to next LSR.
 1. That's the function of Link Manager control, it controls the admission of the link, it keep tracks of the available bandwidth.
 2. Another function of Link Manager, is preemption, it understand the priorities setup for the tunnel to preempt the tunnels.
@@ -495,6 +493,38 @@ Flooding by the IGP - Link Manager send flooding every 3 minutes with contraints
 4. Change in the reserved bandwidth: Manually changed the bw or updated bw on the link. 
 5. After a tunnel setup failure: we setup the tunnel for a reason failure. The tunnel should be tear down and the bw should be released.
 
+**show mpls traffic-eng link-management bandwidth-allocation interface_name**
+Up Thresholds (available bandwidth increasing — tunnels being removed):
+15 30 45 60 75 80 85 90 95 96 97 98 99 100
+When a tunnel is torn down and available bandwidth goes UP, OSPF only re-advertises when it crosses one of these percentages of max-reservable.
+Down Thresholds (available bandwidth decreasing — tunnels being admitted):
+100 99 98 97 96 95 90 85 80 75 60 45 30 15
+When a tunnel is admitted and available bandwidth goes DOWN, OSPF only re-advertises when it crosses one of these percentages.
+Example: Link has 100 Mbps reservable. 
+  1. Tunnel1 reserves 5 Mbps → available = 95 Mbps (95%) → crosses the 95% down threshold → OSPF floods new LSA
+  2. Tunnel2 reserves 3 Mbps → available = 92 Mbps (92%) → between 95% and 90%, no threshold crossed → no flood
+  3. Tunnel3 reserves 4 Mbps → available = 88 Mbps (88%) → crosses 90% down threshold → OSPF floods
+Why it matters for CSPF: Remote headend routers make tunnel path decisions based on the TE topology database. If the database is stale (not updated), a headend might try to signal a tunnel on a link that's
+actually full — RSVP will reject it. More aggressive thresholds = more accurate topology but more flooding. The defaults are a balance.
+
+**Auto-Bandwidth**
+Auto-bandwidth measures the tunnel's own traffic rate, not the physical link traffic. 
+How it works: 
+  1. Sampling: IOS periodically reads the tunnel interface's output counter (show interface Tunnel0 — output rate in bps). This is the actual traffic flowing INTO the tunnel.
+  2. Collection interval: Every X seconds (default 300 seconds / 5 minutes, configurable with frequency), it records the highest output rate seen during that interval.
+  3. Adjustment: At the end of the collection interval, it compares the measured peak rate against the current RSVP reservation:
+    - If traffic > current reservation → signal a new reservation with higher bandwidth (up to max-bw)
+    - If traffic < current reservation → signal a new reservation with lower bandwidth (down to min-bw)
+    - If the difference is below the adjustment-threshold (e.g., 10%) → don't bother re-signaling
+  4. Re-signaling: The tunnel does a make-before-break — signals the new bandwidth on the same or new path without dropping traffic
+
+Auto-bw checks only Tunnel interface output counters. If the tunnel needs 80M, it will ask for that, it doesn't monitor the physical interfaces. Whether the interfaces
+will admit that 80M request comes down to the link manager to admit it based on the interface utilization.
+Think of it this way: if Tunnel0 carries 80 Mbps of traffic but the physical link has 900 Mbps free, auto-bandwidth doesn't care about the 900 Mbps. It just says "my tunnel needs 80 Mbps reserved" and
+re-signals.
+Whether that 80 Mbps can actually be admitted on every hop — that's the Link Manager's job.
+If the tunnel request 10M but the traffic is 100M, the traffic won't get dropped, auto-bw will request for more link, link manager will try to accomodate, if it can that's fine 
+and if it can't it respond with reseverr message it can't accomodate that request.
 
 **MPLS TE Fast ReRoute (FRR)**
 **Link Protection**
@@ -604,7 +634,13 @@ In the capture, you will have 3 labels, VPNv4 Label, RSVP Label and LDP Label. L
 2. Solution: Targeted LDP Session: so head-end receives the label from P router and knows how to send the labeled traffic, as long as mpls is also enabled on tunnel interface on head-end router.
    - mpls ldp neighbor x.x.x.x targeted ldp 
 
-
+**SubPool and global Pool**
+Subpool is like a premium capacity allocated to the tunnel. Let's say you have 100Mbps on the tunnel and you create a subpool of 50Mbps.
+When a tunel is configured with subpool they can consume the 50mbps but it is guaranteed for them, it is taken from the global pool. Example:
+tunnel 1 - global pool 100mbps
+tunnel 2 - subpool 60mbps
+Data flows 40mbps on subpool, so subpool still has 20mbps to server this tunnel, while global pool still have 40Mbps to allocate to its tunnel.
+Global pool reservations are consumed only from global pool, and subpool only from subpool.
 
 
 
@@ -619,667 +655,426 @@ mpls traffic-eng link-management timers periodic-flooding SEC
 show mpls traffic-eng link-management bandwidth-allocation
 show mpls traffic-eng link-management addimission-control 
 
-
-```
-
-```
-
 ---
 
 ### Chapter 9: IPv6 over MPLS (6PE/6VPE)
 
 ### Notes
+LDP doesn't support IPv6 as of yet.
+- In networks that are running MPLS today, the labeled packets might be ipv6 packets, without the need for the P router to run Ipv6.
+The solution 6PE and 6VPE are based on this.
+- Another method to carry IPv6 in MPLS is Any Transport over MPLS (AToM). With this solution, the MPLS payload is a L2 frame.
+On the edge LSR, the frames are labeled and then transported across MPLS backbone through virtual circuit or pseudowire
+- Last method to carry IPv6 over MPLS backbone is to use MPLS VPN Solution, to carry IPv6 over IPv4, the CE routers need tunnels between them.
+CE routers needs to be dual-stack routers.
+- Following are the tunneling methods for IPv6 that you can implement with Cisco IOS today:
+  - IPv6 over IPv4 GRE Tunnels
+  - Manual IPv6 Tunnels
+  - IPv4 compatible IPv6 tunnels
+  - ISATAP tunnels
+
+- 6PE is the Cisco name directly carrying IPv6 packets over MPLS Backbone
+  - IPv6 doesn't belong to a vpn
+  - no vrf interface on PE
+  - All IPv6 CE routers can see each other as 6PE runs in the global address space on PE routers.
+
+- Operation of 6PE
+  - PE router are dual-stack
+  - the ipv6 routing distribution between the PE routers is done via MP-iBGP. MP-iBGP distributes the labels to be used for the specific IPv6 prefixes.
+  - This BGP label identifies or tags the IPv6 packet at egress PE. PE use label and LFIB lookup to forward traffic to CE router.
+- Configuration:
+  - enable ipv6 cef - ipv6 cef
+  - enable ipv6 unicast routing - ipv6 unicast-routing
+  - under ipv6 address family in BGP you tell the router to send label: neighbor x.x.x.x send-label
+
+- 6VPE- IPv6 in VPN across MPLS backbone
+Operation of 6VPE
+- it has an MPLS core network running IPv4 IGP and LDP or RSVP for TE
+- The edge LSR or PE routers are capable of running ipv6
+- the edge LSR or PE routers have vrf that designate the vpns towards the customer CE routers
+- full-mesh MP-iBGP session exist between PE routers - ipv6 prefixes
+- IPv6 packets are transported with 2 labels: an IGP as the top label and a BGP(VPN) label as bottom label.
+- PE and CE have ipv6 routing protocol between them.
 
 
-
-
-### Commands
-
-```
-
-```
-
----
 
 ### Chapter 10: Any Transport over MPLS (AToM)
 
-### Notes
+AToM allows you to carry Layer 2 frames (ethernet, frame relay, ATM, PPP, any transport) across an MPLS backbone transparently.
+The customer thinks they have a direct wire between two sites, but it is actually traversing the MPLS.
 
+Key Components:
 
+**Pseudowire (PW)**
+- Virtual point-to-point connection between two PEs
+- Emulates a physical wire across the MPLS network
+- Identified by a VC-ID (both PEs must agree on the same VC-ID)
 
+**Attachment Circuit (AC)**
+- Physical interface on the PE that connects to the customer CE
+- This interface becomes a pure L2 port - no ip address, no routing
+- whatever frames arrive on this port get shoved into the pseudowire
 
-### Commands
+**Targeted LDP Session**
+- PE uses a special LDP session (not the regular link-based one) to exchange VC labels
+- this ldp runs directly between the two PE loopbacks (targeted = no adjacent peers)
+- It negotiates the VC label and pseudowire parameters
 
-```
+**Two Label Stack**
+- Transport labe (top): gets the packet from ingress PE to egress PE (regular LDP/TE Label)
+- VC Label (bottom): Tells the egress PE which pseudowire (which AC) to send the frame out
 
-```
+**Control Word (Optional)**
+- a 4-byte header between the label stack and the layer 2 payload
+- used for sequencing, padding small frames, identifying the payload type
+- Required for some encapsulations (Frame Relay, ATM); optional for ethernet
 
----
+HOW IT WORKS:
+  CE -> Ethernet Frame -> PE -> Push VC Label + Transport Label -> P router MPLS -> PE -> Pop Labels forward new frame - CE
+
+  1. R1 sends a normal Ethernet frame to R2
+  2. R2 doesn't look at IP — just takes the entire L2 frame
+  3. R2 pushes 2 labels: transport (to reach R8) + VC label (to identify the pseudowire)
+  4. P routers swap only the transport label — they never see or touch the customer frame
+  5. R8 receives the packet, uses the VC label to identify which AC to forward to
+  6. R8 strips all labels and sends the raw Ethernet frame out toward R9
+  7. R9 thinks R1 is directly connected on the same LAN
+   
+  Comparison with L3VPN
+  
+  ┌────────────────────┬───────────────────────────────────┬────────────────────────────────────┐
+  │                    │ L3VPN                             │ AToM (L2VPN)                       │
+  ├────────────────────┼───────────────────────────────────┼────────────────────────────────────┤
+  │ PE involvement     │ Routes customer traffic (Layer 3) │ Switches customer frames (Layer 2) │
+  ├────────────────────┼───────────────────────────────────┼────────────────────────────────────┤
+  │ PE-CE protocol     │ BGP/OSPF/Static                   │ None — pure L2                     │
+  ├────────────────────┼───────────────────────────────────┼────────────────────────────────────┤
+  │ Customer awareness │ PE knows customer IP prefixes     │ PE doesn't know/care about payload │
+  ├────────────────────┼───────────────────────────────────┼────────────────────────────────────┤
+  │ Label bottom       │ VPN label (from BGP vpnv4)        │ VC label (from targeted LDP)       │
+  ├────────────────────┼───────────────────────────────────┼────────────────────────────────────┤
+  │ Label top          │ Transport (LDP/TE)                │ Transport (LDP/TE) — identical     │
+  ├────────────────────┼───────────────────────────────────┼────────────────────────────────────┤
+  │ Signaling          │ MP-BGP vpnv4                      │ Targeted LDP                       │
+  └────────────────────┴───────────────────────────────────┴────────────────────────────────────┘
+   
+**IOS Configuration (basic)**
+When you configure xconnect command, it automatically creates the target ldp session.
+The only prerequisite is that both PEs have mpls ldp discovery targeted-hello accept configured.
+
+  
+On R2: 
+  interface FastEthernet0/0
+   xconnect 8.8.8.8 100 encapsulation mpls
+   ! 8.8.8.8 = remote PE loopback
+   ! 100 = VC-ID (must match on both sides)
+
+On R8: 
+  interface GigabitEthernet1/0
+   xconnect 2.2.2.2 100 encapsulation mpls
+  
+  That's it — two lines per PE. The interface becomes L2, targeted LDP establishes automatically, VC labels are exchanged, pseudowire comes UP.
+
+The PEs must agree on:
+- VC-ID: PW never forms - PEs don't even find each other if different pseudowires
+- VC Type (encapsulation) - PW DOWN - remote VC type mismatch
+- MTU - PW DOWN - MTU Mismatch ( must be identifical on both sides)
+- Control Word - PW DOWN - control word mismatch ( both on or both off)
+
+Control Word controls the padding, the additional garbage bytes. If a frame is sent with 40 bytes, because the frame is 64 bytes, the router will add zeros until it
+becomes 64 bytes, this is called padding. Then if that frame is sent to the CE it might confuse application, however, with Control Word, it records the size of the frame
+in CW Length field and ask PE to strips off the bytes before fowarding to the CE so it doesn't get additional garbage.
+
+#### Port mode: Entire physical port = one pseudowire. Carries everything (all VLANs, untagged, trunk) transparently — like a patch cable.
+  
+#### VLAN mode: One specific VLAN = one pseudowire. Each VLAN can be a separate service to a different destination — like slicing the wire per customer.
+
+You can also setup tunnel selection by specifying which tunnel the pseudowire should use: 
+- pseudowire-class pw1
+  - encapsulation mpls
+    preferred-path interface tunnel1
+
+#### Commands
+ ! Check pseudowire status (UP/DOWN), VC-ID, local/remote labels
+  show mpls l2transport vc [vc-id]
+  
+  ! Detailed PW info: encap type, MTU, control word, VC labels, stats
+  show mpls l2transport vc [vc-id] detail
+  
+  ! Summary of all pseudowires on this router
+  show mpls l2transport summary
+  
+  ! Verify targeted LDP session to remote PE
+  show mpls ldp neighbor [remote-PE-loopback]
+  
+  ! Check xconnect binding on the AC interface
+  show xconnect all
+  
+  ! Verify VC label in the MPLS forwarding table
+  show mpls forwarding-table labels [vc-label]
+  
+  ! Check the AC interface status (UP/UP, encap type)
+  show interface [AC-interface]
+  
+  ! Verify MPLS transport label to remote PE (tunnel label)
+  show mpls forwarding-table [remote-PE-loopback] 32
+  
+  ! Check for encap/MTU/control-word mismatches
+  show mpls l2transport vc [vc-id] detail | include MTU|encap|control
+  
+  ! Verify traffic flowing through the pseudowire (byte counters)
+  show mpls l2transport vc [vc-id] detail | include packet|byte
+
 
 ### Chapter 11: Virtual Private LAN Service (VPLS)
 
-### Notes
+Virtual Private LAN Service (VPLS) emulates a LAN segment across the MPLS backbone across pseudowires or virtual circuits.
+It is an evolution of Ethernet over MPLS, because EoMPLS is one-to-one, point-to-point, where VPLS is like a virtual switch. All PEs would learn
+the mac addresses of other CEs, by replicating the broadcast and multicast frames to more than one port. It has dynamic mac addresses learning and mac-addresses aging
+
+If a PE router receives a frame that has an unknown destination mac-address, the frame is replicated and forwarded to all ports that belong to that LAN segment. The 
+LAN segment on an etherhet switch might be a collection of ports belonging to the same VLAN. When configuring VPLS, you must specify which VPLS instance a particular
+port or vlan belongs to. 
+
+If a CE router sends a brodascat frame to the PE router, the frame is replicated and forwarded to all physical ports on that PE router belonging to the VPLS instace, but 
+also to all pseudowires associated with that VPLS instance.
 
 
+VPLS Components:
+1. VFI (Virtual Forwarding Instance)
+- The virtual switch on each PE
+- Contains mac address table + list of pseudowires to remote PEs + local attachment circuits
+- Equivalent of a bridge domain or VLAN on a physical switch
+
+2. Full Mesh of pseudowires
+- Every PE in the VPLS instance must have a pseudowire to every other PE
+- With N PEs: N*(N-1)/2 pseudowires total
+- Signaled via targeted LDP (same as AToM) using a common VPN-ID
+
+3. Mac Address learning
+- PE learns source MAC from frames arriving on ACs and on pseudowires
+- If destination MAC is known -> forward to specific AC or PW (unicast switching)
+- If destination mac is unknown -> flood to all ACs and ALL PWs (except incoming)
+
+4. Split Horizon Rule
+- A frame received from a pseudowire is never forwarded to another pseudowire, only to ACs, physical customer facing ports
+- this prevents loops in the fullmesh PW topology
+- Without split-horizong broadcast storms would occur
+
+With split-horizon: 
+  1. CE1 sends broadcast → arrives at PE1
+  2. PE1 floods to PE2 AND PE3 (via pseudowires) AND to any other local ACs
+  3. PE2 receives the broadcast on the PW from PE1
+  4. PE2 forwards to its local ACs only — does NOT send to PE3's PW (split-horizon blocks it)
+  5. PE3 receives the broadcast on the PW from PE1
+  6. PE3 forwards to its local ACs only — does NOT send to PE2's PW
+  
+  Result: Every CE receives exactly ONE copy. No loops. No storms.
+ 
+
+**Signaling**
+Same as AToM - targeted LDP between each pair of PEs:
+- Each PE advertises a VC label per VPLS instance to every other PE
+- VPN-ID (VC-ID) must match across all PEs in the same VPLS instance
+- Full Mesh means: with 4 PEs, each PE has 3 targeted LDP session for that VPLS.
+
+**Scalability Problem**
+Full mesh = N×(N-1)/2 pseudowires. With 100 PEs that's 4,950 PWs. Solutions: 
+1. Hierarchical VPLS (H-VPLS): Split into hub (N-PE) and spoke (U-PE). Spokes only peer with hub - hub does the full mesh, reducing PW count.
+2. BGP based VPLS (RFC 4761): Use BGP auto-discovery instead of manual LDP neighbor config. PEs find each other automatically.
+  
+**Configuration**
+l2 vfi customer-c manual
+ vpc id 300
+ neighbor 8.8.8.8 encapsulation mpls
+ neighbor 17.17.17.17 encapsulation mpls
+
+interface vlan 100
+ no ip address 
+ xconnect vfi customer-c
+ 
+it is also possible to tunnel protocols over VPLS network so customer network does look like a big layer 2 switch, by tunneling CDP, VTP, STP
+There are two approaches to tunnel STP:
+1. Tunnel STP (Transparent - customer controls STP):
+   - PE tunnels BPDUs across VPLS
+   - Customer's STP sees all sites as one L2 domain
+   - Customers' root bridge blocks redundant paths
+   - Risk: Customer STP failure can create loops across the SP backbone
+
+2. Block STP( SP Controls it - default behavior):
+   - PE doesn't forward BPDUs
+   - Each customer site runs its own independent STP
+   - No risk of customer STP affecting the SP network 
+   - But customer can't run end-to-end STP.
+  
+
+**QinQ** **Dot1q Tunneling** 
+QinQ adds a second VLAN tag (S-tag/outer tag) on top of the customer's existing VLAN tag (C-tag/inner tag), creating a double-tagged frame.
+The S-tag identifies the customer/service to the SP, while the C-Tag remains untouched inside - letting multiple customers reuse the same VLAN IDs without conflict.
+
+  ! PE/U-PE access port facing the customer
+  interface FastEthernet0/0
+   switchport mode dot1q-tunnel     ← enables QinQ (adds S-tag to all incoming frames)
+   switchport access vlan 500       ← S-tag value (SP uses this to identify the service)
+  
+  ! PE trunk port toward the core
+  interface GigabitEthernet1/0
+   switchport trunk encapsulation dot1q
+   switchport mode trunk            ← carries double-tagged frames into the network
+
+Result: Customer sends [C-tag 100][payload] → PE adds S-tag → frame becomes [S-tag 500][C-tag 100][payload] → SP switches based on S-tag only, never touches C-tag.
 
 
 ### Commands
 
-```
-
-```
-
----
-
-**Lab Checkpoint: After Chapters 7–8**
-
-| Lab | What to verify |
-|-----|---------------|
-| MPLS L3VPN | VRF, RD, RT import/export, PE-CE with BGP & OSPF, MP-BGP VPNv4 |
-| MPLS Traffic Engineering | RSVP-TE tunnels, explicit paths, FRR, bandwidth reservation |
-
----
-## Lab 1 Notes: MPLS Forwarding Basics
-
-**Topology:** R1[CE] → R2[PE] → R3/R4/R5/R6/R7[P] → R8[PE] → R9[CE]
-**Platform:** GNS3, Cisco 7200 images
-**IGP:** OSPF area 0 on all core interfaces, static routes on CE↔PE
-
-### Tests Completed
-
-- [x] LDP adjacency formed (`show mpls ldp neighbor`)
-- [x] Labels allocated per IGP prefix (`show mpls forwarding-table`)
-- [x] Push at ingress LSR (traceroute from CE shows label imposed)
-- [x] Swap at transit (`show mpls forwarding-table` — incoming → outgoing label)
-- [x] PHP confirmed (penultimate hop shows "Pop Label")
-- [x] ECMP observed in traceroute (multiple paths per probe)
-- [x] Confirmed traceroute unreliable with ECMP — use `show mpls forwarding-table` hop-by-hop instead
-
-### Tests To Do — Forwarding Behavior (Chapter 3)
-
-- [x] **Explicit Null vs Implicit Null (PHP)**
-  - On R2: `mpls ldp explicit-null`
-  - Check R6's forwarding table — should change from "Pop Label" to "Label 0"
-  - Proves: EXP/QoS bits preserved to egress LSR
-  - Revert: `no mpls ldp explicit-null`
-
-- [x] **TTL Propagation**
-  - On R8: `no mpls ip propagate-ttl`
-  - Traceroute again — MPLS hops should disappear (only source and destination visible)
-  - Proves: hides MPLS infrastructure from external traceroute
-  - Revert: `mpls ip propagate-ttl`
-
-- [x] **Labeled vs Unlabeled path preference**
-  - Disable `mpls ip` on one link between two routers that have parallel paths
-  - Verify traffic uses labeled path only (Cisco won't load-balance labeled + unlabeled)
-  - Check with `show ip cef <prefix>` and `show mpls forwarding-table`
-
-- [x] **MPLS MTU impact**
-  - `show mpls interface detail` — check MTU values
-  - Understand: PUSH reduces room, POP increases room, SWAP no change
-
-### Tests To Do — LDP Behavior (Chapter 4)
-
-- [x] **Link failover / OSPF reconvergence**
-  - Shut R5's Fa0/0 (toward R6): `shutdown`
-  - Watch: `show mpls forwarding-table 2.2.2.2/32` — does the label path shift?
-  - How fast does LDP reconverge? Does it follow OSPF?
-  - Bring back up, verify it returns to original path
-
-- [X] **LDP Session Protection**
-  - On R5: `mpls ldp session protection`
-  - On R6: `mpls ldp session protection` + `mpls ldp discovery targeted-hello accept`
-  - Shut the direct link between R5↔R6
-  - Verify: `show mpls ldp neighbor` — LDP session stays UP via alternate path
-  - Verify: labels for FECs through that neighbor are maintained
-  - Proves: session survives link failure, no label re-advertisement needed
-
-- [x] **LDP IGP Synchronization**
-  - Under OSPF: `mpls ldp sync`
-  - Shut a link, bring it back
-  - Observe: OSPF advertises max-metric on that interface until LDP session re-forms
-  - `show mpls ldp igp sync` — check state
-  - Proves: prevents traffic blackholing during LDP convergence
-
-- [x] **LDP transport address mismatch**
-  - On one router: `mpls ldp discovery transport-address interface` (use a non-loopback)
-  - Observe: LDP session to that neighbor fails to form
-  - `show mpls ldp discovery` — transport addresses don't match
-  - Proves: why loopback consistency is critical for LDP
-
-- [x] **Kill MPLS but keep OSPF**
-  - `no mpls ip` on one interface
-  - OSPF stays up, labels disappear for that path
-  - Does traffic still flow via IP? Or does it shift to labeled path only?
-  - Proves: Cisco prefers labeled path; removing label forces IP fallback or reroute
-
-- [x] **View all remote bindings (LIB vs LFIB)**
-  - `show mpls ldp bindings 2.2.2.2/32`
-  - See ALL labels advertised by ALL neighbors for that FEC
-  - Only one is installed in LFIB (based on OSPF best path next-hop)
-  - Proves: LIB stores everything, LFIB only uses the best
-
-- [x] **LDP ID impact**
-  - Change a router's loopback IP (LDP router-id changes)
-  - All LDP sessions tear down and re-form
-  - Proves: LDP ID must be reachable, and changes are disruptive
-
-### Observations / Lessons Learned
-
-- Traceroute with ECMP is unreliable — each TTL probe can hash to a different path. Use `show mpls forwarding-table` hop-by-hop for truth.
-- 
-
-### Key Commands Reference
-
-```
-show mpls ldp neighbor [detail]
-show mpls ldp discovery [detail]
-show mpls ldp bindings [prefix]
-show mpls forwarding-table [prefix] [detail]
-show mpls interfaces
-show mpls ldp igp sync
-show ip cef [prefix]
-traceroute [dest] source [src] probe 1
-show mpls ldp parameters
-```
----
-
-## Lab 2 Notes: MPLS L3VPN (Chapter 7)
-
-**Topology:** Same core (R2–R8). Add VRFs on PE routers (R2 and R8). CEs (R1, R9) now run BGP or OSPF with their PE.
-**Goal:** Two customers (Customer A, Customer B) sharing the same MPLS backbone, fully isolated.
-
-### What to Configure
-
-- [ ] Create VRFs on R2 and R8: `ip vrf CUSTOMER-A` with RD and RT
-- [ ] Assign CE-facing interfaces to VRF: `ip vrf forwarding CUSTOMER-A`
-- [ ] Configure MP-BGP between PE routers (R2 ↔ R8) for VPNv4 address family
-- [ ] Configure PE-CE routing: BGP (eBGP) or OSPF between CE and PE (inside VRF)
-- [ ] Verify end-to-end reachability between CEs in the same VPN
-- [ ] Verify isolation — Customer A cannot reach Customer B
-
-### Tests To Do
-
-- [ ] **VRF routing table populated**
-  - `show ip route vrf CUSTOMER-A`
-  - CE routes should appear via PE-CE protocol
-
-- [ ] **MP-BGP VPNv4 peering established**
-  - `show ip bgp vpnv4 all summary`
-  - PE routers should be peers, exchanging VPN prefixes
-
-- [ ] **Route Target import/export working**
-  - `show ip bgp vpnv4 all`
-  - Check RT attached to prefixes, verify import on remote PE
-
-- [ ] **Label stack for VPN traffic (2 labels)**
-  - `show mpls forwarding-table vrf CUSTOMER-A`
-  - Should see: outer label (LDP, to reach remote PE) + inner label (BGP/VPN, identifies VRF)
-  - Traceroute from CE1 should show 2 labels in the stack
-
-- [ ] **Customer isolation**
-  - Create VRF CUSTOMER-B with different RD/RT
-  - Verify Customer A CEs cannot ping Customer B CEs
-  - Verify `show ip route vrf CUSTOMER-B` has no Customer A routes
-
-- [ ] **PE-CE with OSPF (OSPF-to-BGP redistribution)**
-  - Change one CE to use OSPF with PE
-  - Verify OSPF routes appear in VRF table and get advertised via MP-BGP to remote PE
-  - Check OSPF domain-id, down bit (loop prevention)
-
-- [ ] **Shared services / Route Leaking (stretch)**
-  - Import RT from both customers into a shared-services VRF
-  - Verify shared VRF can reach both customers, but customers can't reach each other
-
-### Key Commands
-
-```
-show ip vrf
-show ip route vrf <name>
-show ip bgp vpnv4 all summary
-show ip bgp vpnv4 vrf <name>
-show ip bgp vpnv4 all labels
-show mpls forwarding-table vrf <name>
-show ip bgp vpnv4 all <prefix>
-ping vrf <name> <destination>
-```
-
----
-
-## Lab 3 Notes: MPLS Traffic Engineering (Chapter 8)
-
-**Topology:** Same core. Enable TE on all P/PE routers. Build explicit tunnels that avoid the shortest IGP path.
-**Goal:** Force traffic through a specific path regardless of OSPF cost.
-
-### What to Configure
-
-- [ ] Enable MPLS TE globally: `mpls traffic-eng tunnels` + under OSPF: `mpls traffic-eng area 0`
-- [ ] Enable TE on all core interfaces: `mpls traffic-eng tunnels` under interface
-- [ ] Enable RSVP bandwidth on interfaces: `ip rsvp bandwidth <kbps>`
-- [ ] Create a TE tunnel on R8: `interface Tunnel0` → explicit path to R2 via non-shortest path
-- [ ] Define explicit path: `ip explicit-path name TO-R2-VIA-R3`
-- [ ] Route traffic into tunnel: `tunnel mpls traffic-eng autoroute announce`
-
-### Tests To Do
-
-- [ ] **TE tunnel comes UP**
-  - `show mpls traffic-eng tunnels`
-  - State should be "up", path should match explicit-path
-
-- [ ] **Traffic follows the TE tunnel (not shortest IGP path)**
-  - `traceroute` from R8 to R2 — should follow the explicit path
-  - Compare with IGP shortest path (should be different)
-  - `show ip cef <R2 loopback>` — next-hop should be Tunnel0
-
-- [ ] **RSVP reservation established**
-  - `show ip rsvp reservation`
-  - `show ip rsvp interface` — verify bandwidth reserved
-  - Proves: RSVP-TE signaled the path and reserved resources
-
-- [ ] **Bandwidth constraint**
-  - Configure tunnel with `tunnel mpls traffic-eng bandwidth <kbps>`
-  - Exceed available bandwidth — tunnel should fail to signal or reroute
-  - `show mpls traffic-eng topology` — verify available BW per link
-
-- [ ] **Explicit path vs dynamic path**
-  - Create a second tunnel with `path-option 1 dynamic` (no explicit path)
-  - Compare: dynamic follows IGP cost, explicit follows your defined hops
-  - `show mpls traffic-eng tunnels detail` — compare path options
-
-- [ ] **Fast Reroute (FRR) — link protection**
-  - Enable FRR: `tunnel mpls traffic-eng fast-reroute` on the tunnel
-  - Configure backup tunnel on a transit router (facility backup)
-  - Shut a link in the explicit path — traffic should switch to backup in <50ms
-  - `show mpls traffic-eng fast-reroute database`
-
-- [ ] **Autoroute vs forwarding-adjacency**
-  - `tunnel mpls traffic-eng autoroute announce` — injects tunnel as next-hop into routing
-  - Verify CEF shows Tunnel as outgoing interface
-  - Compare with `tunnel mpls traffic-eng forwarding-adjacency` (makes tunnel appear as OSPF adjacency)
-
-### Key Commands
-
-```
-show mpls traffic-eng tunnels [brief | detail]
-show mpls traffic-eng topology [brief]
-show ip rsvp reservation
-show ip rsvp interface
-show ip explicit-paths
-show mpls traffic-eng fast-reroute database
-show ip cef <prefix>
-show mpls traffic-eng autoroute
-```
-
----
-
-## Lab 4 Notes: L2VPN — AToM + VPLS (Chapters 10–11)
-
-**Topology:** Same core. R2 and R8 as PE. CEs connected via L2 (same broadcast domain across MPLS backbone).
-**Goal:** Extend Layer 2 across the MPLS network — CEs think they're on the same LAN.
-
-### What to Configure — AToM (Point-to-Point)
-
-- [ ] Configure pseudowire between R2 and R8: `xconnect <remote-PE-IP> <VC-ID> encapsulation mpls`
-- [ ] CE interfaces in the same subnet (they should ARP and communicate directly)
-- [ ] No IP address on PE-facing CE interfaces (pure L2 transport)
-
-### What to Configure — VPLS (Multipoint)
-
-- [ ] Create VFI (Virtual Forwarding Instance): `l2 vfi <name> manual`
-- [ ] Add neighbors: `neighbor <remote-PE> encapsulation mpls`
-- [ ] Bind VFI to a VLAN/bridge-domain
-- [ ] Add more than 2 PEs to see full-mesh pseudowire behavior
-
-### Tests To Do
-
-- [ ] **AToM pseudowire UP**
-  - `show mpls l2transport vc <VC-ID>`
-  - Status should be UP, local and remote labels assigned
-
-- [ ] **L2 connectivity end-to-end**
-  - Ping between CEs — they're on the same subnet, same broadcast domain
-  - ARP should resolve across the MPLS backbone
-
-- [ ] **Label stack for L2VPN (2 labels)**
-  - Outer label: LDP (transport to remote PE)
-  - Inner label: VC label (identifies the pseudowire)
-  - `show mpls forwarding-table` — verify 2-label stack
-
-- [ ] **VPLS MAC learning**
-  - `show bridge-domain` or `show l2 vfi`
-  - MAC addresses of remote CEs should appear as learned via pseudowire
-  - Verify BUM (Broadcast, Unknown unicast, Multicast) flooding
-
-- [ ] **Pseudowire failover**
-  - Shut a link in the core — does the pseudowire reroute via alternate LSP?
-  - `show mpls l2transport vc detail` — check status transitions
-
-- [ ] **VPLS full-mesh scaling**
-  - With 3 PEs: verify N*(N-1)/2 pseudowires form (3 PEs = 3 PWs)
-  - Each PE has a PW to every other PE
-
-### Key Commands
-
-```
-show mpls l2transport vc [VC-ID] [detail]
-show l2 vfi [name]
-show bridge-domain
-show xconnect all
-show mpls l2transport summary
-```
-
----
-
-## Lab 5 Notes: MPLS QoS + OAM (Chapters 12–14)
-
-**Topology:** Same core.
-**Goal:** Verify QoS propagation via EXP bits and test MPLS-specific OAM tools.
-
-### Tests To Do — QoS (Chapter 12)
-
-- [ ] **EXP bit marking at ingress**
-  - Apply a policy-map on R8 ingress marking DSCP → EXP
-  - `show policy-map interface` — verify packets classified and marked
-  - Capture/verify EXP bits in labeled packets
-
-- [ ] **EXP-based queuing at transit**
-  - Apply QoS policy on a P router matching on EXP values
-  - Different EXP → different queue/treatment
-  - Proves: P routers don't look at IP header, only EXP bits for QoS
-
-- [ ] **Explicit Null for QoS preservation (revisit)**
-  - With PHP: EXP bits are lost at penultimate hop (label popped)
-  - With Explicit Null: egress LSR receives label 0, reads EXP before popping
-  - Proves: why Explicit Null matters for QoS-sensitive deployments
-
-### Tests To Do — Troubleshooting (Chapter 13)
-
-- [ ] **LSP Ping**
-  - `ping mpls ipv4 <destination-prefix/mask>`
-  - Verifies end-to-end LSP connectivity at the MPLS layer (not IP)
-  - Proves: the label-switched path is intact
-
-- [ ] **LSP Traceroute**
-  - `traceroute mpls ipv4 <destination-prefix/mask>`
-  - Shows each LSR hop with incoming/outgoing labels
-  - Much more reliable than IP traceroute for MPLS path verification
-
-- [ ] **Debug label operations**
-  - `debug mpls packets` (careful — high volume)
-  - Verify push/swap/pop happening as expected
-
-- [ ] **Identify broken LSP**
-  - Break LDP on one link (`no mpls ip`)
-  - Run `ping mpls` — should fail at the broken hop
-  - Run `traceroute mpls` — should show where the break is
-  - Proves: OAM tools pinpoint MPLS failures better than IP tools
-
-### Tests To Do — OAM (Chapter 14)
-
-- [ ] **MPLS OAM VCCV (Virtual Circuit Connectivity Verification)**
-  - For L2VPN pseudowires: `ping mpls pseudowire <peer> <VC-ID>`
-  - Verifies the pseudowire path end-to-end
-
-- [ ] **BFD for MPLS (if supported on platform)**
-  - Enable BFD on LDP sessions for fast failure detection
-  - Proves: sub-second detection of LSP failures
-
-### Key Commands
-
-```
-ping mpls ipv4 <prefix/mask>
-traceroute mpls ipv4 <prefix/mask>
-show mpls traffic-eng autoroute
-show policy-map interface
-show mpls forwarding-table [detail]
-debug mpls packets
-ping mpls pseudowire <peer-ip> <vc-id>
-```
-
----
-
-## Lab Summary
-
-| Lab | Triggered After | Key Concepts | Status |
-|-----|----------------|--------------|--------|
-| **Lab 1: MPLS Forwarding Basics** | Chapters 2–4, 6 | LDP, label allocation, push/swap/pop, PHP, ECMP | ✅ Complete |
-| **Lab 2: MPLS L3VPN** | Chapter 7 | VRF, RD, RT, PE-CE routing, MP-BGP VPNv4, 2-label stack | 🟡 In Progress |
-| **Lab 3: MPLS Traffic Engineering** | Chapter 8 | RSVP-TE, explicit paths, FRR, bandwidth, autoroute | 🟡 In Progress |
-| **Lab 4: L2VPN (AToM + VPLS)** | Chapters 10–11 | Pseudowires, xconnect, VPLS, MAC learning, VC labels | ⬜ Not Started |
-| **Lab 5: MPLS QoS + OAM** | Chapters 12–14 | EXP bits, LSP ping/traceroute, VCCV, BFD for MPLS | ⬜ Not Started |
-| **Lab 6: Advanced L3VPN** | Post Chapter 7 | Inter-VRF leaking, hub-spoke VPN, multi-homed CE, SOO | ⬜ Not Started |
-| **Lab 7: Advanced TE** | Post Chapter 8 | FRR, affinity bits, preemption, auto-bandwidth | ⬜ Not Started |
-| **Lab 8: BGP Design** | Post Book 2 | Route Reflectors, communities, path manipulation | ⬜ Not Started |
-| **Lab 9: Automation** | Ongoing | Python provisioning, state collection, validation | 🟡 In Progress |
-
----
-
-## Lab 6 Notes: Advanced L3VPN Scenarios
-
-**Topology:** Full 20-router topology. 4 PEs (R2, R8, R17, R18), multiple customers across VRFs.
-**Goal:** Production-level VPN designs beyond basic connectivity.
-
-### Tests To Do
-
-- [ ] **Inter-VRF Route Leaking (Shared Services)**
-  - Create VRF Shared_Services on one PE
-  - Import RT from Customer_A AND Customer_B into Shared_Services VRF
-  - Export Shared_Services RT, import it into Customer_A and Customer_B
-  - Verify: shared services VRF can reach both customers
-  - Verify: Customer_A still cannot reach Customer_B directly
-
-- [ ] **Hub-and-Spoke VPN**
-  - One CE is the hub (e.g., R1), others are spokes (R9, R11)
-  - Hub PE exports with RT 64512:100, imports RT 64512:200
-  - Spoke PEs export RT 64512:200, import RT 64512:100
-  - Verify: spokes can reach hub, spokes cannot reach each other directly
-  - All spoke-to-spoke traffic goes through the hub
-
-- [ ] **Multi-homed CE (dual PE)**
-  - Connect one CE to two PEs (e.g., R1 connected to both R2 and R17)
-  - Run eBGP to both PEs
-  - Verify: traffic uses best path, failover works if one PE-CE link drops
-  - Test: AS-PATH manipulation to prefer one PE over the other
-
-- [ ] **SOO (Site of Origin) — loop prevention**
-  - On multi-homed CE scenario above
-  - Configure `set extcommunity soo 64512:1` on both PE-CE sessions for R1
-  - Verify: R1's routes advertised to R2 don't come back to R1 via R17
-  - Proves: prevents routing loops with multi-homed sites
-
-- [ ] **Internet Access for VPN Customer**
-  - Inject default route into VRF Customer_A on one PE
-  - `default-information originate` or static `0.0.0.0/0` in VRF redistributed into BGP
-  - Verify: CE can reach "internet" (simulate with a loopback in global table)
-  - Verify: only the intended VRF gets the default route
-
-- [ ] **PE-CE with OSPF (one site BGP, another OSPF)**
-  - R1 uses eBGP to R2 (already done)
-  - Change R9 to use OSPF with R8: `router ospf 2 vrf Customer_A`
-  - Redistribute OSPF into BGP VRF, and BGP into OSPF
-  - Verify: R1 and R9 can still reach each other
-  - Check OSPF domain-id, DN bit (down bit) for loop prevention
-
-### Key Commands
-
-```
-show ip vrf detail
-show ip bgp vpnv4 all community
-show ip extcommunity-list
-show ip route vrf <name> | include source-of-origin
-show ip bgp vpnv4 vrf <name> <prefix>
-```
-
----
-
-## Lab 7 Notes: Advanced MPLS TE
-
-**Topology:** Same core. Multiple TE tunnels with different constraints.
-**Goal:** Production-level TE designs beyond basic explicit paths.
-
-### Tests To Do
-
-- [ ] **Fast Reroute (FRR) — link protection**
-  - Enable on tunnel: `tunnel mpls traffic-eng fast-reroute`
-  - Create backup tunnel on transit router (next-hop or next-next-hop backup)
-  - Shut a link in the primary path
-  - Verify: traffic switches to backup in <50ms (compare with path-option failover ~2 seconds)
-  - `show mpls traffic-eng fast-reroute database`
-
-- [ ] **Affinity / Attribute Bits (link colouring)**
-  - Assign colours to links: `mpls traffic-eng attribute-flags 0x1` (red), `0x2` (blue)
-  - Tunnel avoids red links: `tunnel mpls traffic-eng affinity 0x0 mask 0x1`
-  - Tunnel prefers blue links: `tunnel mpls traffic-eng affinity 0x2 mask 0x2`
-  - Verify: CSPF excludes/includes links based on affinity
-  - Use case: avoid satellite links, prefer low-latency paths
-
-- [ ] **Preemption (setup/hold priority)**
-  - Tunnel A: priority 7 7 (low priority, setup 7 hold 7)
-  - Tunnel B: priority 0 0 (high priority)
-  - Both request bandwidth that exceeds a shared link's capacity
-  - Verify: Tunnel B preempts Tunnel A (kicks it off the link)
-  - Tunnel A falls to backup path or goes down
-  - `show ip rsvp reservation` — check which tunnel holds the reservation
-
-- [ ] **Auto-Bandwidth**
-  - `tunnel mpls traffic-eng auto-bw max-bw 500000 min-bw 1000`
-  - Generate traffic through the tunnel (ping flood or similar)
-  - Watch tunnel adjust bandwidth reservation over time
-  - `show mpls traffic-eng tunnels tun0 | include auto-bw`
-  - Proves: tunnel adapts to actual demand without manual intervention
-
-- [ ] **Load-sharing between TE tunnels**
-  - Two tunnels to same destination, both with `autoroute announce`
-  - Verify CEF load-balances across both tunnels
-  - `show ip cef <destination> internal` — should show both tunnels in hash buckets
-  - Test with different bandwidth values: `tunnel mpls traffic-eng load-share`
-
-- [ ] **TE Metric vs IGP Metric**
-  - Set different TE metric on a link: `mpls traffic-eng administrative-weight 1000`
-  - Dynamic tunnel should now avoid that link (TE metric is worse)
-  - IGP routing unchanged (regular traffic still uses IGP metric)
-  - Proves: TE path calculation independent from IGP path calculation
-
-### Key Commands
-
-```
-show mpls traffic-eng fast-reroute database
-show mpls traffic-eng topology | include attribute
-show ip rsvp reservation detail
-show mpls traffic-eng tunnels [name] detail
-show mpls traffic-eng tunnels auto-bw
-show mpls traffic-eng link-management bandwidth-allocation
-```
-
----
-
-## Lab 8 Notes: BGP Design
-
-**Topology:** Full 20-router topology. Convert from full-mesh iBGP to Route Reflectors.
-**Goal:** Scalable BGP design for SP/enterprise MPLS networks.
-
-### Tests To Do
-
-- [ ] **Route Reflectors (replace full-mesh iBGP)**
-  - Designate R3 and R7 as Route Reflectors (redundancy)
-  - All PEs (R2, R8, R17, R18) peer with RRs only (not each other)
-  - `neighbor <PE> route-reflector-client` on the RRs
-  - Remove direct PE-to-PE iBGP sessions
-  - Verify: vpnv4 routes still reach all PEs via RR reflection
-  - Check: ORIGINATOR_ID and CLUSTER_LIST attributes
-
-- [ ] **RR Cluster design**
-  - R3 and R7 in the same cluster: `bgp cluster-id 1`
-  - Verify: redundancy works — shut R3, routes still reflected via R7
-  - Verify: no routing loops (cluster-list prevents)
-
-- [ ] **BGP Communities for Policy**
-  - CE R1 tags routes with community 64512:100
-  - PE R8 applies policy: routes with 64512:100 get local-pref 200
-  - Verify: traffic from R8 side prefers routes tagged by R1
-  - `show ip bgp vpnv4 vrf Customer_A community 64512:100`
-
-- [ ] **BGP Best Path Manipulation**
-  - Multi-homed CE connected to R2 and R17
-  - Use local-pref to prefer R2 path (set higher on R2)
-  - Use AS-PATH prepend to make R17 backup (CE prepends on R17 link)
-  - Verify: traffic flows via R2, failover to R17 when R2 link down
-
-- [ ] **BGP Graceful Restart**
-  - Enable on PE: `bgp graceful-restart`
-  - Shut the BGP session on one PE — routes should be retained for restart timer
-  - Verify: traffic continues flowing during restart period
-  - Proves: no traffic loss during planned PE maintenance
-
-- [ ] **Conditional Route Advertisement**
-  - PE advertises a route to CE only if another route exists (e.g., only advertise default if VPN routes exist)
-  - `neighbor <CE> advertise-map ADV condition-map COND`
-  - Verify: remove condition route — advertisement withdraws
-
-### Key Commands
-
-```
-show ip bgp vpnv4 all summary
-show ip bgp vpnv4 all
-show ip bgp neighbors <ip> | include Cluster|ORIGINATOR
-show ip bgp community <community>
-show ip bgp vpnv4 all neighbors <ip> advertised-routes
-show ip bgp vpnv4 all neighbors <ip> routes
-debug ip bgp updates
-```
-
----
-
-## Lab 9 Notes: Python Automation
-
-**Topology:** All 20 routers via GNS3 telnet.
-**Goal:** Automate provisioning, state collection, and validation.
-
-### Tests To Do
-
-- [x] **Push MPLS base config to all P routers** (Jinja2 + Netmiko)
-- [x] **Push PE VRF config** (Jinja2 template + inventory)
-- [x] **Push CE config** (Jinja2 template)
-- [x] **Dry-run mode** (render and print without pushing)
-- [ ] **New customer VRF provisioning**
-  - Add new customer to inventory (VRF name, RD, RT, CE interface, CE AS)
-  - Run push_config → new VRF appears on all relevant PEs
-  - Verify with show commands automatically after push
-
-- [ ] **State collector: OSPF neighbors**
-  - Connect to all P routers, run `show ip ospf neighbor`
-  - Parse output, report which adjacencies are Full vs not
-  - Alert if any neighbor is missing
-
-- [ ] **State collector: LDP neighbors**
-  - Connect to all P/PE routers, run `show mpls ldp neighbor`
-  - Parse Peer LDP Ident and Up Time
-  - Report all neighbors and flag any that are down
-
-- [ ] **State collector: BGP VPNv4 summary**
-  - Connect to all PEs, run `show ip bgp vpnv4 all summary`
-  - Parse neighbor state and prefix count
-  - Alert if any PE has 0 prefixes received
-
-- [ ] **State collector: TE tunnel status**
-  - Run `show mpls traffic-eng tunnels brief` on head-end PEs
-  - Parse tunnel state (up/down, which path-option active)
-  - Report any tunnels that are down or on backup path
-
-- [ ] **Validator: Full health check**
-  - Run all collectors
-  - Compare against expected state (all OSPF Full, all LDP up, all tunnels up, all BGP sessions established)
-  - Print summary: PASS/FAIL per check
-
-- [ ] **Config backup**
-  - Connect to all 20 routers, run `show running-config`
-  - Save each to a file: `configs/R1.cfg`, `configs/R2.cfg`, etc.
-  - Version control in git — run before and after changes
-
-### Key Files
-
-```
-python/netops/configurator/push_config.py
-python/netops/configurator/inventory.yaml
-python/netops/configurator/templates/*.j2
-```
+Check VFI status and pseudowire neighbors:
+- show vfi [name]
+
+Verify pseudowire status (UP/DOWN) and VC Labels
+- show mpls l2transport vc [vc-id] [details]
+
+Summary of all L2 transport circuits
+- show mpls l2transport summary
+
+Verify targeted LDP sessions to remote PEs
+- show mpls ldp neighbor [ip] [detail]
+
+Check MAC address table (which mac learned on which PW or AC)
+- show bridge-domain [id]
+
+Verify L2 bindings (VC Labels exchanged per VFI)
+- show mpls l2transport binding
+
+Check pseudowire signaling details and MTU/encap negotiation
+- show mpls l2transport vc [vc-id] detail
+
+Verify the physical AC interface status
+- show xconnect all
+  
+Check split-horizon and forwarding per VFI
+- show l2vpn vfi [name]
+
+
+
+### Chapter 12: Quality of Services over MPLS
+
+### Chapter 13: Troubleshooting MPLS Networks
+
+**Traceroute in MPLS Networks**
+
+Standard IP traceroute sends UDP probess with incrementing TTL. When TTL expires on a P router, that route generates ICMP time exceeded. The source ip of that ICMP
+message is the interface address where the packet entered the P router - this reveals the internal MPLS topology to customers.
+
+How traceroute works through MPLS (default behavior):
+1. Ingress PE receives IP packet, copies IP TTL into MPLS TTL (this is TTL propagation)
+2. Each P router decrements the MPLS TTL
+3. When MPLS TTL hits 0 on a P router, the p router generates ICMP time exceeded
+4. Customers sees every P router hop in their traceroute output
+
+**TTL Propagation Control**
+- no mpls ip propagate-tll
+Configure on ingress PE routers, disables copying the IP TTL into the mpls label TTL.
+- MPLS TTL starts at 255 (regardless of IP TTL Value)
+- P routers decrement MPLS TTL, but it never reaches 0 in a normal-sized network
+- Customer sees the entire MPLS Core as a single hop
+- Both ingress-labeled and locally generated packets are affected
+
+Customer traceroute will look like:
+  1  CE → PE (ingress)
+  2  PE (egress) ← entire core hidden, appears as one hop
+  3  CE (destination)
+
+
+There is another command: - no mpls ip propagate-ttl forwarded
+Same as above but ONLY affects forwarded (transit) packets — packets coming from customers through the MPLS core.
+
+- Locally generated packets by the SP (e.g., SP's own traceroute from PE to PE) still propagate TTL normally
+- SP operators can still see their core hops when troubleshooting
+- Customers cannot
+  
+! On ingress PE:no mpls ip propagate-ttl forwarded
+  
+**Important detail:** This only affects packets that get labeled at the ingress PE. Configure it on ALL ingress PE routers for consistent behavior.
+  
+- mpls ip ttl-expiration pop
+  
+When MPLS TTL expires on a P router and the router needs to generate ICMP Time Exceeded:
+  
+- By default, the P router pops the label(s) and looks at the IP payload to build the ICMP response
+- mpls ip ttl-expiration pop controls how many labels are popped to reach the IP header for the ICMP reply
+  
+The nuance with VPN (2-label stack):
+  - The P router has a packet with 2 labels (IGP + VPN). MPLS TTL expires.
+  - P router needs to generate ICMP Time Exceeded. To do so, it needs to read the IP header underneath BOTH labels.
+  - P router pops both labels, reads IP header, builds ICMP with source = its own interface IP, destination = original source IP
+  - The ICMP reply needs to be routed back — but the destination is a VPN address. The P router doesn't have VRF context.
+  - Result: ICMP might not reach the customer (P router can't route VPN addresses in global table)
+  
+This is why traceroute through VPN can show * * * for intermediate hops — the P routers can generate ICMP, but the reply can't find its way back to the customer CE.
+
+**MPLS MTU**
+
+1. Adding labels increases the frame size:
+- 1 label = + 4 bytes -> 1504 bytes frame for 1500 bytes ip packet
+- 2 labels L3VPN - 8 bytes -> 1508 bytes
+- 3 labels (Inter-AS Option C, TE+VPN)= +12Bytes -> 1512 bytes
+If a core link has L2 MTU of 1500 bytes, labeled packets between 1501-1512 bytes get dropped or fragmented.
+
+The solution is to configure MPLS MTU on core interfaces: mpls mtu 1512
+This tells the router to accept/send L2 frames up to 1512 bytes for labeled traffic.
+
+2. Lower IP MTU on PE-CE interfaces to 1492: ip mtu 1492
+  
+Forces TCP MSS negotiation to smaller values. Impractical across many customers.
+  
+3. Rely on Path MTU Discovery — end hosts receive ICMP "Fragmentation Needed" and reduce packet size. Unreliable because many firewalls filter ICMP.
+Best practice: Set MPLS MTU to 1512-1524 on ALL core-facing interfaces. Accounts for worst-case 3-label stacks.
+  
+Verifying:
+- show mpls interfaces detail | include MTU
+  
+**Ping for MPLS Troubleshooting**
+  
+Testing MTU problems:
+Test if 1500-byte packets pass through the MPLS core:
+ping 8.8.8.8 source 2.2.2.2 size 1500 df-bit
+
+Sweep to find exact breakpoint:
+ping 8.8.8.8 source 2.2.2.2 sweep 1400 1510 1
+Sends pings from 1400 to 1510 bytes, incrementing by 1
+First failure = your effective MTU limit
+
+Ping with record route: 
+ping 8.8.8.8 source 2.2.2.2 record
+Adds IP Record Route option — response shows every hop's IP address
+Useful to verify the ACTUAL path taken (not just expected path)
+  
+**MPLS-Aware NetFlow**
+
+- Netflow collects flow statistics. MPLS aware Netflow adds mpls specific fields to the flow records:
+  - Label value (top labe, second label, up to 3 labels)
+  - label position in the stack
+  - EXP bits value per label
+  - End-of-Stack (EoS) bit
+  - Label Type (LDP, RSVP-TE, BGP, unkonwn)
+  - Prefix the label is bound to
+
+Why this is useful:
+- Traffic forensics: which label carry the most traffic
+- Capacity planning: per VPN traffic volumes
+- Billing: charge customers per-VPN based on actual usage
+- Troubleshooting: verify traffic is actually labeled (vs IP forwarded)
+
+Configuration:
+- interface giga1/0 
+  - ip flow ingress
+  - mpls netflow egress
+
+ip flow-export destination x.x.x.x 9996
+ip flow-export version 9 (Version 9 supports MPLS fields)
+
+
+Quick Comparison with AWS Cloud
+Netflow is the VPC Flow Logs: Top Talkers, Source IP, Port, Traffic type, etc.
+SNMP is your CloudWatch Metrics: Link Utilization, bytes in bytes out, etc.
+Syslogs is your CloudWatch Logs: Data events, state changes, errors

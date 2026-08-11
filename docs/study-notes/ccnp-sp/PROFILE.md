@@ -46,11 +46,45 @@
 - Label ranges per router (R2=200-299, R3=300-399, etc.)
 - Route Reflectors: R3 and R7
 
-## Current Lab Progress (as of Aug 2026)
+## Current Lab Progress (as of Aug 8, 2026)
 - Lab 1 (MPLS Basics): DONE
-- Lab 2 (L3VPN): Sections 1-4 DONE + CCIE+ Challenges 1-2 DONE. Remaining: Challenges 3 (RT-Constraint), 4 (Inter-AS Option A), 5 (Internet Access), 6 (Export-Map)
-- Lab 3 (MPLS TE): Tunnels working, explicit paths, primary/backup failover DONE. Remaining: Sections 3-6 (bandwidth, affinity, VPN-over-TE, QoS tunnels)
-- Labs 4-18: Not started
+- Lab 2 (L3VPN): Sections 1-4 DONE + CCIE+ Challenges 1-6 ALL DONE
+- Lab 3 (MPLS TE): Sections 1-6 IN PROGRESS. Completed: dynamic tunnels, explicit paths, primary/backup failover, bandwidth admission, preemption, affinity/link-coloring, auto-bandwidth, FRR (link+node protection), DS-TE sub-pool. Remaining: forwarding adjacency, QoS tunnel selection (PBR approach needed due to IOS 15.2 limitation), inter-area TE loose hops
+- Labs 4-19: Not started (but all lab workbooks created and ready)
+- Labs 20-24: NEW — workbooks created Aug 8 (OSPF Advanced, BGP Fundamentals, Carrier Ethernet, HA, Timing)
+- Labs 25-32: IN PROGRESS — workbooks being created (Inter-AS B/C, Confederations, mLDP, L2VPN Interworking, mVPN Profiles, PCE, Flex-Algo, Multi-domain SR-TE)
+
+## Troubleshooting Lab Progress (as of Aug 8, 2026)
+- ts_lab_2 (MPLS SP Core): Tickets 1-11 DONE (27/64 points). Tickets 12-20 remain. Faults injected on live GNS3 topology.
+- ts_lab_1 through ts_lab_9: All rewritten for 20-router topology. 180 total tickets ready.
+- Injection method: AI connects via raw socket telnet to inject faults on demand
+
+## Active Lab State (GNS3)
+- Topology A running: OSPF + LDP + L3VPN + TE (Tunnel0 on R2→R8 with FRR)
+- TE south core (R13-R18): needs TE enablement (Task 1 of Lab 3 incomplete for south)
+- Troubleshooting faults: Tickets 12-20 partially injected from ts_lab_2
+- VPN customers: Customer_A (R1↔R9), Customer_B (R12↔R11), Customer_D (R19), Customer_E (R20)
+
+## Key Technical Discoveries (Aug 2026)
+- ECMP with one unlabeled path = intermittent VPN blackhole (Ticket 4 lesson)
+- Explicit paths with loose hops: CSPF on intermediate router may choose wrong link (use interface IPs or strict hops)
+- FRR label stack: swap + push (not just push) — R3 swaps 332→433 then pushes 630 for backup tunnel
+- DS-TE: sub-pool reservations count against global pool; global tunnels can use unused sub-pool BW
+- Auto-bandwidth: measures tunnel interface output rate, not physical link utilization
+- Link Manager: one-time gate at RSVP signaling only, does not monitor real-time traffic
+- IOS 15.2 limitations: no EXP-based tunnel selection (CBTS), no telnetlib in Python 3.14+
+- Administrative-weight: TE-specific metric override (CSPF uses it instead of IGP cost)
+
+## Exam Practice Files Created
+- CONFIG_EXAM_PRACTICE.md: INE-style scored workbook (100 pts, Sections 1-5)
+- AUTOMATION_EXAM_PRACTICE.md: removed (content moved to lab_19)
+- 4 additional INE-style exams: IN PROGRESS (Networking, VPN Services, Security, Infrastructure)
+
+## Books Being Read
+- MPLS Fundamentals (Luc De Ghein) — Chapter 10 (AToM) and 11 (VPLS) completed Aug 8
+- Next: CCNP SPCOR 350-501 Official Cert Guide (to buy)
+- Recommended: Juniper MX Series (O'Reilly) for router architecture understanding
+- Reference: xrdocs.io for NCS 5500 NPU/forwarding architecture
 
 ## Lab Curriculum — 18 Configuration Labs
 - Labs 1-15: GNS3 (Cisco 7200, IOS 15.2)

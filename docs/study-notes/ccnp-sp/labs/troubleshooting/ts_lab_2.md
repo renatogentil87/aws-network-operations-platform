@@ -38,7 +38,7 @@
 
 ---
 
-## Ticket 1
+## Ticket 1  - DONE
 
 A P router has lost an OSPF adjacency with one of its directly connected P router neighbors. Both routers are reachable via alternate paths — there is no total outage. The LDP session on that specific link is also missing.
 
@@ -50,7 +50,7 @@ Score: 2 Points
 
 ---
 
-## Ticket 2
+## Ticket 2 - DONE
 
 Traffic from R2 to R8 is taking a suboptimal path. The traceroute from R2 to 8.8.8.8 shows more hops than the shortest path should require. All OSPF adjacencies that ARE formed are in FULL state. No reachability issues exist.
 
@@ -62,7 +62,7 @@ Score: 2 Points
 
 ---
 
-## Ticket 3
+## Ticket 3 - DONE
 
 An LDP session between two directly connected P routers is not forming. The OSPF adjacency on that same link IS in FULL state. MPLS labels for destinations reachable via that link are missing from the LFIB.
 
@@ -74,7 +74,7 @@ Score: 2 Points
 
 ---
 
-## Ticket 4
+## Ticket 4 - DONE
 
 R1 (Customer_A CE) cannot ping R9's loopback 9.9.9.9. The transport between PE routers (R2 can ping R8 loopback 8.8.8.8) is working correctly. The issue is in the VPN control plane.
 
@@ -86,7 +86,7 @@ Score: 3 Points
 
 ---
 
-## Ticket 5
+## Ticket 5 - DONE
 
 R12 (Customer_B CE) cannot reach R11 (Customer_B CE) at 11.11.11.11. Other VPNs (Customer_A) ARE working correctly. The problem is isolated to Customer_B.
 
@@ -98,7 +98,7 @@ Score: 3 Points
 
 ---
 
-## Ticket 6
+## Ticket 6 - DONE
 
 Customer_A VPN has a route leaking problem. R1 (Customer_A) can suddenly reach R12's addresses (Customer_B). This should NOT be possible — VPN isolation is broken.
 
@@ -110,7 +110,7 @@ Score: 3 Points
 
 ---
 
-## Ticket 7
+## Ticket 7 - DONE
 
 The Route Reflector infrastructure is partially broken. R8 is not receiving vpnv4 routes from either RR. Other PEs (R2, R17, R18) are receiving routes normally from at least one RR.
 
@@ -122,7 +122,7 @@ Score: 2 Points
 
 ---
 
-## Ticket 8
+## Ticket 8 - DONE
 
 The TE tunnel (Tunnel0) on R2 with destination 8.8.8.8 is in DOWN state. The MPLS TE topology database on R2 appears populated with all routers and links.
 
@@ -134,7 +134,7 @@ Score: 3 Points
 
 ---
 
-## Ticket 9
+## Ticket 9 - DONE
 
 Tunnel0 on R2 is UP, but VPN traffic from R1 to R9 is NOT using the tunnel. Traffic is taking the normal IGP/LDP path instead of the TE tunnel path.
 
@@ -146,7 +146,7 @@ Score: 2 Points
 
 ---
 
-## Ticket 10
+## Ticket 10 - DONE
 
 R2 can reach R8, and the VPN route for 9.9.9.9 exists in R2's VRF routing table. However, R1 cannot ping R9. The issue is on the PE-CE edge, not the MPLS core.
 
@@ -158,7 +158,7 @@ Score: 2 Points
 
 ---
 
-## Ticket 11
+## Ticket 11 - DONE
 
 R19 (Customer_D, behind R17) cannot reach its own VPN. `show ip bgp vpnv4 vrf Customer_D` on R17 shows 0 prefixes received from the RRs. R17's vpnv4 sessions to both RRs are Established.
 
@@ -170,7 +170,7 @@ Score: 3 Points
 
 ---
 
-## Ticket 12
+## Ticket 12 - DONE
 
 R2's TE tunnel (Tunnel0) to R8 is UP and on a valid path, but the tunnel is stuck using a longer path than optimal. The tunnel has `path-option 1 dynamic` configured. The TE topology shows all links with full bandwidth available.
 
@@ -182,7 +182,7 @@ Score: 3 Points
 
 ---
 
-## Ticket 13
+## Ticket 13 - DONE
 
 After a recent link flap event, VPN traffic from R1 to R9 black-holes for 30-60 seconds whenever a specific core link bounces, then recovers. The OSPF adjacency reforms within 5 seconds but MPLS traffic drops for much longer.
 
@@ -194,7 +194,7 @@ Score: 4 Points
 
 ---
 
-## Ticket 14
+## Ticket 14 - DONE
 
 R8 has vpnv4 routes for Customer_A prefix 1.1.1.1/32 in its BGP table with a valid next-hop (2.2.2.2). However, the route is NOT installed in the VRF routing table. `show ip bgp vpnv4 vrf Customer_A 1.1.1.1` shows "RIB-failure" or the route is valid/best but not in `show ip route vrf Customer_A`.
 

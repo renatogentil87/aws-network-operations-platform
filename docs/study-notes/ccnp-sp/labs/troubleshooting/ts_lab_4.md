@@ -1,15 +1,22 @@
-# Troubleshooting Lab 4: L3VPN Advanced (Inter-AS, CSC) — 20 Tickets
+# Troubleshooting Lab 4: L3VPN Advanced — Inter-AS & Complex VPN Design — 20 Tickets
 
 **Platform:** GNS3 Local (Cisco 7200, IOS 15.2)
-**Topology:** 24 routers — 2 SP domains (AS 64512, AS 64513), 8 PEs, 6 P routers, 4 ASBRs, 6 CEs
+**Topology:** 20 routers — same physical topology
 **Difficulty:** CCNP-SP to CCIE-SP progressive
+**Prerequisite:** Golden-state snapshot + Inter-AS extensions configured
+
+---
+
+## Lab Context
+
+Your SP network now serves multi-homed customers and uses Inter-AS Option A between the "north domain" (R2, R3-R7, R8) and "south domain" (R17, R13-R16, R18). R6↔R13 acts as the Inter-AS boundary (back-to-back VRF). This lab tests complex VPN scenarios: Inter-AS, hub-spoke, extranet, shared services, and route-leaking.
 
 ---
 
 ## Lab Rules
 
 - Do NOT change hostnames, enable passwords, or console/VTY configuration
-- Do NOT change AS numbers or inter-AS connectivity type unless explicitly required
+- Do NOT change OSPF areas, AS numbers, or core MPLS configuration
 - Do NOT add new interfaces or IP addresses unless explicitly required
 - Do NOT remove existing features to resolve a ticket — fix the root cause
 - Static routes are NOT permitted unless preconfigured
@@ -24,34 +31,33 @@
 
 | Role | Routers | ASN |
 |---|---|---|
-| PE (SP-A) | R1, R4 | 64512 |
-| PE (SP-B) | R11, R14 | 64513 |
-| P (SP-A) | R2, R3 | 64512 |
-| P (SP-B) | R12, R13 | 64513 |
-| ASBR (SP-A) | R5, R6 | 64512 |
-| ASBR (SP-B) | R15, R16 | 64513 |
-| RR (SP-A) | R3 | 64512 |
-| RR (SP-B) | R13 | 64513 |
-| CE | R20 (65001), R21 (65002), R22 (65003), R23 (65004), R24 (65005), R25 (65006) |
+| PE (north) | R2, R8 | 64512 |
+| PE (south) | R17, R18 | 64512 |
+| P (north) | R3, R4, R5, R7 | — |
+| P (south) | R14, R15, R16 | — |
+| Inter-AS boundary | R6 (north), R13 (south) | 64512 |
+| RR | R3, R7 | 64512 |
+| CE | R1 (65001), R9 (65001), R11 (65011), R12 (65012), R19 (65019), R20 (65020) |
 
-**Inter-AS Models:**
-- Option-A (back-to-back VRF): R5↔R15
-- Option-B (ASBR vpnv4 exchange): R6↔R16
+**Inter-AS Design (Option A):**
+- R6↔R13 link: Back-to-back VRF for Customer_A cross-domain traffic
+- North Customer_A: R1 (on R2) ↔ south Customer_A: R19 (on R17) via inter-AS
+- VRF `Customer_A_InterAS` on R6 and R13 with eBGP between them
 
-**VPNs:**
-- Customer_X: R20 (SP-A) ↔ R22 (SP-B) via Option-A
-- Customer_Y: R21 (SP-A) ↔ R23 (SP-B) via Option-B
-- Customer_Z: R24 (SP-A) ↔ R25 (SP-B) via Option-B (CSC customer — carrier's carrier)
+**VPN Designs:**
+- Customer_A: Full-mesh (R1↔R9 direct + R1↔R19 via Inter-AS)
+- Customer_B: Hub-spoke (R2 hub, R8 spoke) — R12 is hub CE, R11 is spoke CE
+- Customer_Shared: Shared-services VRF (R2) — accessible from Customer_A and Customer_B
 
 ---
 
 ## Ticket 1
 
-The Option-A inter-AS link between R5 and R15 has a VRF interface configured on both sides, but the PE-CE protocol (eBGP) across the inter-AS link is not establishing. IP connectivity across the link (ping) works.
+The Inter-AS eBGP session between R6 and R13 (VRF `Customer_A_InterAS`) is not establishing. IP connectivity across the link (ping in VRF) works. Both sides have the VRF and eBGP neighbor configured.
 
-Fix the network so that the eBGP session across the Option-A inter-AS link establishes.
+Fix the network so that the Inter-AS eBGP session establishes.
 
-Verify: `show ip bgp vrf Customer_X summary` on R5 shows the session with R15 as Established.
+Verify: `show ip bgp vrf Customer_A_InterAS summary` on R6 shows R13's IP as Established.
 
 Score: 2 Points
 
@@ -59,11 +65,11 @@ Score: 2 Points
 
 ## Ticket 2
 
-Customer_X CE (R20) behind SP-A can reach the ASBR (R5) VRF interface but cannot reach Customer_X CE (R22) behind SP-B. The Option-A eBGP session between ASBRs is Established. Routes are being exchanged.
+The Inter-AS session is Established but R6 is NOT advertising any Customer_A routes to R13. R6's VRF routing table HAS Customer_A routes (from R2 via MP-BGP). The routes exist but aren't being passed across the inter-AS link.
 
-Fix the network so that R20 can reach R22's loopback.
+Fix the network so that R6 advertises Customer_A routes to R13 via the inter-AS eBGP session.
 
-Verify: `ping 22.22.22.22 source 20.20.20.20` from R20 succeeds.
+Verify: `show ip bgp vrf Customer_A_InterAS` on R13 shows routes from R6's side (1.1.1.1/32, 9.9.9.9/32).
 
 Score: 2 Points
 
@@ -71,11 +77,11 @@ Score: 2 Points
 
 ## Ticket 3
 
-The Option-B inter-AS link between R6 and R16 has an eBGP multihop session configured for vpnv4 exchange. The session is stuck in Active state. Both ASBRs can ping each other's directly connected interface.
+R19 (Customer_A CE on R17) cannot reach R1 (Customer_A CE on R2) via the Inter-AS path. The route for 1.1.1.1 exists in R17's VRF table with next-hop R13, but MPLS label switching fails at the inter-AS boundary.
 
-Fix the network so that the vpnv4 eBGP session between R6 and R16 establishes.
+Fix the network so that end-to-end data-plane connectivity works across the Inter-AS link.
 
-Verify: `show ip bgp vpnv4 all summary` on R6 shows the session with R16 as Established with non-zero PfxRcvd.
+Verify: `ping 1.1.1.1 source 19.19.19.19` from R19 succeeds.
 
 Score: 2 Points
 
@@ -83,11 +89,11 @@ Score: 2 Points
 
 ## Ticket 4
 
-Option-B is partially working: R6 receives vpnv4 routes from R16, but the next-hop is unreachable. MPLS labels are being exchanged but the transport label (to reach the remote PE) is missing. The SP-A core has no route to SP-B PE loopbacks.
+Customer_B hub-spoke design: R11 (spoke CE on R8) can reach R12 (hub CE on R2), but R12 CANNOT reach R11. The hub-spoke RT design requires traffic from spoke→spoke to transit via the hub, but hub→spoke is also broken.
 
-Fix the network so that next-hops for Option-B vpnv4 routes are resolvable.
+Fix the network so that the hub CE (R12) can reach spoke CE (R11).
 
-Verify: `show ip bgp vpnv4 all nexthop` on R6 shows all next-hops as reachable. VPN traffic from SP-A customers to SP-B customers via Option-B works.
+Verify: `ping 11.11.11.11 source 12.12.12.12` from R12 succeeds. Route in R2's VRF shows spoke routes via hub.
 
 Score: 3 Points
 
@@ -95,11 +101,11 @@ Score: 3 Points
 
 ## Ticket 5
 
-Customer_Y VPN (Option-B) has routes visible on both PEs but data plane traffic fails. Label-switched path from R4 (SP-A PE) reaches R6 (ASBR) correctly, but the next label in the stack is not being swapped at the ASBR for the inter-AS segment.
+Customer_B spoke-to-spoke traffic via hub: R11 (spoke) can reach R12 (hub) but cannot reach another spoke CE if one existed. The issue is that R2 (hub PE) is NOT re-advertising spoke routes back to other spoke PEs. The hub PE receives spoke routes from RR but doesn't export them back.
 
-Fix the network so that the MPLS label stack is correctly maintained across the Option-B boundary.
+Fix the network so that hub-spoke route advertisement works correctly.
 
-Verify: `ping 23.23.23.23 source 21.21.21.21` from R21 succeeds. `show mpls forwarding-table` on R6 shows correct label swap for VPN prefixes.
+Verify: Routes from R11 appear in R2's Customer_B VRF with RT indicating they came from spoke. R2 re-exports with hub RT.
 
 Score: 3 Points
 
@@ -107,11 +113,11 @@ Score: 3 Points
 
 ## Ticket 6
 
-Route Target (RT) filtering on the Option-A ASBR is dropping Customer_X routes during the VRF-to-VRF handoff. The routes enter the VRF on R5 but are not being redistributed into the inter-AS eBGP session.
+Shared-services VRF on R2: Customer_A CEs should be able to reach the shared-services resources (a loopback on R2 in the shared VRF), but Customer_A routes show no path to the shared network. The shared-services VRF exists but RT import/export between Customer_A and Shared is not working.
 
-Fix the network so that Customer_X routes are properly exchanged across the Option-A boundary.
+Fix the network so that Customer_A CEs can reach shared-services resources.
 
-Verify: `show ip bgp vrf Customer_X` on R15 shows routes from SP-A. `show ip route vrf Customer_X` on R15 shows the routes as installed.
+Verify: From R1, `ping <shared-services-IP>` succeeds. `show ip route vrf Customer_A` on R2 shows the shared-services prefix imported.
 
 Score: 3 Points
 
@@ -119,11 +125,11 @@ Score: 3 Points
 
 ## Ticket 7
 
-The CSC (Carrier Supporting Carrier) customer (Customer_Z) requires MPLS labels to be distributed between the CSC-CE and the PE. The eBGP session between R24 (CSC-CE) and R4 (PE) is Established for ipv4+labels, but labels are not being allocated for the CSC-CE's routes.
+Extranet between Customer_A and Customer_B: A specific prefix (12.12.12.12/32 from Customer_B) should be accessible from Customer_A, but the full Customer_B routing table should NOT leak. Currently, either nothing leaks (broken) or everything leaks (over-permissive).
 
-Fix the network so that MPLS labels are distributed over the PE-CE BGP session for Customer_Z.
+Fix the network so that ONLY 12.12.12.12/32 is accessible from Customer_A, not the full Customer_B table.
 
-Verify: `show ip bgp vrf Customer_Z labels` on R4 shows labels allocated for routes received from R24. `show mpls forwarding-table vrf Customer_Z` shows label entries.
+Verify: From R1, `ping 12.12.12.12` succeeds. `show ip route vrf Customer_A` on R2 shows ONLY 12.12.12.12/32 from Customer_B, not 10.x.x.x transit links.
 
 Score: 2 Points
 
@@ -131,11 +137,11 @@ Score: 2 Points
 
 ## Ticket 8
 
-Option-B next-hop-self on the ASBR is not being applied correctly. R6 is supposed to rewrite the next-hop for vpnv4 routes it receives from R16 to its own loopback before reflecting to the internal RR. The routes reach the RR with the original SP-B next-hop (unreachable from SP-A internals).
+Customer_A has a backup path via the Inter-AS link (R6↔R13) that should only be used when the primary path (direct R2↔R8 reflection) fails. Currently, R17 prefers the inter-AS path over the direct RR-reflected path due to incorrect LOCAL_PREF.
 
-Fix the network so that the ASBR rewrites the next-hop for inbound inter-AS vpnv4 routes.
+Fix the network so that the direct RR path is preferred and inter-AS is backup only.
 
-Verify: `show ip bgp vpnv4 all <prefix>` on R3 (RR) shows next-hop as R6's loopback (6.6.6.6), not the SP-B PE loopback.
+Verify: `show ip bgp vpnv4 vrf Customer_A 1.1.1.1` on R17 shows the RR-reflected path as best (not the inter-AS path).
 
 Score: 3 Points
 
@@ -143,11 +149,11 @@ Score: 3 Points
 
 ## Ticket 9
 
-An SOO (Site-of-Origin) conflict exists in Customer_X across the Option-A boundary. Both SPs independently assigned the same SOO community to their respective CE connections. Routes from one CE are being rejected by the other SP's PE due to SOO matching.
+SOO (Site of Origin) is preventing routes from being installed. R8 advertises Customer_A routes with SOO `64512:901` but R2 is also setting the same SOO on routes received from R1. This causes R2 to reject routes from R8 that originated at R9's site.
 
-Fix the network so that SOO-based loop prevention works correctly without blocking legitimate routes.
+Fix the network so that SOO prevents routing loops without blocking legitimate routes.
 
-Verify: `show ip bgp vrf Customer_X` on both PEs shows routes from the remote CE accepted and installed.
+Verify: `show ip route vrf Customer_A` on R2 shows R9's routes (9.9.9.9/32) received via R8/RR. SOO is correctly set per-site (not duplicated).
 
 Score: 2 Points
 
@@ -155,11 +161,11 @@ Score: 2 Points
 
 ## Ticket 10
 
-Option-B ASBR R6 has received vpnv4 routes from R16 with a VPN label, but the label is not being retained in R6's adj-RIB-in. The routes show up with an implicit-null label, breaking the label stack for VPN forwarding.
+The Inter-AS link (R6↔R13) is a single point of failure. A backup inter-AS link via R7↔R14 has been configured, but traffic never fails over to it when R6↔R13 goes down. The backup VRF interface exists but eBGP session won't establish.
 
-Fix the network so that VPN labels from the remote ASBR are preserved and used for forwarding.
+Fix the network so that the backup inter-AS path via R7↔R14 becomes operational.
 
-Verify: `show ip bgp vpnv4 all labels` on R6 shows valid non-null labels for routes received from R16.
+Verify: Shut R6↔R13 link → R19 can still reach R1 via the R7↔R14 backup path within 30 seconds.
 
 Score: 2 Points
 
@@ -167,11 +173,11 @@ Score: 2 Points
 
 ## Ticket 11
 
-Customer_Y has dual-homed into SP-A via both R1 and R4. Routes from R21 (behind R4) are preferred over routes from a second CE (behind R1) even though the path via R1 should be preferred (shorter AS_PATH from the customer side). The RR is selecting the wrong best path.
+OSPF PE-CE (Customer_A, R8↔R9): R9 is receiving routes with OSPF cost 1 for ALL remote prefixes. The routes should carry the original OSPF cost from the originating site (varying costs). OSPF domain-id or metric-type handling is incorrect.
 
-Fix the network so that the RR selects the path via R1 as best for the dual-homed prefix.
+Fix the network so that redistributed routes on R9 carry meaningful metrics reflecting distance.
 
-Verify: `show ip bgp vpnv4 vrf Customer_Y <prefix>` on the RR shows the path via R1 as `>` (best).
+Verify: `show ip route` on R9 shows different OSPF costs for different prefixes (not all cost 1).
 
 Score: 3 Points
 
@@ -179,11 +185,11 @@ Score: 3 Points
 
 ## Ticket 12
 
-The Option-A ASBR (R5) has a route-map applied to the inter-AS eBGP session that is matching on an incorrect community value. It should permit Customer_X routes but is also inadvertently permitting routes from other VRFs, causing route leaking between customers across the inter-AS boundary.
+OSPF PE-CE (R8↔R9): A routing loop exists — routes originated by R9 (9.9.9.9/32) are being redistributed back to R9 by R8 as external OSPF routes. R9 sees its own loopback as an O E2 route via R8.
 
-Fix the network so that only Customer_X routes cross the Option-A boundary while other VRF routes are blocked.
+Fix the network so that OSPF loop prevention (down-bit or domain-tag) prevents re-advertisement.
 
-Verify: `show ip bgp vrf Customer_X` on R15 shows ONLY Customer_X routes. No routes from other VRFs appear in any VRF on R15.
+Verify: `show ip route 9.9.9.9` on R9 shows it as a connected route (Loopback0), NOT as O E2 via R8.
 
 Score: 3 Points
 
@@ -191,11 +197,11 @@ Score: 3 Points
 
 ## Ticket 13
 
-CSC customer (Customer_Z) is attempting to run their own MPLS network over the SP's VPN. The PE-CE BGP session has `send-label` configured, but the CSC-CE's internal IGP routes are not receiving labels from the PE. Only the CSC-CE's loopback gets a label, not the transit links.
+Import-map on R8 for Customer_A is blocking specific prefixes. R8 has an `import-map` configured under the VRF that should permit all Customer_A routes but a deny statement is matching 1.1.1.1/32 by mistake.
 
-Fix the network so that ALL CSC-CE routes (including transit prefixes) receive MPLS labels from the PE.
+Fix the network so that all Customer_A routes are imported into R8's VRF.
 
-Verify: `show ip bgp vrf Customer_Z labels` on R4 shows labels for all routes received from R24, including /30 transit links.
+Verify: `show ip route vrf Customer_A 1.1.1.1` on R8 shows the route present. `show ip bgp vpnv4 vrf Customer_A` shows all prefixes as valid.
 
 Score: 4 Points
 
@@ -203,11 +209,11 @@ Score: 4 Points
 
 ## Ticket 14
 
-Option-B with inter-AS TE: An MPLS TE tunnel from R4 (SP-A PE) destined to R6 (ASBR) is UP, but the VPN traffic is not being steered into the TE tunnel for inter-AS paths. The tunnel has `autoroute announce` configured.
+Multi-homed CE: R1 is connected to both R2 (primary) and R17 (backup via south domain). R1 advertises its loopback to both PEs. However, traffic returning to R1 always takes the R17 path (backup) instead of the R2 path (primary) due to BGP path selection at the RR.
 
-Fix the network so that VPN traffic destined to Option-B remote PEs uses the TE tunnel to reach the ASBR.
+Fix the network so that return traffic to R1 prefers the R2 path (shorter IGP distance).
 
-Verify: `show ip cef vrf Customer_Y <remote-prefix>` on R4 shows the TE tunnel as the outgoing interface for the first label-push.
+Verify: Traceroute from R9 to 1.1.1.1 shows path via R8→core→R2→R1 (not via south/R17).
 
 Score: 4 Points
 
@@ -215,11 +221,11 @@ Score: 4 Points
 
 ## Ticket 15
 
-Option-B vpnv4 routes received by R6 from R16 are being advertised to the internal RR with the incorrect RD (Route Distinguisher). The RR receives them but cannot correlate them with the correct VPN. Routes appear in vpnv4 all but are NOT imported into any VRF on local PEs.
+VRF route limit has been hit on R2. Customer_A VRF has `maximum routes 50 warning-only` but someone changed it to `maximum routes 5`. New routes from R1 are being rejected. The VRF table is frozen at 5 routes.
 
-Fix the network so that vpnv4 routes maintain correct RD through the Option-B exchange and are importable by local PEs.
+Fix the network so that R2's Customer_A VRF accepts all routes without limit issues.
 
-Verify: `show ip bgp vpnv4 all <prefix>` on R1 shows the route with a matchable RT. `show ip route vrf Customer_Y` on R1 shows the imported route.
+Verify: `show ip route vrf Customer_A` on R2 shows all expected routes. No "maximum route limit" errors in log.
 
 Score: 4 Points
 
@@ -227,11 +233,11 @@ Score: 4 Points
 
 ## Ticket 16
 
-Inter-AS Option-B with PE-to-PE labeled path (Option-C style): R6 and R16 are exchanging loopback labels via eBGP (labeled unicast). However, the labeled path is broken because one ASBR is allocating per-prefix labels but the other expects per-CE labels or vice versa.
+PE-CE eBGP with AS-override: R8 uses `as-override` for Customer_A (R9 is in AS 65001, same as R1). However, as-override is creating a loop — R8 is overriding its OWN AS (64512) in the path, causing the route to be accepted when it shouldn't be.
 
-Fix the network so that the end-to-end labeled path between PEs across the inter-AS boundary works correctly.
+Fix the network so that as-override works correctly (only overrides customer's AS, not SP's).
 
-Verify: `traceroute mpls ipv4 14.14.14.14/32` from R4 shows a complete LSP through the inter-AS boundary. VPN traffic works.
+Verify: `show ip bgp vrf Customer_A 1.1.1.1` on R8 shows AS-PATH with 64512 replaced by 64512 only once (no infinite loop). R9 accepts R1's routes.
 
 Score: 4 Points
 
@@ -239,11 +245,11 @@ Score: 4 Points
 
 ## Ticket 17
 
-BGP Confederations: SP-A has been reconfigured to use a BGP confederation (sub-AS 64512.1 and 64512.2) internally. After the change, VPN routes are no longer reaching PEs in the OTHER sub-AS. The confederation eBGP sessions between sub-AS members are Established.
+VPNv4 route-target rewrite at the Inter-AS boundary (R6): Routes crossing from north to south should have RT `64512:100` rewritten to `64512:1000` for policy reasons. The rewrite is configured but routes arrive at R17 with the ORIGINAL RT (64512:100) and R17's VRF doesn't import them.
 
-Fix the network so that vpnv4 routes traverse the confederation sub-AS boundary.
+Fix the network so that RT rewrite works at the inter-AS boundary and R17 imports the routes.
 
-Verify: `show ip bgp vpnv4 all` on PEs in both sub-AS segments shows routes from the other segment.
+Verify: `show ip bgp vpnv4 vrf Customer_A` on R17 shows routes with correct RT. `show ip route vrf Customer_A` has the inter-AS routes.
 
 Score: 4 Points
 
@@ -251,17 +257,11 @@ Score: 4 Points
 
 ## Ticket 18
 
-Complete Option-B failure: Customer_Y VPN has no connectivity. Troubleshooting reveals:
-- The vpnv4 eBGP session between R6 and R16 is Established with prefixes exchanged
-- Next-hop rewriting is correct
-- Labels are preserved
-- But the data plane (traceroute MPLS) shows the LSP breaking at the ASBR
+Complete Inter-AS failure: R19 cannot reach ANY Customer_A CE on the north side (R1, R9). The inter-AS eBGP sessions are DOWN on BOTH links (primary R6↔R13 and backup R7↔R14). North-side Customer_A is fully working (R1↔R9 fine).
 
-The control plane looks correct but the forwarding plane is broken.
+Fix the network so that Inter-AS connectivity is fully restored.
 
-Fix ALL issues so that Customer_Y has end-to-end VPN connectivity via Option-B.
-
-Verify: `ping 23.23.23.23 source 21.21.21.21` from R21 succeeds. `traceroute mpls` shows complete LSP.
+Verify: `ping 1.1.1.1 source 19.19.19.19` from R19 succeeds. Both inter-AS eBGP sessions are Established.
 
 Score: 5 Points
 
@@ -269,11 +269,11 @@ Score: 5 Points
 
 ## Ticket 19
 
-Asymmetric routing across inter-AS boundaries: Customer_X traffic flows SP-A→SP-B via Option-A normally, but return traffic (SP-B→SP-A) is attempting to use Option-B (which doesn't have Customer_X configured). Traffic fails in one direction only.
+Hub-spoke + shared-services interaction: Customer_B spoke CEs can reach the hub but cannot reach shared-services resources. The shared-services VRF imports from both Customer_A and Customer_B, but Customer_B's spoke RT is not being imported correctly due to RT-rewrite at the hub PE.
 
-Fix the network so that Customer_X traffic uses Option-A in BOTH directions consistently.
+Fix the network so that Customer_B spoke CEs can access shared services via the hub.
 
-Verify: `ping 22.22.22.22 source 20.20.20.20` from R20 succeeds AND `ping 20.20.20.20 source 22.22.22.22` from R22 succeeds. Traceroute confirms symmetric Option-A path.
+Verify: From R11 (spoke), ping shared-services IP succeeds. Route path is R11→R8→R2(hub)→shared.
 
 Score: 5 Points
 
@@ -281,14 +281,11 @@ Score: 5 Points
 
 ## Ticket 20
 
-Multi-failure scenario across both inter-AS models:
-- Customer_X (Option-A): routes exchanged but data plane black-holes due to label issue
-- Customer_Y (Option-B): control plane broken — no routes reaching remote PEs
-- Customer_Z (CSC): label allocation works but CSC customer's internal LSP across the SP backbone is broken
+Full VPN control-plane reconstruction: Customer_A across both domains (north + south) is COMPLETELY down. Multiple faults exist simultaneously across the Inter-AS boundary, RR reflection, and PE-CE peering. Customer_B and D/E are working.
 
-Fix ALL three customers simultaneously.
+Fix the network so that Customer_A is fully operational across both domains.
 
-Verify: All three customer VPNs have end-to-end connectivity. R20↔R22, R21↔R23, R24↔R25 all pass ping tests.
+Verify: R1↔R9 ping works. R1↔R19 ping works (via inter-AS). R19↔R9 ping works.
 
 Score: 5 Points
 
@@ -308,3 +305,32 @@ Score: 5 Points
 
 **Passing:** 49/65 (75%)
 **CCIE-ready:** 59/65 (90%)
+
+---
+
+## Injection Notes (for AI fault injector)
+
+**Base state:** Golden-state + Inter-AS VRF on R6/R13, hub-spoke RT on Customer_B, shared-services VRF on R2
+
+| Ticket | Router(s) | Fault |
+|---|---|---|
+| 1 | R6 or R13 | Wrong remote-AS in VRF eBGP neighbor |
+| 2 | R6 | Missing `redistribute bgp` or network statement in inter-AS VRF |
+| 3 | R6/R13 | `no mpls ip` on inter-AS link (or label not allocated) |
+| 4 | R2 | Hub RT export missing spoke-import RT |
+| 5 | R2 | Missing `route-reflector` or RT design: hub not re-exporting |
+| 6 | R2 | Shared-services VRF: RT import not including Customer_A RT |
+| 7 | R2 | Over-permissive or missing `import-map` for selective extranet |
+| 8 | R17 | LOCAL_PREF set higher on inter-AS path |
+| 9 | R2 | SOO set to same value as R8's SOO |
+| 10 | R7/R14 | Backup VRF interface shut or wrong IP in eBGP neighbor |
+| 11 | R8 | OSPF redistribute with `metric 1` or missing `metric-type` |
+| 12 | R8 | Missing `domain-id` or DN-bit not set |
+| 13 | R8 | import-map denying 1.1.1.1/32 |
+| 14 | R17 | LOCAL_PREF 200 on R1's routes (higher than R2's path) |
+| 15 | R2 | `maximum routes 5` in VRF |
+| 16 | R8 | as-override interacting with allowas-in creating loop |
+| 17 | R6 | RT rewrite route-map not applied or wrong match |
+| 18 | R6+R7 | VRF interface shut on both inter-AS links |
+| 19 | R2 | Hub PE not importing spoke RT into shared-services VRF |
+| 20 | Multiple | Inter-AS down + RR not reflecting + PE-CE broken |

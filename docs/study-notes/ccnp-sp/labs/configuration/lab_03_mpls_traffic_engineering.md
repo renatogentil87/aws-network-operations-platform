@@ -8,11 +8,10 @@
 
 ---
 
-## Section 1: Enable the TE Foundation
-
+## Section 1: Enable the TE Foundation - DONE
 ### Task 1: Activate MPLS TE on All Core Routers
 
-1. Enable `mpls traffic-eng tunnels` globally on all P and PE routers (R2, R3, R4, R5, R6, R7, R8, R13, R14, R15, R16, R17, R18)
+1. Enable `mpls traffic-eng tunnels` globally on all P and PE routers (R2, R3, R4, R5, R6, R7, R8, R13, R14, R15, R16, R17, R18) 
 2. Under OSPF process 1, add `mpls traffic-eng router-id Loopback0` and `mpls traffic-eng area 0`
 3. Enable `mpls traffic-eng tunnels` on every core-facing interface (all P-to-P and PE-to-P links — NOT PE-to-CE links)
 4. Enable `ip rsvp bandwidth` on every core-facing interface (use interface bandwidth as the reservable amount)
@@ -20,7 +19,8 @@
 6. Verify: `show ip rsvp interface` on R3 — every TE-enabled interface is listed with allocatable bandwidth
 7. Verify: `show ip ospf database opaque-area` — Type 10 LSAs (TE TLVs) are being flooded
 
-### Task 2: First Dynamic Tunnel — R2 to R8
+
+### Task 2: First Dynamic Tunnel — R2 to R8 - DONE
 
 1. Create Tunnel0 on R2 with destination 8.8.8.8 (R8 loopback)
 2. Set `tunnel mode mpls traffic-eng`
@@ -34,7 +34,7 @@
 10. Traceroute from R2 to 8.8.8.8 — confirm traffic uses the tunnel path
 11. Compare: `show ip route 8.8.8.8` before and after the tunnel — what changed?
 
-### Task 3: Verify the TE Topology Database
+### Task 3: Verify the TE Topology Database - DON
 
 1. On R2: `show mpls traffic-eng topology 8.8.8.8` — examine the paths available to R8
 2. Identify: how many equal-cost TE paths exist between R2 and R8?
@@ -45,7 +45,7 @@
 
 ## Section 2: Explicit Path Control
 
-### Task 4: Force Traffic Through a Specific Path
+### Task 4: Force Traffic Through a Specific Path - DONE
 
 1. Create an IP explicit-path named "VIA-R4":
    - next-address R3 loopback (3.3.3.3)
@@ -59,7 +59,7 @@
 6. Traceroute from R2 to 8.8.8.8 via Tunnel1 — confirm hops are R3→R4→R5→R8
 7. Compare: is this path different from the CSPF dynamic path of Tunnel0?
 
-### Task 5: Build the Alternate Path
+### Task 5: Build the Alternate Path - DONE
 
 1. Create an IP explicit-path named "VIA-R6":
    - next-address R6 loopback (6.6.6.6)
@@ -71,7 +71,7 @@
 5. You now have three tunnels to R8: dynamic (Tunnel0), via-R4 (Tunnel1), via-R6 (Tunnel2)
 6. Verify: `show mpls traffic-eng tunnels brief` — all three are UP simultaneously
 
-### Task 6: Primary/Backup Failover
+### Task 6: Primary/Backup Failover - DONE
 
 1. Remove Tunnel1 and Tunnel2 (they were for testing)
 2. Reconfigure Tunnel0 with TWO path options:
@@ -88,7 +88,7 @@
 
 ---
 
-## Section 3: Bandwidth Engineering
+## Section 3: Bandwidth Engineering - DONE
 
 ### Task 7: Admission Control — Prove It Works
 
@@ -102,7 +102,7 @@
 8. Verify: Tunnel3 now comes UP and coexists with Tunnel0
 9. Verify: `show ip rsvp interface` on R3 — total allocated = Tunnel0 + Tunnel3
 
-### Task 8: Preemption — Priority Wins
+### Task 8: Preemption — Priority Wins - DONE
 
 1. Set Tunnel0 priority: `tunnel mpls traffic-eng priority 7 7` (setup 7, hold 7 — lowest)
 2. Set Tunnel0 bandwidth to 80000
@@ -120,14 +120,14 @@
 
 ## Section 4: Link Colouring and Path Constraints
 
-### Task 9: Assign Attribute Flags (Colours)
+### Task 9: Assign Attribute Flags (Colours) - DONE 
 
 1. On ALL GigabitEthernet core interfaces: `mpls traffic-eng attribute-flags 0x1` (colour: "high-speed")
 2. On ALL FastEthernet core interfaces: `mpls traffic-eng attribute-flags 0x2` (colour: "standard")
 3. Verify: `show mpls traffic-eng topology` on R2 — each link shows its attribute-flags
 4. Confirm: R2→R3 (Gi1/0) shows 0x1, R3→R4 (Fa0/0) shows 0x2, R3→R6 (Fa3/0) shows 0x2
 
-### Task 10: Tunnels That Follow Colour Rules
+### Task 10: Tunnels That Follow Colour Rules - DONE
 
 1. Create Tunnel_HighSpeed on R2 to R8:
    - `tunnel mpls traffic-eng affinity 0x1 mask 0x1` (REQUIRE high-speed links)
@@ -146,7 +146,7 @@
 
 ---
 
-## Section 5: Carry VPN Traffic Over TE Tunnels
+## Section 5: Carry VPN Traffic Over TE Tunnels - DONE
 
 ### Task 11: VPN Traffic Follows the Tunnel
 
@@ -158,7 +158,7 @@
 6. Compare: remove autoroute announce from Tunnel0, check CEF again — VPN traffic falls back to LDP path
 7. Re-enable autoroute announce — VPN traffic returns to tunnel
 
-### Task 12: Auto-Bandwidth — Tunnel Adapts to VPN Load
+### Task 12: Auto-Bandwidth — Tunnel Adapts to VPN Load - DONE
 
 1. Configure auto-bandwidth on Tunnel0:
    - `tunnel mpls traffic-eng auto-bw`
@@ -174,7 +174,7 @@
 7. Stop traffic, wait for next interval
 8. Verify: bandwidth reservation decreases toward minimum
 
-### Task 13: TE Metric vs IGP Metric — Independence
+### Task 13: TE Metric vs IGP Metric — Independence - DONE
 
 1. On R3's interface toward R7 (Gi2/0): set `mpls traffic-eng administrative-weight 50000`
 2. Keep the OSPF cost unchanged on that same interface
@@ -188,7 +188,7 @@
 
 ## Section 6: QoS-Aware Tunnel Selection (EXP-Based)
 
-### Task 14: Build Separate Voice and Data Tunnels
+### Task 14: Build Separate Voice and Data Tunnels - DONE
 
 1. Remove Tunnel0's autoroute announce (clean slate for this section)
 2. Create two explicit-path tunnels from R2 to R8:
@@ -201,7 +201,7 @@
 3. Both tunnels: `ip unnumbered Loopback0`, `tunnel mode mpls traffic-eng`
 4. Verify: both tunnels are UP — `show mpls traffic-eng tunnels brief`
 
-### Task 15: Assign EXP Values to Tunnels
+### Task 15: Assign EXP Values to Tunnels - DONE
 
 1. On Tunnel_Voice (Tunnel10): `tunnel mpls traffic-eng exp 5` (EXP 5 = maps from DSCP EF = voice)
 2. On Tunnel_Data (Tunnel11): `tunnel mpls traffic-eng exp 0 1 2 3 4 6 7` (everything else)
@@ -212,7 +212,7 @@
 
 **Note:** If `tunnel mpls traffic-eng exp` is not supported on your IOS 15.2 image, skip to Task 16 (PBR method) which achieves the same result.
 
-### Task 16: Alternative — Policy-Based Routing for Tunnel Selection
+### Task 16: Alternative — Policy-Based Routing for Tunnel Selection - DONE
 
 If CBTS (EXP-based) is not available, use PBR on R2's CE-facing interface:
 
@@ -225,7 +225,7 @@ If CBTS (EXP-based) is not available, use PBR on R2's CE-facing interface:
 3. Apply on R2's VRF CE-facing interface: `ip policy route-map STEER-TRAFFIC` under Fa0/0 (toward R1)
 4. Verify: `show ip policy` on R2 — policy applied to Fa0/0
 
-### Task 17: Mark Traffic and Verify Separation
+### Task 17: Mark Traffic and Verify Separation - DONE
 
 1. On R1: generate voice-like traffic with DSCP EF:
    - `ping 9.9.9.9 tos 184` (TOS 184 = DSCP EF = binary 101110 shifted left by 2)
@@ -237,7 +237,7 @@ If CBTS (EXP-based) is not available, use PBR on R2's CE-facing interface:
 6. On R7 (transit for data path): `show interfaces Fa0/0 stats` — confirm data tunnel traffic transits here
 7. Verify: voice and data take DIFFERENT physical paths through the core
 
-### Task 18: Prove Bandwidth Protection
+### Task 18: Prove Bandwidth Protection - DONE
 
 1. Voice tunnel has priority 1 1, data tunnel has priority 7 7
 2. If both tunnels compete for the same link (change data tunnel to same path as voice):
@@ -252,7 +252,7 @@ If CBTS (EXP-based) is not available, use PBR on R2's CE-facing interface:
 
 ## CCIE+ Challenges
 
-### Challenge 1: Fast Reroute (FRR) — Link Protection
+### Challenge 1: Fast Reroute (FRR) — Link Protection - DONE
 
 1. On Tunnel0 (R2→R8 via VIA-R4): enable FRR — `tunnel mpls traffic-eng fast-reroute`
 2. On R3 (first transit router): create a backup tunnel (Tunnel10) that bypasses the R3→R4 link
@@ -265,7 +265,7 @@ If CBTS (EXP-based) is not available, use PBR on R2's CE-facing interface:
 7. Compare with Section 2 Task 6 failover time (2-5 seconds) — FRR should be 10-50x faster
 8. Bring R3 Fa0/0 back — verify Tunnel0 returns to primary path
 
-### Challenge 2: Node Protection (NNHOP Bypass)
+### Challenge 2: Node Protection (NNHOP Bypass) - DONE
 
 1. Protect against R4 failing entirely (not just the link to R4)
 2. On R3: create a backup tunnel that bypasses R4 completely
@@ -277,7 +277,7 @@ If CBTS (EXP-based) is not available, use PBR on R2's CE-facing interface:
 6. Verify: traffic continues flowing — Tunnel0 uses NNHOP backup around R4
 7. Packet loss should still be 0-2 packets
 
-### Challenge 3: DS-TE (DiffServ-Aware TE)
+### Challenge 3: DS-TE (DiffServ-Aware TE) - DONE
 
 1. Configure two bandwidth pools on core interfaces:
    - `ip rsvp bandwidth <total> sub-pool <premium-amount>`
@@ -289,7 +289,7 @@ If CBTS (EXP-based) is not available, use PBR on R2's CE-facing interface:
 6. Verify: sub-pool tunnel fails, global pool tunnel is unaffected
 7. Proves: premium traffic gets guaranteed bandwidth independent of best-effort
 
-### Challenge 4: Load Sharing Across Parallel TE Tunnels
+### Challenge 4: Load Sharing Across Parallel TE Tunnels - DONE
 
 1. Create two tunnels from R2 to R8 with DIFFERENT explicit paths (VIA-R4 and VIA-R6)
 2. Both tunnels: `autoroute announce`, same bandwidth
@@ -299,7 +299,7 @@ If CBTS (EXP-based) is not available, use PBR on R2's CE-facing interface:
 6. Verify: traffic distribution changes (3:1 ratio)
 7. Verify: `show mpls traffic-eng autoroute` — both tunnels participating with their load-share values
 
-### Challenge 5: Forwarding Adjacency (Tunnel as an IGP Link)
+### Challenge 5: Forwarding Adjacency (Tunnel as an IGP Link) - DONE
 
 1. Remove `autoroute announce` from Tunnel0
 2. Configure `tunnel mpls traffic-eng forwarding-adjacency` on Tunnel0
@@ -309,7 +309,7 @@ If CBTS (EXP-based) is not available, use PBR on R2's CE-facing interface:
 6. Traceroute from R6 to R8 — does it use R2's tunnel? (It might, depending on metric)
 7. Revert to autoroute announce for normal operation
 
-### Challenge 6: Make-Before-Break Reoptimization
+### Challenge 6: Make-Before-Break Reoptimization - DONE
 
 1. Tunnel0 is UP on path VIA-R4
 2. While running continuous ping from R1 to R9, change Tunnel0's explicit path to VIA-R6
@@ -318,7 +318,7 @@ If CBTS (EXP-based) is not available, use PBR on R2's CE-facing interface:
 5. Verify: `show mpls traffic-eng tunnels tunnel0` — path is now VIA-R6, no traffic disruption
 6. This is make-before-break — the production-safe way to move traffic between paths
 
-### Challenge 7: Inter-Area TE with Loose Hops
+### Challenge 7: Inter-Area TE with Loose Hops - DONE
 
 1. Split OSPF: Area 0 contains R2, R3, R4, R6. Area 1 contains R5, R7, R8. R3 and R6 are ABRs.
 2. Attempt to build a TE tunnel from R2 to R8 — observe: standard RSVP-TE fails (no TE topology visibility across areas)
@@ -335,23 +335,23 @@ If CBTS (EXP-based) is not available, use PBR on R2's CE-facing interface:
 
 By the end of this lab, your network has:
 
-- [ ] RSVP-TE enabled on all 13 core routers with OSPF TE extensions flooding
-- [ ] Dynamic tunnel (CSPF-computed path) operational between R2 and R8
-- [ ] Explicit-path tunnels with full hop-by-hop control
-- [ ] Primary/backup path failover working (2-5 second convergence)
-- [ ] Bandwidth admission control rejecting over-subscribed tunnels
-- [ ] Preemption: high-priority tunnels displace low-priority tunnels
-- [ ] Link colouring (affinity bits) constraining tunnel paths to specific link types
-- [ ] VPN customer traffic (R1→R9) riding the TE tunnel via autoroute
-- [ ] Auto-bandwidth dynamically adjusting reservation based on traffic load
-- [ ] TE metric and IGP metric operating independently (proven)
-- [ ] Separate voice and data TE tunnels with different paths
-- [ ] EXP-based or PBR-based tunnel selection steering traffic by class
-- [ ] Voice traffic protected by higher priority (cannot be preempted by data)
-- [ ] (CCIE+) FRR link protection with sub-50ms failover
-- [ ] (CCIE+) Node protection (NNHOP bypass) surviving complete router failure
-- [ ] (CCIE+) DS-TE with separate bandwidth pools for premium vs best-effort
-- [ ] (CCIE+) Load sharing across parallel TE tunnels with configurable ratio
-- [ ] (CCIE+) Forwarding adjacency exposing tunnels to the IGP
-- [ ] (CCIE+) Make-before-break achieving zero packet loss during path changes
-- [ ] (CCIE+) Inter-area TE using loose-hop expansion at ABRs
+- [x] RSVP-TE enabled on all 13 core routers with OSPF TE extensions flooding
+- [x] Dynamic tunnel (CSPF-computed path) operational between R2 and R8
+- [x] Explicit-path tunnels with full hop-by-hop control
+- [x] Primary/backup path failover working (2-5 second convergence)
+- [x] Bandwidth admission control rejecting over-subscribed tunnels
+- [x] Preemption: high-priority tunnels displace low-priority tunnels
+- [x] Link colouring (affinity bits) constraining tunnel paths to specific link types
+- [x] VPN customer traffic (R1→R9) riding the TE tunnel via autoroute
+- [x] Auto-bandwidth dynamically adjusting reservation based on traffic load
+- [x] TE metric and IGP metric operating independently (proven)
+- [x] Separate voice and data TE tunnels with different paths
+- [x] EXP-based or PBR-based tunnel selection steering traffic by class
+- [x] Voice traffic protected by higher priority (cannot be preempted by data)
+- [x] (CCIE+) FRR link protection with sub-50ms failover
+- [x] (CCIE+) Node protection (NNHOP bypass) surviving complete router failure
+- [x] (CCIE+) DS-TE with separate bandwidth pools for premium vs best-effort
+- [x] (CCIE+) Load sharing across parallel TE tunnels with configurable ratio
+- [x] (CCIE+) Forwarding adjacency exposing tunnels to the IGP
+- [x] (CCIE+) Make-before-break achieving zero packet loss during path changes
+- [x] (CCIE+) Inter-area TE using loose-hop expansion at ABRs
