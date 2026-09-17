@@ -31,7 +31,7 @@
 2. VPN route with color 128 arrives → policy auto-created using Algo 128. Remove → auto-deleted.
 
 ### Task 6: Redundant PCE
-1. Configure PCE1 (Emerald, 6.6.6.6) as backup PCE for Garnet PCCs.
+1. Configure PCE1 (Emerald, 5.5.5.5) as backup PCE for Garnet PCCs.
 2. Failover: shut PCE → PCCs switch to PCE1. Restore → revert.
 
 ## Checklist

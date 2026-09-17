@@ -21,8 +21,8 @@
    - PE2: Gi0/0/0/0, Gi0/0/0/3 (core). NOT Gi0/0/0/1, Gi0/0/0/2 (PE-CE).
    - P1: Gi0/0/0/0, Gi0/0/0/1, Gi0/0/0/2 (all core).
    - P2: Gi0/0/0/1, Gi0/0/0/2, Gi0/0/0/3 (all core).
-   - ASBR1: Gi0/0/0/2 (core). NOT Gi0/0/0/0 (inter-AS).
-   - PCE1: Gi0/0/0/3 (core).
+   - ASBR1: Gi0/0/0/2 (core to P2). NOT Gi0/0/0/1 (inter-AS to Garnet), Gi0/0/0/3 (inter-AS to Gold).
+   - PCE1: Gi0/0/0/3 (core to P2).
 3. Verify: `show isis neighbors` — all adjacencies L2/UP.
 4. Verify: `show route ipv4` — all 6 Emerald loopbacks (1.1.1.1–6.6.6.6) reachable.
 
@@ -83,23 +83,69 @@
 
 ## Section 3: Gold AS 65300 (IS-IS + SRv6)
 
-### Task 7: IP Addressing on Gold
-1. Configure loopbacks and core link IPs on ASBR3(21.21.21.21), ASBR4(22.22.22.22), P6(23.23.23.23), PE5(24.24.24.24), PE6(25.25.25.25).
+### Task 7: IP Addressing on Gold (IPv4 + IPv6)
+
+**IPv4 Loopbacks:**
+
+| Router | Loopback0 IPv4 |
+|--------|---------------|
+| ASBR3 | 21.21.21.21/32 |
+| ASBR4 | 22.22.22.22/32 |
+| P6 | 23.23.23.23/32 |
+| PE5 | 24.24.24.24/32 |
+| PE6 | 25.25.25.25/32 |
+
+**IPv6 Loopbacks (SRv6 source address):**
+
+| Router | Loopback0 IPv6 | SRv6 Locator |
+|--------|---------------|-------------|
+| ASBR3 | fc00::21/128 | fc00:0:21::/48 |
+| ASBR4 | fc00::22/128 | fc00:0:22::/48 |
+| P6 | fc00::23/128 | fc00:0:23::/48 |
+| PE5 | fc00::24/128 | fc00:0:24::/48 |
+| PE6 | fc00::25/128 | fc00:0:25::/48 |
+
+**Core Link Addressing (dual-stack, IPv4 + IPv6):**
+
+| Link | Interface A | Interface B | IPv4 Subnet | IPv6 Subnet |
+|------|------------|------------|-------------|-------------|
+| ASBR3↔ASBR4 | ASBR3 Gi0/0/0/2 | ASBR4 Gi0/0/0/2 | 10.3.1.0/24 (.1/.2) | fc00:3:1::/64 (::1/::2) |
+| ASBR3↔P6 | ASBR3 Gi0/0/0/1 | P6 Gi0/0/0/1 | 10.3.2.0/24 (.1/.2) | fc00:3:2::/64 (::1/::2) |
+| ASBR4↔P6 | ASBR4 Gi0/0/0/0 | P6 Gi0/0/0/0 | 10.3.3.0/24 (.1/.2) | fc00:3:3::/64 (::1/::2) |
+| P6↔PE5 | P6 Gi0/0/0/2 | PE5 Gi0/0/0/2 | 10.3.4.0/24 (.1/.2) | fc00:3:4::/64 (::1/::2) |
+| P6↔PE6 | P6 Gi0/0/0/3 | PE6 Gi0/0/0/3 | 10.3.5.0/24 (.1/.2) | fc00:3:5::/64 (::1/::2) |
+
+> **Addressing logic:** `fc00::XX` = loopback (XX = last octet of IPv4). `fc00:0:XX::/48` = SRv6 locator. `fc00:3:Y::/64` = core links (3 = Gold, Y = link number matching 10.3.Y.0 IPv4). `::1`/`::2` = same convention as IPv4 .1/.2.
+
+1. Configure both IPv4 AND IPv6 on every loopback and core interface.
+2. SRv6 requires IPv6 — the packets ARE IPv6 packets. No IPv6 = no SRv6 forwarding.
+3. Verify: every directly connected link can ping its neighbor on both IPv4 and IPv6.
 
 ### Task 8: IS-IS + SRv6 on Gold core
-1. IS-IS L2 on all Gold routers (net 49.0003...). `metric-style wide`.
-2. IPv6 on all Gold core interfaces (for SRv6 data plane).
-3. `segment-routing srv6` with locator per router (e.g., PE5 = fc00:0:24::/48).
-4. Enable IS-IS on core interfaces:
+1. IS-IS L2 on all Gold routers (net 49.0003.xxxx.xxxx.xxxx.00). `metric-style wide`.
+2. Enable **both** `address-family ipv4 unicast` and `address-family ipv6 unicast` under IS-IS (dual-stack, single-topology).
+3. Configure SRv6 locator per router:
+   ```
+   segment-routing
+    srv6
+     encapsulation
+      source-address fc00::XX        ← router's IPv6 loopback
+     locators
+      locator MAIN
+       prefix fc00:0:XX::/48         ← router's locator
+   ```
+4. Reference the locator under IS-IS: `segment-routing srv6 / locator MAIN` under `address-family ipv6 unicast`.
+5. Enable IS-IS on core interfaces (IPv4 + IPv6 address-families):
    - ASBR3: Gi0/0/0/1 (P6), Gi0/0/0/2 (ASBR4). NOT Gi0/0/0/3 (inter-AS to Emerald).
    - ASBR4: Gi0/0/0/0 (P6), Gi0/0/0/2 (ASBR3). NOT Gi0/0/0/3 (inter-AS to Garnet).
    - P6: Gi0/0/0/0 (ASBR4), Gi0/0/0/1 (ASBR3), Gi0/0/0/2 (PE5), Gi0/0/0/3 (PE6).
    - PE5: Gi0/0/0/2 (P6). NOT Gi0/0/0/0 (CE9), Gi0/0/0/1 (CE8).
    - PE6: Gi0/0/0/3 (P6). NOT Gi0/0/0/0 (CE7), Gi0/0/0/1 (CE8).
-5. ASBR3 = RR + PCE for Gold.
-6. **No LDP on Gold** — SRv6 provides transport.
-7. Verify: `show segment-routing srv6 sid` on each Gold router — SIDs allocated.
-8. PE5 ↔ PE6 ping works via SRv6.
+6. ASBR3 = RR + PCE for Gold.
+7. **No LDP on Gold** — SRv6 provides transport.
+8. Verify: `show segment-routing srv6 sid` on each Gold router — End SIDs allocated per locator.
+9. Verify: `show isis adjacency` — all Gold adjacencies L2/UP.
+10. Verify: `ping fc00::25 source fc00::24` (PE5 → PE6 via IPv6/SRv6) — works.
 
 ### Task 9: Verify inter-AS links (no IGP/LDP across them)
 1. ASBR1(Gi3) ↔ ASBR3(Gi3) — link UP, no IS-IS. eBGP later (E06).

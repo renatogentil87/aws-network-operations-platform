@@ -25,18 +25,18 @@
 | PE2 | PE | 2.2.2.2 |
 | P1 | P | 3.3.3.3 |
 | P2 | P | 4.4.4.4 |
-| ASBR1 | ASBR | 5.5.5.5 |
-| PCE1 | RR + PCE | 6.6.6.6 |
+| PCE1 | RR + PCE | 5.5.5.5 |
+| ASBR1 | ASBR | 6.6.6.6 |
 
 ### Gold — AS 65300 (IS-IS + SRv6) — Transit Provider
 
-| Node | Role | Loopback |
-|------|------|----------|
-| ASBR3 | ASBR + RR + PCE | 21.21.21.21 |
-| ASBR4 | ASBR | 22.22.22.22 |
-| P6 | P | 23.23.23.23 |
-| PE5 | PE | 24.24.24.24 |
-| PE6 | PE | 25.25.25.25 |
+| Node | Role | Loopback IPv4 | Loopback IPv6 | SRv6 Locator |
+|------|------|----------|--------------|-------------|
+| ASBR3 | ASBR + RR + PCE | 21.21.21.21 | fc00::21/128 | fc00:0:21::/48 |
+| ASBR4 | ASBR | 22.22.22.22 | fc00::22/128 | fc00:0:22::/48 |
+| P6 | P | 23.23.23.23 | fc00::23/128 | fc00:0:23::/48 |
+| PE5 | PE | 24.24.24.24 | fc00::24/128 | fc00:0:24::/48 |
+| PE6 | PE | 25.25.25.25 | fc00::25/128 | fc00:0:25::/48 |
 
 ### Garnet — AS 65200 (IS-IS + SR-MPLS)
 
@@ -79,15 +79,17 @@
 | P1 | NIC2 → Gi0 | PE2 | NIC2 → Gi0 | 10.1.5.0/24 |
 | PE1 | NIC5 → Gi3 | PE2 | NIC5 → Gi3 | 10.1.6.0/24 |
 
-### Gold Core
+### Gold Core (dual-stack — IPv6 required for SRv6)
 
-| From | NIC → Gi | To | NIC → Gi | Subnet |
-|------|----------|-----|----------|--------|
-| ASBR3 | NIC4 → Gi2 | ASBR4 | NIC4 → Gi2 | 10.3.1.0/24 |
-| ASBR3 | NIC3 → Gi1 | P6 | NIC3 → Gi1 | 10.3.2.0/24 |
-| ASBR4 | NIC2 → Gi0 | P6 | NIC2 → Gi0 | 10.3.3.0/24 |
-| P6 | NIC4 → Gi2 | PE5 | NIC4 → Gi2 | 10.3.4.0/24 |
-| P6 | NIC5 → Gi3 | PE6 | NIC5 → Gi3 | 10.3.5.0/24 |
+| From | NIC → Gi | To | NIC → Gi | IPv4 Subnet | IPv6 Subnet |
+|------|----------|-----|----------|-------------|-------------|
+| ASBR3 | NIC4 → Gi2 | ASBR4 | NIC4 → Gi2 | 10.3.1.0/24 | fc00:3:1::/64 |
+| ASBR3 | NIC3 → Gi1 | P6 | NIC3 → Gi1 | 10.3.2.0/24 | fc00:3:2::/64 |
+| ASBR4 | NIC2 → Gi0 | P6 | NIC2 → Gi0 | 10.3.3.0/24 | fc00:3:3::/64 |
+| P6 | NIC4 → Gi2 | PE5 | NIC4 → Gi2 | 10.3.4.0/24 | fc00:3:4::/64 |
+| P6 | NIC5 → Gi3 | PE6 | NIC5 → Gi3 | 10.3.5.0/24 | fc00:3:5::/64 |
+
+> **IPv6 convention:** `fc00:3:Y::/64` where 3=Gold, Y=link number. `::1`=first router, `::2`=second.
 
 ### Garnet Core
 
@@ -157,10 +159,13 @@
 |-------|---------|
 | 1.1.1.1 – 6.6.6.6 | Emerald loopbacks |
 | 11.11.11.11 – 17.17.17.17 | Garnet loopbacks |
-| 21.21.21.21 – 25.25.25.25 | Gold loopbacks |
+| 21.21.21.21 – 25.25.25.25 | Gold loopbacks (IPv4) |
+| fc00::21 – fc00::25 | Gold loopbacks (IPv6) |
+| fc00:0:21::/48 – fc00:0:25::/48 | Gold SRv6 locators |
+| fc00:3:1::/64 – fc00:3:5::/64 | Gold core links (IPv6) |
 | 10.1.x.0/24 | Emerald core links |
 | 10.2.x.0/24 | Garnet core links |
-| 10.3.x.0/24 | Gold core links |
+| 10.3.x.0/24 | Gold core links (IPv4) |
 | 10.0.1.0/24 | Inter-AS: Emerald↔Garnet direct |
 | 10.0.2.0/24 | Inter-AS: Emerald↔Gold |
 | 10.0.3.0/24 | Inter-AS: Gold↔Garnet |

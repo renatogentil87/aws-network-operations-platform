@@ -12,7 +12,7 @@
 ## Section 1: MP-BGP VPNv4 — Emerald
 
 ### Task 1: PCE1 as VPNv4 Route Reflector + SR-PCE Controller
-1. `router bgp 65100` on PCE1 (6.6.6.6). VPNv4 AF. Neighbors PE1(1.1.1.1), PE2(2.2.2.2), ASBR1(5.5.5.5) as RR clients. All `update-source Loopback0`.
+1. `router bgp 65100` on ASBR1 (6.6.6.6). VPNv4 AF. Neighbors PE1(1.1.1.1), PE2(2.2.2.2), PCE1(5.5.5.5) as RR clients. All `update-source Loopback0`.
 2. Verify: `show bgp vpnv4 unicast summary` — sessions Established.
 
 ### Task 2: VRF CUST_A on PE1 + PE2
