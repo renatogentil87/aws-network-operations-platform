@@ -1,0 +1,19 @@
+!
+hostname CE3
+!
+no ip domain-lookup
+ip cef
+!
+interface Loopback0
+ ip address 192.168.3.1 255.255.255.255
+!
+interface GigabitEthernet0/0
+ description to PE3 (provider edge)
+ ip address 10.2.3.2 255.255.255.252
+ no shutdown
+!
+line con 0
+ exec-timeout 0 0
+ logging synchronous
+!
+end
