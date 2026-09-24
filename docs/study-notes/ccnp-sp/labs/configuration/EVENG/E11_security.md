@@ -12,7 +12,7 @@
 1. Keychain + `hello-password hmac-md5` on all IS-IS interfaces. Verify adjacency re-forms with auth.
 
 ### Task 2: BGP authentication (all sessions)
-1. `neighbor <IP> password <KEY>` on all iBGP (PE↔RR) + eBGP (PE-CE) + inter-AS (ASBR1↔ASBR2).
+1. `neighbor <IP> password <KEY>` on all iBGP (PE↔RR) + eBGP (PE-CE) + inter-AS (E-R6↔Gar-R7).
 
 ### Task 3: BGP TTL Security (GTSM)
 1. `neighbor <IP> ttl-security` on all eBGP sessions. Only TTL 254 accepted.

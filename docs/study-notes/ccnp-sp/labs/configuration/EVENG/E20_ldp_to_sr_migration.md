@@ -9,7 +9,7 @@
 ---
 
 ### Task 1: Enable SR on Emerald alongside LDP
-1. Under IS-IS on all Emerald routers: `segment-routing mpls`. Prefix-SIDs: PE1=1, PE2=2, P1=3, P2=4, ASBR1=5, PCE1=6.
+1. Under IS-IS on all Emerald routers: `segment-routing mpls`. Prefix-SIDs: E-R1=1, E-R2=2, E-R3=3, E-R4=4, E-R6=5, E-R5=6.
 2. Both LDP and SR labels exist in LFIB. Verify: `show mpls forwarding 2.2.2.2` — two entries (LDP + SR).
 
 ### Task 2: Prefer SR
@@ -25,7 +25,7 @@
 2. Verify: 100% coverage. Kill a link → sub-50ms failover. No backup tunnels needed.
 
 ### Task 5: Replace RSVP-TE tunnels with SR-TE policies
-1. Remove RSVP-TE tunnel (from E03) on PE1.
+1. Remove RSVP-TE tunnel (from E03) on E-R1.
 2. Create equivalent SR-TE policy: `segment-routing traffic-eng / policy / candidate-paths / explicit segment-list`.
 3. Verify: same path, same traffic steering. Zero RSVP state.
 

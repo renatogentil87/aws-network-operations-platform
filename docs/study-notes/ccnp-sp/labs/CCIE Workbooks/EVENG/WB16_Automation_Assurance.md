@@ -27,14 +27,14 @@
 
 ### Task 1.3 — Retrieve running config with ncclient
 
-**Question:** Use the Python `ncclient` library to pull PE1's IS-IS configuration via NETCONF and print the XML.
+**Question:** Use the Python `ncclient` library to pull E-R1's IS-IS configuration via NETCONF and print the XML.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
 ### Task 1.4 — Push an IS-IS metric change with edit-config (candidate → commit)
 
-**Question:** Change the IS-IS metric on PE1's `GigabitEthernet0/0/0/0` from 10 to 100 using NETCONF `edit-config` against the **candidate** datastore, then commit. Demonstrate you understand the XR candidate→commit model.
+**Question:** Change the IS-IS metric on E-R1's `GigabitEthernet0/0/0/0` from 10 to 100 using NETCONF `edit-config` against the **candidate** datastore, then commit. Demonstrate you understand the XR candidate→commit model.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -57,14 +57,14 @@
 
 ### Task 2.3 — Configure dial-out telemetry (sensor-path, subscription, destination)
 
-**Question:** On PE1 configure a dial-out subscription that streams **interface stats**, **BGP neighbor state**, and **IS-IS adjacency** to the collector `10.0.0.100:57500` every 10 seconds.
+**Question:** On E-R1 configure a dial-out subscription that streams **interface stats**, **BGP neighbor state**, and **IS-IS adjacency** to the collector `10.0.0.100:57500` every 10 seconds.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
 ### Task 2.4 — Dial-in gNMI subscribe
 
-**Question:** From the workstation, use gNMI SUBSCRIBE (dial-in) to watch BGP neighbor state on PE1 at a 5s sample interval, then trigger a change.
+**Question:** From the workstation, use gNMI SUBSCRIBE (dial-in) to watch BGP neighbor state on E-R1 at a 5s sample interval, then trigger a change.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -80,7 +80,7 @@
 
 ### Task 3.2 — Add XRv devices and authgroups
 
-**Question:** Add PE1 and PE5 to NSO inventory with the correct NED-id and an authgroup.
+**Question:** Add E-R1 and G-R1 to NSO inventory with the correct NED-id and an authgroup.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -92,9 +92,9 @@
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
-### Task 3.4 — L3VPN service package: VRF across PE1 + PE5 in one transaction
+### Task 3.4 — L3VPN service package: VRF across E-R1 + G-R1 in one transaction
 
-**Question:** Using an L3VPN service package, provision VRF **CUST-A** on both PE1 and PE5 in a single NSO transaction. Preview before committing.
+**Question:** Using an L3VPN service package, provision VRF **CUST-A** on both E-R1 and G-R1 in a single NSO transaction. Preview before committing.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -186,8 +186,62 @@
 
 ### Task 7.2 — Telemetry data not arriving
 
-**Question:** The dial-out subscription `SUB-CORE` on PE1 is configured but the collector receives nothing. Diagnose and fix.
+**Question:** The dial-out subscription `SUB-CORE` on E-R1 is configured but the collector receives nothing. Diagnose and fix.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
+
+---
+
+## Section 8: NSO Service Package Development (CCIE Exam Critical)
+
+### Task 8.1 — NSO dry-run (commit dry-run outformat native)
+
+**Question:** You are about to push a VRF change via NSO to 3 PEs. Before committing, preview exactly what CLI NSO will send to each device. What command do you use, and what's the difference between `outformat native` and `outformat xml`?
+
+> *Try this yourself first. Solution available in `solutions/` folder.*
+
+### Task 8.2 — Write a custom L3VPN service package
+
+**Question:** Create an NSO service package that provisions L3VPN across any set of PEs with a single command. The service takes: customer-name, VRF-name, RD, RT, list of PEs with their CE-facing interfaces and CE ASNs.
+
+> *Try this yourself first. Solution available in `solutions/` folder.*
+
+### Task 8.3 — Multi-device atomic rollback
+
+**Question:** You pushed a wrong RT (65012:999 instead of 65012:100) to E-R1, G-R1, and Gar-R1 via NSO. All 3 PEs now have broken VPN connectivity. Roll back all 3 in one atomic operation.
+
+> *Try this yourself first. Solution available in `solutions/` folder.*
+
+---
+
+## Section 9: Advanced Python Workflows
+
+### Task 9.1 — Python VRF consistency audit
+
+**Question:** Write a Python script that connects to all PEs via NETCONF, pulls VRF CUST_A config, and reports any RT mismatches across PEs.
+
+> *Try this yourself first. Solution available in `solutions/` folder.*
+
+### Task 9.2 — Python SR prefix-SID uniqueness check
+
+**Question:** Write a script that validates no two Garnet routers share the same prefix-SID index.
+
+> *Try this yourself first. Solution available in `solutions/` folder.*
+
+---
+
+## Section 10: MDT Advanced (XPATH + Event-Driven)
+
+### Task 10.1 — XPATH-filtered telemetry subscription
+
+**Question:** Configure a telemetry subscription that streams ONLY BGP neighbor connection state changes — not the entire BGP operational tree.
+
+> *Try this yourself first. Solution available in `solutions/` folder.*
+
+### Task 10.2 — Event-driven vs cadence-based telemetry
+
+**Question:** Configure an event-driven (on-change) subscription for IS-IS adjacency state, and a cadence-based (sample-interval) subscription for interface counters. Explain when to use each.
+
+> *Try this yourself first. Solution available in `solutions/` folder.*

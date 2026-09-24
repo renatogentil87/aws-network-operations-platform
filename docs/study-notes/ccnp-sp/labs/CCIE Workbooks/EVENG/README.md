@@ -14,20 +14,20 @@
 | WB | Workbook | Domain | Wt % | Topics | Key Nodes |
 |----|----------|--------|------|--------|-----------|
 | **WB01** | [IS-IS Foundation](WB01_ISIS_Foundation.md) | D1 Core Routing | 25% | L2-only IS-IS, wide metrics, config groups, IPv6 single-topology, overload bit, LDP-IGP sync, HMAC-MD5 auth, BFD, mesh-groups, convergence tuning | All 18 core routers (Emerald 49.0001 / Garnet 49.0002 / Gold 49.0003) |
-| **WB02** | [MPLS LDP + Unified MPLS](WB02_MPLS_LDP_Unified_MPLS.md) | D1 Core Routing | 25% | LDP discovery, targeted LDP, transport-address, label filtering, session protection, GR, MD5, BGP-LU, inter-AS label stitching | Emerald PEs/ASBRs, ASBR1↔ASBR3, ASBR4↔ASBR2 |
-| **WB03** | [BGP Advanced](WB03_BGP_Advanced.md) | D1 Core Routing | 25% | iBGP + RR design (all 3 ASes), eBGP inter-AS, Option C multihop VPNv4, path manipulation (LP/prepend/MED/community), Add-Path, PIC Edge, AIGP, RT-Constraint | RRs: PCE1 6.6.6.6 / ASBR3 21.21.21.21 / PCE 17.17.17.17 |
-| **WB04** | [Segment Routing (SR-MPLS)](WB04_Segment_Routing_SR_MPLS.md) | D1 Core Routing | 25% | SR under IS-IS, SRGB 16000–23999, prefix/adjacency-SIDs, TI-LFA, SR-TE (explicit/dynamic/PCE/ODN), Flex-Algo, LDP→SR migration | Garnet (SR native), Emerald (migration), PCE 17.17.17.17 |
-| **WB05** | [SRv6](WB05_SRv6.md) | D1 Core Routing | 25% | SRv6 locators, End/End.X/End.DT4/DT6/DX4/B6 SID behaviors, L3VPN over SRv6, SRv6-TE, SRH, inter-domain Option-B stitching, uSID | Gold (SRv6 native), PE5/PE6, ASBR3 |
-| **WB06** | [MPLS Traffic Engineering](WB06_MPLS_TE.md) | D1 Core Routing | 25% | RSVP-TE tunnels, explicit-path, autoroute announce, FRR, priority, auto-bw, DS-TE (MAM/RDM), affinity, forwarding-adjacency | Emerald: PE1→P1→PE2 (10.1.x.0/24 core) |
-| **WB07** | [L3VPN](WB07_L3VPN.md) | D2 Architectures & Services | 25% | VRF/RD/RT, PE-CE (eBGP/OSPF/sham-link/SoO), MP-BGP VPNv4, Inter-AS Options A/B/C, RT-Constraint, PIC Edge, label modes | PE1/PE2 (Emerald), PE5/PE6 (Gold), PE3 (Garnet) |
-| **WB08** | [L2VPN — VPWS / VPLS](WB08_L2VPN_VPWS_VPLS.md) | D2 Architectures & Services | 25% | VPWS/AToM p2p PW, backup/static PW, preferred-path, VPLS full-mesh, H-VPLS, BGP-VPLS (Kompella), EVPN-VPLS | PE1↔PE2 PW, N-PE/U-PE tiers |
-| **WB09** | [EVPN](WB09_EVPN.md) | D2 Architectures & Services | 25% | Route Types 1–5, EVPN-VPWS, multi-homing (all-active/single-active/DF), IRB (sym/asym), inter-AS EVPN, MAC mobility | PE3/PE4 (dual-homed), CE5/CE7, PCE RR 9.9.9.9 |
+| **WB02** | [MPLS LDP + Unified MPLS](WB02_MPLS_LDP_Unified_MPLS.md) | D1 Core Routing | 25% | LDP discovery, targeted LDP, transport-address, label filtering, session protection, GR, MD5, BGP-LU, inter-AS label stitching | Emerald PEs/ASBRs, E-R6↔G-R4, G-R5↔Gar-R7 |
+| **WB03** | [BGP Advanced](WB03_BGP_Advanced.md) | D1 Core Routing | 25% | iBGP + RR design (all 3 ASes), eBGP inter-AS, Option C multihop VPNv4, path manipulation (LP/prepend/MED/community), Add-Path, PIC Edge, AIGP, RT-Constraint | RRs: E-R5 6.6.6.6 / G-R4 24.24.24.24 / Gar-R6 16.16.16.16 |
+| **WB04** | [Segment Routing (SR-MPLS)](WB04_Segment_Routing_SR_MPLS.md) | D1 Core Routing | 25% | SR under IS-IS, SRGB 16000–23999, prefix/adjacency-SIDs, TI-LFA, SR-TE (explicit/dynamic/Gar-R6/ODN), Flex-Algo, LDP→SR migration | Garnet (SR native), Emerald (migration), Gar-R6 16.16.16.16 |
+| **WB05** | [SRv6](WB05_SRv6.md) | D1 Core Routing | 25% | SRv6 locators, End/End.X/End.DT4/DT6/DX4/B6 SID behaviors, L3VPN over SRv6, SRv6-TE, SRH, inter-domain Option-B stitching, uSID | Gold (SRv6 native), G-R1/G-R2, G-R4 |
+| **WB06** | [MPLS Traffic Engineering](WB06_MPLS_TE.md) | D1 Core Routing | 25% | RSVP-TE tunnels, explicit-path, autoroute announce, FRR, priority, auto-bw, DS-TE (MAM/RDM), affinity, forwarding-adjacency | Emerald: E-R1→E-R3→E-R2 (10.1.x.0/24 core) |
+| **WB07** | [L3VPN](WB07_L3VPN.md) | D2 Architectures & Services | 25% | VRF/RD/RT, PE-CE (eBGP/OSPF/sham-link/SoO), MP-BGP VPNv4, Inter-AS Options A/B/C, RT-Constraint, PIC Edge, label modes | E-R1/E-R2 (Emerald), G-R1/G-R2 (Gold), Gar-R1 (Garnet) |
+| **WB08** | [L2VPN — VPWS / VPLS](WB08_L2VPN_VPWS_VPLS.md) | D2 Architectures & Services | 25% | VPWS/AToM p2p PW, backup/static PW, preferred-path, VPLS full-mesh, H-VPLS, BGP-VPLS (Kompella), EVPN-VPLS | E-R1↔E-R2 PW, N-PE/U-PE tiers |
+| **WB09** | [EVPN](WB09_EVPN.md) | D2 Architectures & Services | 25% | Route Types 1–5, EVPN-VPWS, multi-homing (all-active/single-active/DF), IRB (sym/asym), inter-AS EVPN, MAC mobility | Gar-R1/Gar-R2 (dual-homed), CE5/CE7, Gar-R6 RR 9.9.9.9 |
 | **WB10** | [Multicast + mVPN](WB10_Multicast_mVPN.md) | D2 Architectures & Services | 25% | PIM-SM/SSM, RP (static/Auto-RP/BSR), MSDP, mVPN Profiles 0/3/11/12/14, data MDT, SR-MVPN Tree-SID, inter-AS mVPN | Emerald RP 6.6.6.6, Garnet RP 23.23.23.23 |
-| **WB11** | [QoS / DiffServ](WB11_QoS_DiffServ.md) | D2 Architectures & Services | 25% | XR QoS model, class-map/policy-map, DSCP→TC marking, policing, queuing/scheduling, shaping, end-to-end SLA | PE1→core→PE3 path |
-| **WB12** | [6PE / 6VPE / Dual-Stack](WB12_6PE_6VPE_DualStack.md) | D2 Architectures & Services | 25% | 6PE (IPv6 over IPv4 MPLS, send-label), 6VPE (VPNv6), dual-stack VRF, End.DT46, IPv4-mapped next-hop | PE1 1.1.1.1 / PE2 2.2.2.2, CE1/CE3 |
-| **WB13** | [Access Connectivity](WB13_Access_Connectivity.md) | D3 Access Connectivity | 10% | 802.1Q/Q-in-Q (802.1ad), VLAN translation, G.8032 ERPS, MC-LAG + ICCP, BNG (IPoE/PPPoE, AAA, CUPS) | PE1–CE1–CE2–PE2 ring, Bundle-Ether MC-LAG |
+| **WB11** | [QoS / DiffServ](WB11_QoS_DiffServ.md) | D2 Architectures & Services | 25% | XR QoS model, class-map/policy-map, DSCP→TC marking, policing, queuing/scheduling, shaping, end-to-end SLA | E-R1→core→Gar-R1 path |
+| **WB12** | [6PE / 6VPE / Dual-Stack](WB12_6PE_6VPE_DualStack.md) | D2 Architectures & Services | 25% | 6PE (IPv6 over IPv4 MPLS, send-label), 6VPE (VPNv6), dual-stack VRF, End.DT46, IPv4-mapped next-hop | E-R1 1.1.1.1 / E-R2 2.2.2.2, CE1/CE3 |
+| **WB13** | [Access Connectivity](WB13_Access_Connectivity.md) | D3 Access Connectivity | 10% | 802.1Q/Q-in-Q (802.1ad), VLAN translation, G.8032 ERPS, MC-LAG + ICCP, BNG (IPoE/PPPoE, AAA, CUPS) | E-R1–CE1–CE2–E-R2 ring, Bundle-Ether MC-LAG |
 | **WB14** | [High Availability & Convergence](WB14_High_Availability_Convergence.md) | D4 High Availability | 10% | NSR/GR(NSF)/SSO, IGP SPF/LSP throttle, BFD 50ms, LDP-IGP sync, BGP PIC Edge/Core, RSVP-TE FRR vs TI-LFA | All core (Emerald convergence lab) |
-| **WB15** | [Security](WB15_Security.md) | D5 Security | 10% | LPTS vs CoPP, IGP HMAC-MD5, BGP TCP-AO/GTSM/RPKI/RTBH/Flowspec, bogon + AS-PATH filtering, MACsec | ASBR1↔ASBR2 (MACsec), all 3 SPs |
+| **WB15** | [Security](WB15_Security.md) | D5 Security | 10% | LPTS vs CoPP, IGP HMAC-MD5, BGP TCP-AO/GTSM/RPKI/RTBH/Flowspec, bogon + AS-PATH filtering, MACsec | E-R6↔Gar-R7 (MACsec), all 3 SPs |
 | **WB16** | [Automation & Assurance](WB16_Automation_Assurance.md) | D6 Automation & Assurance | 20% | NETCONF/YANG, gRPC/gNMI telemetry (MDT), NSO (FASTMAP/L3VPN/rollback/compliance), Python (netmiko/TextFSM), ZTP, SNMPv3/IPFIX | All 20 routers + NSO VM |
 
 ---
@@ -125,9 +125,9 @@ Each of the three ISPs runs a **different** data-plane transport so the topology
 | **Garnet** | 65200 | **SR-MPLS** | Prefix/adjacency SIDs, TI-LFA, SR-TE, Flex-Algo. No LDP. |
 
 **Inter-domain handoffs** (where the transport planes meet) are the high-value exam scenarios:
-- **Emerald ↔ Gold** (ASBR1↔ASBR3): LDP/BGP-LU ↔ SRv6.
-- **Gold ↔ Garnet** (ASBR4↔ASBR2): SRv6 ↔ SR-MPLS Option-B stitching (End.B6 / label re-encap).
-- **Emerald ↔ Garnet** (ASBR1↔ASBR2): LDP/BGP-LU ↔ SR-MPLS.
+- **Emerald ↔ Gold** (E-R6↔G-R4): LDP/BGP-LU ↔ SRv6.
+- **Gold ↔ Garnet** (G-R5↔Gar-R7): SRv6 ↔ SR-MPLS Option-B stitching (End.B6 / label re-encap).
+- **Emerald ↔ Garnet** (E-R6↔Gar-R7): LDP/BGP-LU ↔ SR-MPLS.
 
 ---
 

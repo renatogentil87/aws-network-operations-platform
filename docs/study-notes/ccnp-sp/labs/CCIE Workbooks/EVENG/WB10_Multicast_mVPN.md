@@ -5,7 +5,7 @@
 **Topology:** All 3 ISPs (Emerald AS 65100 + Garnet AS 65200 + Gold). Multicast **source in Emerald (CE1, 11.11.11.11)**; **receivers in Garnet (CE4, 32.32.32.32)** and **Gold (CE9)**.
 **Format:** Question → Solution → Verification.
 
-> **Topology note:** The base `00_EVENG_Topology.md` documents two SPs (Emerald + Garnet). This workbook follows the task spec, which introduces a third provider **"Gold"** and a receiver **CE9**. Where Gold/CE9 are used they are a documented extension of the base topology (Gold ≈ a third IOS-XR domain peering via a third ASBR); Emerald/Garnet node names, loopbacks and ASNs match the base topology. **RP for the Emerald core = PCE1 (6.6.6.6)** per the task.
+> **Topology note:** The base `00_EVENG_Topology.md` documents two SPs (Emerald + Garnet). This workbook follows the task spec, which introduces a third provider **"Gold"** and a receiver **CE9**. Where Gold/CE9 are used they are a documented extension of the base topology (Gold ≈ a third IOS-XR domain peering via a third ASBR); Emerald/Garnet node names, loopbacks and ASNs match the base topology. **RP for the Emerald core = E-R5 (6.6.6.6)** per the task.
 >
 > **All syntax is IOS-XR** (`multicast-routing`, `router pim`, `router msdp`, `mdt` under the VRF, `router bgp … address-family ipv4 mvpn`). CE nodes (CSR1000v / IOS-XE) use classic IOS multicast syntax where noted.
 
@@ -13,10 +13,10 @@
 
 ## Section 1 — PIM Basics (4 tasks)
 
-### Task 1.1 — PIM-SM on the Emerald core (RP = PCE1 6.6.6.6, static RP)
+### Task 1.1 — PIM-SM on the Emerald core (RP = E-R5 6.6.6.6, static RP)
 
 **Question**
-Enable global multicast routing and PIM sparse-mode on all Emerald core interfaces (PE1, P1, P2, ASBR1) and set a **static RP = PCE1 (6.6.6.6)**. Advertise 6.6.6.6 as the RP so PE1 can register the CE1 source and PE-side receivers can build the shared tree.
+Enable global multicast routing and PIM sparse-mode on all Emerald core interfaces (E-R1, E-R3, E-R4, E-R6) and set a **static RP = E-R5 (6.6.6.6)**. Advertise 6.6.6.6 as the RP so E-R1 can register the CE1 source and PE-side receivers can build the shared tree.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -50,7 +50,7 @@ With the CE1 source active to an ASM group (e.g. `239.1.1.1`) and a receiver on 
 ### Task 2.1 — MSDP peering between Emerald RP and Garnet RP
 
 **Question**
-The Emerald RP (PCE1, 6.6.6.6) and the Garnet RP (P3/RR2, 23.23.23.23) each serve their **own PIM-SM domain**. Configure **MSDP** between them so a source active in Emerald is learned by the Garnet RP, enabling **inter-domain ASM** (Emerald source → Garnet receiver on CE4).
+The Emerald RP (E-R5, 6.6.6.6) and the Garnet RP (P3/RR2, 23.23.23.23) each serve their **own PIM-SM domain**. Configure **MSDP** between them so a source active in Emerald is learned by the Garnet RP, enabling **inter-domain ASM** (Emerald source → Garnet receiver on CE4).
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -68,7 +68,7 @@ Bring up the CE1 source to an ASM group and confirm the **SA message** propagate
 ### Task 3.1 — Configure the Default MDT with GRE under the VRF (default-group)
 
 **Question**
-For **Customer A VRF** (CE1 on PE1 ↔ CE4 on PE3), build **Profile 0**: a **Default MDT** using **GRE encapsulation** with **PIM** in the core. Configure the **default-group 239.100.0.0** on PE1 and PE3 so the PEs form a full-mesh MDT and exchange customer multicast in-band over PIM/GRE.
+For **Customer A VRF** (CE1 on E-R1 ↔ CE4 on Gar-R1), build **Profile 0**: a **Default MDT** using **GRE encapsulation** with **PIM** in the core. Configure the **default-group 239.100.0.0** on E-R1 and Gar-R1 so the PEs form a full-mesh MDT and exchange customer multicast in-band over PIM/GRE.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -84,7 +84,7 @@ Add a **Data MDT** so a **high-bandwidth** C-stream is moved off the Default MDT
 ### Task 3.3 — Verify encapsulation / decapsulation end-to-end
 
 **Question**
-Prove the **GRE encap on the ingress PE and decap on the egress PE**: C-multicast from CE1 is GRE-encapsulated into the MDT group on PE1 and decapsulated on PE3 before delivery to CE4.
+Prove the **GRE encap on the ingress PE and decap on the egress PE**: C-multicast from CE1 is GRE-encapsulated into the MDT group on E-R1 and decapsulated on Gar-R1 before delivery to CE4.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -94,7 +94,7 @@ Prove the **GRE encap on the ingress PE and decap on the egress PE**: C-multicas
 ### Task 4.1 — Enable BGP Auto-Discovery with MVPN NLRI
 
 **Question**
-Convert Customer A to **Profile 3**: keep **GRE** transport and **PIM** for C-multicast signaling, but replace PIM-based PE discovery with **BGP Auto-Discovery** using the **`ipv4 mvpn`** address-family. Enable `ipv4 mvpn` on PE1, PE3 and the RR (P2/RR1, 4.4.4.4).
+Convert Customer A to **Profile 3**: keep **GRE** transport and **PIM** for C-multicast signaling, but replace PIM-based PE discovery with **BGP Auto-Discovery** using the **`ipv4 mvpn`** address-family. Enable `ipv4 mvpn` on E-R1, Gar-R1 and the RR (P2/RR1, 4.4.4.4).
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -172,7 +172,7 @@ Describe and stage **inter-AS mVPN** so the CE1 source in Emerald reaches receiv
 ### Task 7.1 — MVPN with SR-MPLS transport (Tree-SID / P2MP SR Policy)
 
 **Question**
-Carry Customer A mVPN over **SR-MPLS** using a **Tree-SID** (multicast **P2MP SR Policy**) instead of mLDP, with the **SR-PCE (PCE1, 6.6.6.6)** computing the P2MP tree. Keep BGP MVPN for A-D/signaling.
+Carry Customer A mVPN over **SR-MPLS** using a **Tree-SID** (multicast **P2MP SR Policy**) instead of mLDP, with the **SR-PCE (E-R5, 6.6.6.6)** computing the P2MP tree. Keep BGP MVPN for A-D/signaling.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*

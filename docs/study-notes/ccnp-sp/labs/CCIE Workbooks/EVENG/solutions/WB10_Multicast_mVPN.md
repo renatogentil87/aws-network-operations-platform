@@ -5,7 +5,7 @@
 **Topology:** All 3 ISPs (Emerald AS 65100 + Garnet AS 65200 + Gold). Multicast **source in Emerald (CE1, 11.11.11.11)**; **receivers in Garnet (CE4, 32.32.32.32)** and **Gold (CE9)**.
 **Format:** Question → Solution → Verification.
 
-> **Topology note:** The base `00_EVENG_Topology.md` documents two SPs (Emerald + Garnet). This workbook follows the task spec, which introduces a third provider **"Gold"** and a receiver **CE9**. Where Gold/CE9 are used they are a documented extension of the base topology (Gold ≈ a third IOS-XR domain peering via a third ASBR); Emerald/Garnet node names, loopbacks and ASNs match the base topology. **RP for the Emerald core = PCE1 (6.6.6.6)** per the task.
+> **Topology note:** The base `00_EVENG_Topology.md` documents two SPs (Emerald + Garnet). This workbook follows the task spec, which introduces a third provider **"Gold"** and a receiver **CE9**. Where Gold/CE9 are used they are a documented extension of the base topology (Gold ≈ a third IOS-XR domain peering via a third ASBR); Emerald/Garnet node names, loopbacks and ASNs match the base topology. **RP for the Emerald core = E-R5 (6.6.6.6)** per the task.
 >
 > **All syntax is IOS-XR** (`multicast-routing`, `router pim`, `router msdp`, `mdt` under the VRF, `router bgp … address-family ipv4 mvpn`). CE nodes (CSR1000v / IOS-XE) use classic IOS multicast syntax where noted.
 
@@ -13,16 +13,16 @@
 
 ## Section 1 — PIM Basics (4 tasks)
 
-### Task 1.1 — PIM-SM on the Emerald core (RP = PCE1 6.6.6.6, static RP)
+### Task 1.1 — PIM-SM on the Emerald core (RP = E-R5 6.6.6.6, static RP)
 
 **Question**
-Enable global multicast routing and PIM sparse-mode on all Emerald core interfaces (PE1, P1, P2, ASBR1) and set a **static RP = PCE1 (6.6.6.6)**. Advertise 6.6.6.6 as the RP so PE1 can register the CE1 source and PE-side receivers can build the shared tree.
+Enable global multicast routing and PIM sparse-mode on all Emerald core interfaces (E-R1, E-R3, E-R4, E-R6) and set a **static RP = E-R5 (6.6.6.6)**. Advertise 6.6.6.6 as the RP so E-R1 can register the CE1 source and PE-side receivers can build the shared tree.
 
 **Solution**
 In IOS-XR, multicast is enabled per-AFI under `multicast-routing`, and PIM is a separate process. Enabling the interface under `multicast-routing address-family ipv4 interface … enable` is what turns PIM on for that link — `router pim` only sets protocol parameters.
 
 ```
-! ---- Emerald core node (PE1 shown; repeat on P1, P2, ASBR1) ----
+! ---- Emerald core node (E-R1 shown; repeat on E-R3, E-R4, E-R6) ----
 multicast-routing
  address-family ipv4
   interface Loopback0
@@ -38,13 +38,13 @@ multicast-routing
 !
 router pim
  address-family ipv4
-  ! Static RP — everyone points at PCE1
+  ! Static RP — everyone points at E-R5
   rp-address 6.6.6.6
  !
 !
 ```
 
-On **PCE1 (the RP, 6.6.6.6)** — it must also run PIM and point at itself:
+On **E-R5 (the RP, 6.6.6.6)** — it must also run PIM and point at itself:
 
 ```
 multicast-routing
@@ -71,16 +71,16 @@ ip pim rp-address 6.6.6.6
 
 **Verification**
 ```
-RP/0/RP0/CPU0:PE1# show pim rp mapping
+RP/0/RP0/CPU0:E-R1# show pim rp mapping
   ! Group 224.0.0.0/4 → RP 6.6.6.6 (static)
 
-RP/0/RP0/CPU0:PE1# show pim neighbor
+RP/0/RP0/CPU0:E-R1# show pim neighbor
   ! PIM neighbors on all enabled core interfaces
 
-RP/0/RP0/CPU0:PE1# show pim interface
+RP/0/RP0/CPU0:E-R1# show pim interface
   ! sparse-mode, DR elected per segment
 
-RP/0/RP0/CPU0:PCE1# show pim rp mapping
+RP/0/RP0/CPU0:E-R5# show pim rp mapping
   ! 6.6.6.6 is self / RP for 224/4
 ```
 
@@ -120,13 +120,13 @@ interface GigabitEthernet1
 
 **Verification**
 ```
-RP/0/RP0/CPU0:PE1# show pim group-map
+RP/0/RP0/CPU0:E-R1# show pim group-map
   ! 232.0.0.0/8 → SSM
 
-RP/0/RP0/CPU0:PE3# show mrib route 232.1.1.1
+RP/0/RP0/CPU0:Gar-R1# show mrib route 232.1.1.1
   ! (11.11.11.11, 232.1.1.1) — SPT only, RPF toward source. No (*,G).
 
-RP/0/RP0/CPU0:PE1# show pim topology 232.1.1.1
+RP/0/RP0/CPU0:E-R1# show pim topology 232.1.1.1
   ! (S,G) with SPT bit set, no RP involvement
 ```
 
@@ -145,7 +145,7 @@ All three tell routers *which RP serves which group* for ASM/PIM-SM. They differ
 - **BSR** — standards-based. **Candidate-RPs** unicast to the elected **BSR**, which floods the RP-set hop-by-hop in BSR messages (no special dense groups). Preferred in multi-vendor networks.
 
 ```
-! ---- Auto-RP: PCE1 as Candidate-RP + Mapping Agent ----
+! ---- Auto-RP: E-R5 as Candidate-RP + Mapping Agent ----
 router pim
  address-family ipv4
   auto-rp candidate-rp Loopback0 scope 32 group-list AUTORP-GRPS interval 60
@@ -160,7 +160,7 @@ multicast-routing
   interface all enable        ! (lab convenience)
 !
 
-! ---- BSR: PCE1 as BSR + Candidate-RP ----
+! ---- BSR: E-R5 as BSR + Candidate-RP ----
 router pim
  address-family ipv4
   bsr candidate-bsr 6.6.6.6 hash-mask-len 30 priority 100
@@ -200,7 +200,7 @@ In IOS-XR the control-plane multicast route table is the **MRIB** (`show mrib ro
 
 **Verification**
 ```
-RP/0/RP0/CPU0:PE1# show mrib route
+RP/0/RP0/CPU0:E-R1# show mrib route
 (*,239.1.1.1)
    RPF nbr: 6.6.6.6  (toward RP)
    Incoming Interface List: <toward RP>
@@ -211,13 +211,13 @@ RP/0/RP0/CPU0:PE1# show mrib route
    Outgoing Interface List: <toward receivers>
    Flags: (SPT bit set once switched)
 
-RP/0/RP0/CPU0:PE1# show mfib route 239.1.1.1
+RP/0/RP0/CPU0:E-R1# show mfib route 239.1.1.1
   ! hardware forwarding counters incrementing (packets/bytes)
 
-RP/0/RP0/CPU0:PE1# show pim topology 239.1.1.1
+RP/0/RP0/CPU0:E-R1# show pim topology 239.1.1.1
   ! JoinPruneState, RPF interface, SPT bit
 
-RP/0/RP0/CPU0:PE1# show mrib route summary
+RP/0/RP0/CPU0:E-R1# show mrib route summary
   ! count of (*,G) and (S,G)
 ```
 Key checks: RPF **must** succeed (RPF neighbor toward the source/RP) — an RPF failure drops the multicast and shows in `show pim topology`. After SPT switchover the `(S,G)` incoming interface points at the source, not the RP.
@@ -229,13 +229,13 @@ Key checks: RPF **must** succeed (RPF neighbor toward the source/RP) — an RPF 
 ### Task 2.1 — MSDP peering between Emerald RP and Garnet RP
 
 **Question**
-The Emerald RP (PCE1, 6.6.6.6) and the Garnet RP (P3/RR2, 23.23.23.23) each serve their **own PIM-SM domain**. Configure **MSDP** between them so a source active in Emerald is learned by the Garnet RP, enabling **inter-domain ASM** (Emerald source → Garnet receiver on CE4).
+The Emerald RP (E-R5, 6.6.6.6) and the Garnet RP (P3/RR2, 23.23.23.23) each serve their **own PIM-SM domain**. Configure **MSDP** between them so a source active in Emerald is learned by the Garnet RP, enabling **inter-domain ASM** (Emerald source → Garnet receiver on CE4).
 
 **Solution**
 MSDP connects independent PIM-SM domains: when a source registers with its local RP, that RP originates an **SA (Source-Active) message** describing `(S,G)` and floods it to MSDP peers. A remote RP with interested receivers then joins the SPT toward the source across the domain boundary. MSDP runs over **TCP/639**, typically peered loopback-to-loopback. Use the RP address as the MSDP originator-ID so SA RPF checks pass.
 
 ```
-! ---- Emerald RP: PCE1 (6.6.6.6) ----
+! ---- Emerald RP: E-R5 (6.6.6.6) ----
 router msdp
  originator-id Loopback0
  peer 23.23.23.23
@@ -252,14 +252,14 @@ router msdp
 !
 ```
 
-> Both domains must have IP reachability between RP loopbacks (via inter-AS BGP / ASBR1↔ASBR2) and consistent PIM-SM + static/Anycast RP within each domain.
+> Both domains must have IP reachability between RP loopbacks (via inter-AS BGP / E-R6↔Gar-R7) and consistent PIM-SM + static/Anycast RP within each domain.
 
 **Verification**
 ```
-RP/0/RP0/CPU0:PCE1# show msdp peer
+RP/0/RP0/CPU0:E-R5# show msdp peer
   ! State: Established (TCP/639 up)
 
-RP/0/RP0/CPU0:PCE1# show msdp summary
+RP/0/RP0/CPU0:E-R5# show msdp summary
   ! peer 23.23.23.23 Up, SA count
 ```
 
@@ -271,20 +271,20 @@ RP/0/RP0/CPU0:PCE1# show msdp summary
 Bring up the CE1 source to an ASM group and confirm the **SA message** propagates from the Emerald RP to the Garnet RP, that the Garnet RP builds `(S,G)` state, and that CE4 receives traffic. Verify the SA cache and SA RPF.
 
 **Solution**
-When CE1 starts sending, PE1 sends a PIM Register to PCE1 (Emerald RP). PCE1 originates an SA for `(11.11.11.11, G)` to its MSDP peer 23.23.23.23. The Garnet RP accepts the SA (passing **SA RPF**: the SA must arrive from the correct peer toward the originating RP) and, if it has receivers for G, joins the SPT toward 11.11.11.11 across the inter-AS link. Traffic then flows Emerald→Garnet.
+When CE1 starts sending, E-R1 sends a PIM Register to E-R5 (Emerald RP). E-R5 originates an SA for `(11.11.11.11, G)` to its MSDP peer 23.23.23.23. The Garnet RP accepts the SA (passing **SA RPF**: the SA must arrive from the correct peer toward the originating RP) and, if it has receivers for G, joins the SPT toward 11.11.11.11 across the inter-AS link. Traffic then flows Emerald→Garnet.
 
 **Verification**
 ```
-RP/0/RP0/CPU0:PCE1# show msdp sa-cache
+RP/0/RP0/CPU0:E-R5# show msdp sa-cache
   ! (11.11.11.11, 239.1.1.1) originated locally, advertised to peer
 
-RP/0/RP0/CPU0:P3# show msdp sa-cache
+RP/0/RP0/CPU0:Gar-R3# show msdp sa-cache
   ! (11.11.11.11, 239.1.1.1) learned via MSDP peer 6.6.6.6
 
-RP/0/RP0/CPU0:P3# show msdp rpf 11.11.11.11
+RP/0/RP0/CPU0:Gar-R3# show msdp rpf 11.11.11.11
   ! SA RPF check passes toward originating RP
 
-RP/0/RP0/CPU0:PE3# show mrib route 239.1.1.1
+RP/0/RP0/CPU0:Gar-R1# show mrib route 239.1.1.1
   ! (11.11.11.11,239.1.1.1) built after SA → receiver on CE4 gets traffic
 ```
 
@@ -295,13 +295,13 @@ RP/0/RP0/CPU0:PE3# show mrib route 239.1.1.1
 ### Task 3.1 — Configure the Default MDT with GRE under the VRF (default-group)
 
 **Question**
-For **Customer A VRF** (CE1 on PE1 ↔ CE4 on PE3), build **Profile 0**: a **Default MDT** using **GRE encapsulation** with **PIM** in the core. Configure the **default-group 239.100.0.0** on PE1 and PE3 so the PEs form a full-mesh MDT and exchange customer multicast in-band over PIM/GRE.
+For **Customer A VRF** (CE1 on E-R1 ↔ CE4 on Gar-R1), build **Profile 0**: a **Default MDT** using **GRE encapsulation** with **PIM** in the core. Configure the **default-group 239.100.0.0** on E-R1 and Gar-R1 so the PEs form a full-mesh MDT and exchange customer multicast in-band over PIM/GRE.
 
 **Solution**
 Profile 0 is the original Rosen mVPN: customer (C-) multicast is encapsulated in **GRE** and carried across the provider core as **P-multicast** using a **Default MDT group** shared by all PEs in the VPN. The core runs PIM-SM (using the RP from Section 1). Each PE joins the Default MDT group; the MDT appears as a virtual LAN so PE-to-PE PIM adjacencies form over it and C-joins/registers ride inside. Discovery and C-signaling are **both PIM** (in-band) in classic Profile 0.
 
 ```
-! ---- PE1 and PE3 ----
+! ---- E-R1 and Gar-R1 ----
 multicast-routing
  address-family ipv4
   ! core interfaces already enabled (Section 1)
@@ -328,14 +328,14 @@ Core PIM already provisioned in Section 1 with RP = 6.6.6.6, so the Default MDT 
 
 **Verification**
 ```
-RP/0/RP0/CPU0:PE1# show pim vrf Customer_A mdt interface
+RP/0/RP0/CPU0:E-R1# show pim vrf Customer_A mdt interface
   ! MDT tunnel interface (mdtCustomer_A) up
 
-RP/0/RP0/CPU0:PE1# show mrib route 239.100.0.0
+RP/0/RP0/CPU0:E-R1# show mrib route 239.100.0.0
   ! Default MDT group (*,G)/(S,G) in the GLOBAL table (P-multicast)
 
-RP/0/RP0/CPU0:PE1# show pim vrf Customer_A neighbor
-  ! PE3 seen as a PIM neighbor OVER the MDT
+RP/0/RP0/CPU0:E-R1# show pim vrf Customer_A neighbor
+  ! Gar-R1 seen as a PIM neighbor OVER the MDT
 ```
 
 ---
@@ -349,7 +349,7 @@ Add a **Data MDT** so a **high-bandwidth** C-stream is moved off the Default MDT
 The Default MDT reaches *every* PE in the VPN, wasting bandwidth for streams only a few sites want. When a `(C-S,C-G)` exceeds the **threshold**, the source PE signals a **Data MDT** (S-PMSI) from a data-group pool; PEs with receivers join that group and traffic switches over, sparing uninterested PEs. In Profile 0 this switchover is signaled in-band via PIM.
 
 ```
-! ---- PE1 (source PE) ----
+! ---- E-R1 (source PE) ----
 multicast-routing
  vrf Customer_A
   address-family ipv4
@@ -362,14 +362,14 @@ multicast-routing
 
 **Verification**
 ```
-RP/0/RP0/CPU0:PE1# show pim vrf Customer_A mdt cache
+RP/0/RP0/CPU0:E-R1# show pim vrf Customer_A mdt cache
   ! Data MDT created for the high-bw (C-S,C-G); mapped to a data-group
 
-RP/0/RP0/CPU0:PE1# show mrib route 239.101.0.0/24
+RP/0/RP0/CPU0:E-R1# show mrib route 239.101.0.0/24
   ! data-group state in the global table; only receiver PEs joined
 
-RP/0/RP0/CPU0:PE3# show pim vrf Customer_A mdt cache
-  ! PE3 (has receiver) joined the data-group; PEs without receivers did not
+RP/0/RP0/CPU0:Gar-R1# show pim vrf Customer_A mdt cache
+  ! Gar-R1 (has receiver) joined the data-group; PEs without receivers did not
 ```
 
 ---
@@ -377,20 +377,20 @@ RP/0/RP0/CPU0:PE3# show pim vrf Customer_A mdt cache
 ### Task 3.3 — Verify encapsulation / decapsulation end-to-end
 
 **Question**
-Prove the **GRE encap on the ingress PE and decap on the egress PE**: C-multicast from CE1 is GRE-encapsulated into the MDT group on PE1 and decapsulated on PE3 before delivery to CE4.
+Prove the **GRE encap on the ingress PE and decap on the egress PE**: C-multicast from CE1 is GRE-encapsulated into the MDT group on E-R1 and decapsulated on Gar-R1 before delivery to CE4.
 
 **Solution**
 The MDT tunnel is a GRE interface (`mdtCustomer_A`). Ingress PE encapsulates C-packets in GRE with the MDT group as outer destination; core forwards as normal P-multicast; egress PE decapsulates and forwards natively toward the receiver. Counters on the MDT interface confirm encap/decap.
 
 **Verification**
 ```
-RP/0/RP0/CPU0:PE1# show mfib vrf Customer_A route 239.x.x.x
+RP/0/RP0/CPU0:E-R1# show mfib vrf Customer_A route 239.x.x.x
   ! OIF = Encapsulation tunnel (mdtCustomer_A) → encap counters rising
 
-RP/0/RP0/CPU0:PE3# show mfib vrf Customer_A route 239.x.x.x
+RP/0/RP0/CPU0:Gar-R1# show mfib vrf Customer_A route 239.x.x.x
   ! IIF = Decapsulation tunnel → decap counters rising, OIF toward CE4
 
-RP/0/RP0/CPU0:PE1# show interfaces mdtCustomer_A
+RP/0/RP0/CPU0:E-R1# show interfaces mdtCustomer_A
   ! GRE MDT interface packet/byte counters
 
 ! End-to-end: CE4 receives the stream sourced by CE1
@@ -403,13 +403,13 @@ RP/0/RP0/CPU0:PE1# show interfaces mdtCustomer_A
 ### Task 4.1 — Enable BGP Auto-Discovery with MVPN NLRI
 
 **Question**
-Convert Customer A to **Profile 3**: keep **GRE** transport and **PIM** for C-multicast signaling, but replace PIM-based PE discovery with **BGP Auto-Discovery** using the **`ipv4 mvpn`** address-family. Enable `ipv4 mvpn` on PE1, PE3 and the RR (P2/RR1, 4.4.4.4).
+Convert Customer A to **Profile 3**: keep **GRE** transport and **PIM** for C-multicast signaling, but replace PIM-based PE discovery with **BGP Auto-Discovery** using the **`ipv4 mvpn`** address-family. Enable `ipv4 mvpn` on E-R1, Gar-R1 and the RR (P2/RR1, 4.4.4.4).
 
 **Solution**
 Profile 3 = **GRE MDT + BGP A-D + PIM C-signaling**. BGP MVPN A-D (Type 1 Intra-AS I-PMSI) replaces the flooding-based discovery of Profile 0 — PEs learn each other's MDT membership via BGP through the RR, which scales far better. C-multicast joins are still carried by **PIM** over the MDT.
 
 ```
-! ---- PE1 / PE3 ----
+! ---- E-R1 / Gar-R1 ----
 router bgp 65100
  address-family ipv4 mvpn
  !
@@ -437,7 +437,7 @@ router bgp 65100
  neighbor 1.1.1.1
   address-family ipv4 mvpn
    route-reflector-client
- neighbor 21.21.21.21
+ neighbor 24.24.24.24
   address-family ipv4 mvpn
    route-reflector-client
 !
@@ -445,13 +445,13 @@ router bgp 65100
 
 **Verification**
 ```
-RP/0/RP0/CPU0:PE1# show bgp ipv4 mvpn
-  ! Type 1 (Intra-AS I-PMSI A-D) route from each PE (self + PE3)
+RP/0/RP0/CPU0:E-R1# show bgp ipv4 mvpn
+  ! Type 1 (Intra-AS I-PMSI A-D) route from each PE (self + Gar-R1)
 
-RP/0/RP0/CPU0:PE1# show bgp ipv4 mvpn route-type 1
+RP/0/RP0/CPU0:E-R1# show bgp ipv4 mvpn route-type 1
   ! RD:originator — one per PE in the VPN
 
-RP/0/RP0/CPU0:PE1# show pim vrf Customer_A neighbor
+RP/0/RP0/CPU0:E-R1# show pim vrf Customer_A neighbor
   ! PIM still adjacent over the MDT (C-signaling unchanged)
 ```
 
@@ -467,13 +467,13 @@ When a C-source becomes active the source PE originates a **Type 5 (Source Activ
 
 **Verification**
 ```
-RP/0/RP0/CPU0:PE1# show bgp ipv4 mvpn route-type 5
-  ! (C-S,C-G) Source-Active from PE1
+RP/0/RP0/CPU0:E-R1# show bgp ipv4 mvpn route-type 5
+  ! (C-S,C-G) Source-Active from E-R1
 
-RP/0/RP0/CPU0:PE3# show bgp ipv4 mvpn
+RP/0/RP0/CPU0:Gar-R1# show bgp ipv4 mvpn
   ! Type 5 learned; PIM builds the C-tree over the MDT
 
-RP/0/RP0/CPU0:PE3# show mrib vrf Customer_A route
+RP/0/RP0/CPU0:Gar-R1# show mrib vrf Customer_A route
   ! (C-S,C-G) present → CE4 receives
 ```
 
@@ -515,12 +515,12 @@ Migrate Customer A to **Profile 11**: **no PIM anywhere in the core**, discovery
 Profile 11 is fully BGP-signaled mVPN over an **mLDP** P-tunnel. The provider core distributes multicast state as **P2MP LSPs via mLDP** — there is **zero PIM** in the P-network. Discovery is BGP Type 1/3; C-multicast joins are BGP **Type 6/7** (Shared-tree / Source-tree C-multicast). This is the most scalable label-based ASM mVPN and the direction real SPs take to eliminate core PIM.
 
 ```
-! ---- Core P routers (P1, P2, ASBR1, …): enable mLDP ----
+! ---- Core P routers (E-R3, E-R4, E-R6, …): enable mLDP ----
 mpls ldp
  mldp
 !
 
-! ---- PE1 / PE3 ----
+! ---- E-R1 / Gar-R1 ----
 router bgp 65100
  address-family ipv4 mvpn
  neighbor 4.4.4.4
@@ -543,9 +543,9 @@ multicast-routing
 
 **Verification**
 ```
-RP/0/RP0/CPU0:P1# show pim neighbor          ! (core) — EMPTY, no core PIM
-RP/0/RP0/CPU0:PE1# show mpls mldp database    ! P2MP LSP root/branches built
-RP/0/RP0/CPU0:PE1# show bgp ipv4 mvpn         ! Types 1,3,4,5,6,7 as applicable
+RP/0/RP0/CPU0:E-R3# show pim neighbor          ! (core) — EMPTY, no core PIM
+RP/0/RP0/CPU0:E-R1# show mpls mldp database    ! P2MP LSP root/branches built
+RP/0/RP0/CPU0:E-R1# show bgp ipv4 mvpn         ! Types 1,3,4,5,6,7 as applicable
 ```
 
 ---
@@ -571,12 +571,12 @@ Types **1–5** are **A-D** (auto-discovery); **6–7** are the **C-multicast** 
 
 **Verification**
 ```
-RP/0/RP0/CPU0:PE1# show bgp ipv4 mvpn route-type 1     ! I-PMSI A-D (per PE)
-RP/0/RP0/CPU0:PE1# show bgp ipv4 mvpn route-type 3     ! S-PMSI (data MDT)
-RP/0/RP0/CPU0:PE1# show bgp ipv4 mvpn route-type 4     ! Leaf A-D responses
-RP/0/RP0/CPU0:PE1# show bgp ipv4 mvpn route-type 5     ! Source-Active
-RP/0/RP0/CPU0:PE3# show bgp ipv4 mvpn route-type 7     ! C-Source-Tree Join from receiver PE
-RP/0/RP0/CPU0:PE1# show bgp ipv4 mvpn summary          ! all types learned via RR
+RP/0/RP0/CPU0:E-R1# show bgp ipv4 mvpn route-type 1     ! I-PMSI A-D (per PE)
+RP/0/RP0/CPU0:E-R1# show bgp ipv4 mvpn route-type 3     ! S-PMSI (data MDT)
+RP/0/RP0/CPU0:E-R1# show bgp ipv4 mvpn route-type 4     ! Leaf A-D responses
+RP/0/RP0/CPU0:E-R1# show bgp ipv4 mvpn route-type 5     ! Source-Active
+RP/0/RP0/CPU0:Gar-R1# show bgp ipv4 mvpn route-type 7     ! C-Source-Tree Join from receiver PE
+RP/0/RP0/CPU0:E-R1# show bgp ipv4 mvpn summary          ! all types learned via RR
 ```
 
 ---
@@ -591,9 +591,9 @@ With Profile 11 the P routers only hold **mLDP P2MP LSP** state and MPLS forward
 
 **Verification**
 ```
-RP/0/RP0/CPU0:P1# show pim neighbor         ! empty (no core PIM)
-RP/0/RP0/CPU0:P1# show mpls forwarding      ! P2MP LSP labels installed
-RP/0/RP0/CPU0:PE3# show mrib vrf Customer_A route   ! (C-S,C-G) via BGP Type 7
+RP/0/RP0/CPU0:E-R3# show pim neighbor         ! empty (no core PIM)
+RP/0/RP0/CPU0:E-R3# show mpls forwarding      ! P2MP LSP labels installed
+RP/0/RP0/CPU0:Gar-R1# show mrib vrf Customer_A route   ! (C-S,C-G) via BGP Type 7
 ! CE4 receives the CE1 stream over the mLDP P2MP tree
 ```
 
@@ -610,7 +610,7 @@ Configure **Profile 12** (mLDP P2MP, BGP A-D + BGP signaling, **shared** default
 Profile 12 uses a **shared** mLDP P2MP tree as the Default MDT: all PEs in the VPN are leaves, so every PE receives all default-MDT traffic — like Profile 11 but emphasising the *shared* default tree. A **Data MDT** (S-PMSI, BGP Type 3/4) spins a separate P2MP LSP for high-bandwidth streams that only receiver PEs join.
 
 ```
-! ---- PE1 / PE3 (Profile 12) ----
+! ---- E-R1 / Gar-R1 (Profile 12) ----
 multicast-routing
  vrf Customer_A
   address-family ipv4
@@ -625,11 +625,11 @@ multicast-routing
 
 **Verification**
 ```
-RP/0/RP0/CPU0:PE1# show mpls mldp database
+RP/0/RP0/CPU0:E-R1# show mpls mldp database
   ! default P2MP LSP (all PEs) + separate data P2MP LSP (subset)
 
-RP/0/RP0/CPU0:PE1# show bgp ipv4 mvpn route-type 3   ! S-PMSI for the data MDT
-RP/0/RP0/CPU0:PE3# show bgp ipv4 mvpn route-type 4   ! Leaf A-D (PE3 joins data MDT)
+RP/0/RP0/CPU0:E-R1# show bgp ipv4 mvpn route-type 3   ! S-PMSI for the data MDT
+RP/0/RP0/CPU0:Gar-R1# show bgp ipv4 mvpn route-type 4   ! Leaf A-D (Gar-R1 joins data MDT)
 ```
 
 ---
@@ -643,7 +643,7 @@ Configure **Profile 14** (**Partitioned MDT**, mLDP P2MP, BGP). Show that each *
 Profile 14 = **Partitioned MDT**. Instead of one shared default tree carrying everything to all PEs, **each source PE roots its own P2MP LSP**; a receiver PE joins (via BGP Type 4 Leaf A-D) **only** the partitioned MDT of a PE that has an active source it wants. This eliminates the "all PEs get everything" waste of shared trees — the most scalable mLDP mVPN and common in large SP deployments.
 
 ```
-! ---- PE1 / PE3 (Profile 14) ----
+! ---- E-R1 / Gar-R1 (Profile 14) ----
 multicast-routing
  vrf Customer_A
   address-family ipv4
@@ -657,13 +657,13 @@ multicast-routing
 
 **Verification**
 ```
-RP/0/RP0/CPU0:PE1# show mpls mldp database
+RP/0/RP0/CPU0:E-R1# show mpls mldp database
   ! a SEPARATE P2MP LSP rooted at each source PE (not one shared tree)
 
-RP/0/RP0/CPU0:PE3# show bgp ipv4 mvpn route-type 4
-  ! PE3 sends Leaf A-D ONLY toward source PEs it wants (partitioned join)
+RP/0/RP0/CPU0:Gar-R1# show bgp ipv4 mvpn route-type 4
+  ! Gar-R1 sends Leaf A-D ONLY toward source PEs it wants (partitioned join)
 
-RP/0/RP0/CPU0:PE3# show pim vrf Customer_A mdt cache
+RP/0/RP0/CPU0:Gar-R1# show pim vrf Customer_A mdt cache
   ! receiver PE joined only the partitioned MDT with an active source
 ```
 
@@ -697,8 +697,8 @@ router bgp 65100
 
 **Verification**
 ```
-RP/0/RP0/CPU0:ASBR1# show bgp ipv4 mvpn route-type 2   ! Inter-AS I-PMSI A-D
-RP/0/RP0/CPU0:ASBR1# show mpls mldp database           ! recursive/segmented P2MP per AS
+RP/0/RP0/CPU0:E-R6# show bgp ipv4 mvpn route-type 2   ! Inter-AS I-PMSI A-D
+RP/0/RP0/CPU0:E-R6# show mpls mldp database           ! recursive/segmented P2MP per AS
 ! End-to-end: CE1 (Emerald) → CE4 (Garnet) AND CE9 (Gold) both receive
 ```
 
@@ -709,13 +709,13 @@ RP/0/RP0/CPU0:ASBR1# show mpls mldp database           ! recursive/segmented P2M
 ### Task 7.1 — MVPN with SR-MPLS transport (Tree-SID / P2MP SR Policy)
 
 **Question**
-Carry Customer A mVPN over **SR-MPLS** using a **Tree-SID** (multicast **P2MP SR Policy**) instead of mLDP, with the **SR-PCE (PCE1, 6.6.6.6)** computing the P2MP tree. Keep BGP MVPN for A-D/signaling.
+Carry Customer A mVPN over **SR-MPLS** using a **Tree-SID** (multicast **P2MP SR Policy**) instead of mLDP, with the **SR-PCE (E-R5, 6.6.6.6)** computing the P2MP tree. Keep BGP MVPN for A-D/signaling.
 
 **Solution**
 SR-MVPN replaces the mLDP P-tunnel with a **P2MP SR Policy (Tree-SID)**: the **SR-PCE** computes a P2MP tree and installs it via **replication segments**, each identified by a **Tree-SID** label. There is **no mLDP and no PIM** in the core — the tree is stateless-ish source-routed multicast steered by SR. BGP MVPN still handles discovery/C-signaling; the overlay just points at a Tree-SID P-tunnel.
 
 ```
-! ---- SR-PCE (PCE1) computes the P2MP tree ----
+! ---- SR-PCE (E-R5) computes the P2MP tree ----
 segment-routing
  traffic-eng
   p2mp
@@ -741,11 +741,11 @@ multicast-routing
 
 **Verification**
 ```
-RP/0/RP0/CPU0:PCE1# show segment-routing traffic-eng p2mp policy
+RP/0/RP0/CPU0:E-R5# show segment-routing traffic-eng p2mp policy
   ! P2MP SR policy (Tree-SID) computed, leaves = receiver PEs
 
-RP/0/RP0/CPU0:PE1# show mrib vrf Customer_A route   ! mapped to Tree-SID P-tunnel
-RP/0/RP0/CPU0:P1#  show mpls forwarding             ! replication-segment labels installed
+RP/0/RP0/CPU0:E-R1# show mrib vrf Customer_A route   ! mapped to Tree-SID P-tunnel
+RP/0/RP0/CPU0:E-R3#  show mpls forwarding             ! replication-segment labels installed
 ```
 
 ---
@@ -760,10 +760,10 @@ A **replication segment** is the SR building block for multicast: at each node i
 
 **Verification**
 ```
-RP/0/RP0/CPU0:P1# show segment-routing traffic-eng p2mp replication-segment
+RP/0/RP0/CPU0:E-R3# show segment-routing traffic-eng p2mp replication-segment
   ! per-node replication segment: incoming Tree-SID → replicate to downstream SIDs
 
-RP/0/RP0/CPU0:PE1# show segment-routing traffic-eng p2mp policy detail
+RP/0/RP0/CPU0:E-R1# show segment-routing traffic-eng p2mp policy detail
   ! root, transit, leaf replication segments composing the Tree-SID tree
 ```
 
@@ -807,7 +807,7 @@ show mrib route 239.100.0.0                ! Default MDT group present in global
 CE1 is sending to an ASM group but receivers get nothing and the RP shows no source. `show mrib route` on the RP has no `(S,G)`. Diagnose and fix.
 
 **Solution**
-For ASM the first-hop router (PE1) must **PIM-Register** the source to the RP. Common causes: (a) PE1 has the **wrong/no RP address** or can't reach 6.6.6.6, (b) **RPF failure** toward the source (unicast route/MRIB mismatch, missing `multicast-routing … enable` on the RPF interface), or (c) the RP rejects the register (accept-register ACL). Check RP reachability, RP-address consistency, and RPF.
+For ASM the first-hop router (E-R1) must **PIM-Register** the source to the RP. Common causes: (a) E-R1 has the **wrong/no RP address** or can't reach 6.6.6.6, (b) **RPF failure** toward the source (unicast route/MRIB mismatch, missing `multicast-routing … enable` on the RPF interface), or (c) the RP rejects the register (accept-register ACL). Check RP reachability, RP-address consistency, and RPF.
 
 ```
 ! Likely fixes:
@@ -826,7 +826,7 @@ multicast-routing
 ```
 show pim rp mapping                       ! FHR points at 6.6.6.6, reachable
 show pim topology <group>                 ! Register state; no RPF failure
-show mrib route <group> on PCE1           ! (S,G) now present on the RP
+show mrib route <group> on E-R5           ! (S,G) now present on the RP
 show pim vrf … | i Register               ! Register/Register-Stop exchange healthy
 ! RPF sanity:
 show pim rpf 11.11.11.11                  ! RPF neighbor resolves toward CE1
@@ -879,7 +879,7 @@ show mpls mldp database           ! segmented P2MP tree stitched across ASBR
 
 ## Final Validation Checklist
 ```
-[ ] 1.1 PIM-SM core, static RP = PCE1 6.6.6.6 (show pim rp mapping)
+[ ] 1.1 PIM-SM core, static RP = E-R5 6.6.6.6 (show pim rp mapping)
 [ ] 1.2 PIM-SSM 232.0.0.0/8 — (S,G) only, no RP (show pim group-map)
 [ ] 1.3 Static vs Auto-RP vs BSR demonstrated (show pim bsr election / auto-rp mapping)
 [ ] 1.4 MRIB/MFIB (*,G) + (S,G), RPF, SPT switchover verified

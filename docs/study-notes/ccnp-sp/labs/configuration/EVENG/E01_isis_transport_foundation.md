@@ -11,18 +11,18 @@
 ## Section 1: Emerald AS 65100 (IS-IS + LDP) - DONE
 
 ### Task 1: IP Addressing
-1. Configure loopbacks and core link IPs on PE1, PE2, P1, P2, ASBR1, PCE1 per the topology reference.
+1. Configure loopbacks and core link IPs on E-R1, E-R2, E-R3, E-R4, E-R6, E-R5 per the topology reference.
 2. Verify: every directly connected link can ping its neighbor.
 
 ### Task 2: IS-IS on Emerald core
 1. On each Emerald router: `router isis CORE / is-type level-2-only / net 49.0001.0000.0000.000X.00 / address-family ipv4 unicast / metric-style wide`.
 2. Enable IS-IS on Loopback0 (passive) + all **core** interfaces (point-to-point). NOT on PE-CE interfaces.
-   - PE1: Gi0/0/0/2, Gi0/0/0/3 (core). NOT Gi0/0/0/0, Gi0/0/0/1 (PE-CE).
-   - PE2: Gi0/0/0/0, Gi0/0/0/3 (core). NOT Gi0/0/0/1, Gi0/0/0/2 (PE-CE).
-   - P1: Gi0/0/0/0, Gi0/0/0/1, Gi0/0/0/2 (all core).
-   - P2: Gi0/0/0/1, Gi0/0/0/2, Gi0/0/0/3 (all core).
-   - ASBR1: Gi0/0/0/2 (core to P2). NOT Gi0/0/0/1 (inter-AS to Garnet), Gi0/0/0/3 (inter-AS to Gold).
-   - PCE1: Gi0/0/0/3 (core to P2).
+   - E-R1: Gi0/0/0/2, Gi0/0/0/3 (core). NOT Gi0/0/0/0, Gi0/0/0/1 (PE-CE).
+   - E-R2: Gi0/0/0/0, Gi0/0/0/3 (core). NOT Gi0/0/0/1, Gi0/0/0/2 (PE-CE).
+   - E-R3: Gi0/0/0/0, Gi0/0/0/1, Gi0/0/0/2 (all core).
+   - E-R4: Gi0/0/0/1, Gi0/0/0/2, Gi0/0/0/3 (all core).
+   - E-R6: Gi0/0/0/2 (core to E-R4). NOT Gi0/0/0/1 (inter-AS to Garnet), Gi0/0/0/3 (inter-AS to Gold).
+   - E-R5: Gi0/0/0/3 (core to E-R4).
 3. Verify: `show isis neighbors` — all adjacencies L2/UP.
 4. Verify: `show route ipv4` — all 6 Emerald loopbacks (1.1.1.1–6.6.6.6) reachable.
 
@@ -30,34 +30,34 @@
 1. `mpls ldp / router-id <loopback> / address-family ipv4` + enable on ALL core interfaces.
 2. Verify: `show mpls ldp neighbor` — sessions match IS-IS neighbors.
 3. Verify: `show mpls forwarding` — labels for all loopbacks.
-4. `traceroute mpls ipv4 2.2.2.2/32` from PE1 — PUSH/SWAP/POP verified.
+4. `traceroute mpls ipv4 2.2.2.2/32` from E-R1 — PUSH/SWAP/POP verified.
 
 ---
 
 ## Section 2: Garnet AS 65200 (IS-IS + SR-MPLS) - DONE
 
 ### Task 4: IP Addressing
-1. Configure loopbacks and core link IPs on PE3, PE4, P3, P4, P5, ASBR2, PCE per the topology reference.
+1. Configure loopbacks and core link IPs on Gar-R1, Gar-R2, Gar-R3, Gar-R4, Gar-R5, Gar-R7, Gar-R6 per the topology reference.
 
 ### Task 5: IS-IS + SR on Garnet core
 1. Same IS-IS config as Emerald + add `segment-routing mpls` under address-family.
 2. Prefix-SID on each Loopback0:
-   - PE3=index 11 (16011), PE4=12, P3=13, P4=14, P5=15, ASBR2=16, PCE=17
+   - Gar-R1=index 11 (16011), Gar-R2=12, Gar-R3=13, Gar-R4=14, Gar-R5=15, Gar-R6=16, Gar-R7=17
 3. Enable IS-IS on core interfaces only:
-   - PE3: Gi0/0/0/1, Gi0/0/0/3 (core). NOT Gi0/0/0/0, Gi0/0/0/2 (PE-CE).
-   - PE4: Gi0/0/0/2, Gi0/0/0/3 (core). NOT Gi0/0/0/0, Gi0/0/0/1 (PE-CE).
-   - P3: Gi0/0/0/0, Gi0/0/0/1, Gi0/0/0/2, Gi0/0/0/3 (all core).
-   - P4: Gi0/0/0/0, Gi0/0/0/1, Gi0/0/0/3 (all core).
-   - P5: Gi0/0/0/1, Gi0/0/0/2, Gi0/0/0/3 (all core).
-   - ASBR2: Gi0/0/0/2 (core). NOT Gi0/0/0/1 (inter-AS).
-   - PCE: Gi0/0/0/3 (core).
+   - Gar-R1: Gi0/0/0/1, Gi0/0/0/3 (core). NOT Gi0/0/0/0, Gi0/0/0/2 (PE-CE).
+   - Gar-R2: Gi0/0/0/2, Gi0/0/0/3 (core). NOT Gi0/0/0/0, Gi0/0/0/1 (PE-CE).
+   - Gar-R3: Gi0/0/0/0, Gi0/0/0/1, Gi0/0/0/2, Gi0/0/0/3 (all core).
+   - Gar-R4: Gi0/0/0/0, Gi0/0/0/1, Gi0/0/0/3 (all core).
+   - Gar-R5: Gi0/0/0/1, Gi0/0/0/2, Gi0/0/0/3 (all core).
+   - Gar-R7: Gi0/0/0/2 (core). NOT Gi0/0/0/1 (inter-AS).
+   - Gar-R6: Gi0/0/0/3 (core).
 4. **No LDP on Garnet** — SR replaces it.
 5. Verify: `show isis segment-routing label table` — SIDs 16011–16017.
 6. Verify: `show mpls forwarding` — SR labels in LFIB.
-7. `ping 12.12.12.12 source 11.11.11.11` from PE3 — works via SR.
+7. `ping 12.12.12.12 source 11.11.11.11` from Gar-R1 — works via SR.
 
 ### Task 6: Verify no cross-AS connectivity yet
-1. PE1 cannot reach PE3: `ping 11.11.11.11` from PE1 → fails. Expected. Inter-AS = Lab E06.
+1. E-R1 cannot reach Gar-R1: `ping 11.11.11.11` from E-R1 → fails. Expected. Inter-AS = Lab E06.
 
 ---
 
@@ -75,7 +75,7 @@
 [ ] Garnet: IS-IS L2 + SR on all core links
 [ ] Garnet: prefix-SIDs 16011-16017 in label table
 [ ] Garnet: SR labels in LFIB (no LDP)
-[ ] Garnet: PE3↔PE4 ping works via SR
+[ ] Garnet: Gar-R1↔Gar-R2 ping works via SR
 [ ] No cross-AS connectivity (expected)
 ```
 
@@ -89,31 +89,31 @@
 
 | Router | Loopback0 IPv4 |
 |--------|---------------|
-| ASBR3 | 21.21.21.21/32 |
-| ASBR4 | 22.22.22.22/32 |
-| P6 | 23.23.23.23/32 |
-| PE5 | 24.24.24.24/32 |
-| PE6 | 25.25.25.25/32 |
+| G-R4 | 21.21.21.21/32 |
+| G-R5 | 22.22.22.22/32 |
+| G-R3 | 23.23.23.23/32 |
+| G-R1 | 24.24.24.24/32 |
+| G-R2 | 25.25.25.25/32 |
 
 **IPv6 Loopbacks (SRv6 source address):**
 
 | Router | Loopback0 IPv6 | SRv6 Locator |
 |--------|---------------|-------------|
-| ASBR3 | fc00::21/128 | fc00:0:21::/48 |
-| ASBR4 | fc00::22/128 | fc00:0:22::/48 |
-| P6 | fc00::23/128 | fc00:0:23::/48 |
-| PE5 | fc00::24/128 | fc00:0:24::/48 |
-| PE6 | fc00::25/128 | fc00:0:25::/48 |
+| G-R4 | fc00::21/128 | fc00:0:21::/48 |
+| G-R5 | fc00::22/128 | fc00:0:22::/48 |
+| G-R3 | fc00::23/128 | fc00:0:23::/48 |
+| G-R1 | fc00::24/128 | fc00:0:24::/48 |
+| G-R2 | fc00::25/128 | fc00:0:25::/48 |
 
 **Core Link Addressing (dual-stack, IPv4 + IPv6):**
 
 | Link | Interface A | Interface B | IPv4 Subnet | IPv6 Subnet |
 |------|------------|------------|-------------|-------------|
-| ASBR3↔ASBR4 | ASBR3 Gi0/0/0/2 | ASBR4 Gi0/0/0/2 | 10.3.1.0/24 (.1/.2) | fc00:3:1::/64 (::1/::2) |
-| ASBR3↔P6 | ASBR3 Gi0/0/0/1 | P6 Gi0/0/0/1 | 10.3.2.0/24 (.1/.2) | fc00:3:2::/64 (::1/::2) |
-| ASBR4↔P6 | ASBR4 Gi0/0/0/0 | P6 Gi0/0/0/0 | 10.3.3.0/24 (.1/.2) | fc00:3:3::/64 (::1/::2) |
-| P6↔PE5 | P6 Gi0/0/0/2 | PE5 Gi0/0/0/2 | 10.3.4.0/24 (.1/.2) | fc00:3:4::/64 (::1/::2) |
-| P6↔PE6 | P6 Gi0/0/0/3 | PE6 Gi0/0/0/3 | 10.3.5.0/24 (.1/.2) | fc00:3:5::/64 (::1/::2) |
+| G-R4↔G-R5 | G-R4 Gi0/0/0/2 | G-R5 Gi0/0/0/2 | 10.3.1.0/24 (.1/.2) | fc00:3:1::/64 (::1/::2) |
+| G-R4↔G-R3 | G-R4 Gi0/0/0/1 | G-R3 Gi0/0/0/1 | 10.3.2.0/24 (.1/.2) | fc00:3:2::/64 (::1/::2) |
+| G-R5↔G-R3 | G-R5 Gi0/0/0/0 | G-R3 Gi0/0/0/0 | 10.3.3.0/24 (.1/.2) | fc00:3:3::/64 (::1/::2) |
+| G-R3↔G-R1 | G-R3 Gi0/0/0/2 | G-R1 Gi0/0/0/2 | 10.3.4.0/24 (.1/.2) | fc00:3:4::/64 (::1/::2) |
+| G-R3↔G-R2 | G-R3 Gi0/0/0/3 | G-R2 Gi0/0/0/3 | 10.3.5.0/24 (.1/.2) | fc00:3:5::/64 (::1/::2) |
 
 > **Addressing logic:** `fc00::XX` = loopback (XX = last octet of IPv4). `fc00:0:XX::/48` = SRv6 locator. `fc00:3:Y::/64` = core links (3 = Gold, Y = link number matching 10.3.Y.0 IPv4). `::1`/`::2` = same convention as IPv4 .1/.2.
 
@@ -136,27 +136,27 @@
    ```
 4. Reference the locator under IS-IS: `segment-routing srv6 / locator MAIN` under `address-family ipv6 unicast`.
 5. Enable IS-IS on core interfaces (IPv4 + IPv6 address-families):
-   - ASBR3: Gi0/0/0/1 (P6), Gi0/0/0/2 (ASBR4). NOT Gi0/0/0/3 (inter-AS to Emerald).
-   - ASBR4: Gi0/0/0/0 (P6), Gi0/0/0/2 (ASBR3). NOT Gi0/0/0/3 (inter-AS to Garnet).
-   - P6: Gi0/0/0/0 (ASBR4), Gi0/0/0/1 (ASBR3), Gi0/0/0/2 (PE5), Gi0/0/0/3 (PE6).
-   - PE5: Gi0/0/0/2 (P6). NOT Gi0/0/0/0 (CE9), Gi0/0/0/1 (CE8).
-   - PE6: Gi0/0/0/3 (P6). NOT Gi0/0/0/0 (CE7), Gi0/0/0/1 (CE8).
-6. ASBR3 = RR + PCE for Gold.
+   - G-R4: Gi0/0/0/1 (G-R3), Gi0/0/0/2 (G-R5). NOT Gi0/0/0/3 (inter-AS to Emerald).
+   - G-R5: Gi0/0/0/0 (G-R3), Gi0/0/0/2 (G-R4). NOT Gi0/0/0/3 (inter-AS to Garnet).
+   - G-R3: Gi0/0/0/0 (G-R5), Gi0/0/0/1 (G-R4), Gi0/0/0/2 (G-R1), Gi0/0/0/3 (G-R2).
+   - G-R1: Gi0/0/0/2 (G-R3). NOT Gi0/0/0/0 (CE9), Gi0/0/0/1 (CE8).
+   - G-R2: Gi0/0/0/3 (G-R3). NOT Gi0/0/0/0 (CE7), Gi0/0/0/1 (CE8).
+6. G-R4 = RR + Gar-R6 for Gold.
 7. **No LDP on Gold** — SRv6 provides transport.
 8. Verify: `show segment-routing srv6 sid` on each Gold router — End SIDs allocated per locator.
 9. Verify: `show isis adjacency` — all Gold adjacencies L2/UP.
-10. Verify: `ping fc00::25 source fc00::24` (PE5 → PE6 via IPv6/SRv6) — works.
+10. Verify: `ping fc00::25 source fc00::24` (G-R1 → G-R2 via IPv6/SRv6) — works.
 
 ### Task 9: Verify inter-AS links (no IGP/LDP across them)
-1. ASBR1(Gi3) ↔ ASBR3(Gi3) — link UP, no IS-IS. eBGP later (E06).
-2. ASBR4(Gi3) ↔ ASBR2(Gi3) — link UP, no IS-IS. eBGP later (E06).
-3. ASBR1(Gi1) ↔ ASBR2(Gi1) — link UP, no IS-IS. eBGP later (E06). Direct Emerald↔Garnet path.
+1. E-R6(Gi3) ↔ G-R4(Gi3) — link UP, no IS-IS. eBGP later (E06).
+2. G-R5(Gi3) ↔ Gar-R7(Gi3) — link UP, no IS-IS. eBGP later (E06).
+3. E-R6(Gi1) ↔ Gar-R7(Gi1) — link UP, no IS-IS. eBGP later (E06). Direct Emerald↔Garnet path.
 
 ### Updated Checklist
 ```
 [ ] Emerald: IS-IS + LDP (6 routers, all loopbacks reachable)
-[ ] Gold: IS-IS + SRv6 (5 routers, SRv6 SIDs allocated, PE5↔PE6 works)
-[ ] Garnet: IS-IS + SR-MPLS (7 routers, prefix-SIDs, PE3↔PE4 works)
+[ ] Gold: IS-IS + SRv6 (5 routers, SRv6 SIDs allocated, G-R1↔G-R2 works)
+[ ] Garnet: IS-IS + SR-MPLS (7 routers, prefix-SIDs, Gar-R1↔Gar-R2 works)
 [ ] 3 inter-AS links UP but no IGP across them
 [ ] 3 different transport technologies operational (LDP / SRv6 / SR-MPLS)
 ```

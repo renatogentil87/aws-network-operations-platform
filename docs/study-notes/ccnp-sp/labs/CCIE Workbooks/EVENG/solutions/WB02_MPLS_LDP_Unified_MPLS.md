@@ -11,45 +11,45 @@
 
 | Node | Loopback0 | Role |
 |------|-----------|------|
-| PCE1 | 6.6.6.6 | Path Computation Element |
-| P2 | 4.4.4.4 | Core P |
-| P1 | 3.3.3.3 | Core P |
-| ASBR1 | 5.5.5.5 | Inter-AS border |
-| PE1 | 1.1.1.1 | Edge PE |
-| PE2 | 2.2.2.2 | Edge PE |
+| E-R5 | 6.6.6.6 | Path Computation Element |
+| E-R4 | 4.4.4.4 | Core P |
+| E-R3 | 3.3.3.3 | Core P |
+| E-R6 | 5.5.5.5 | Inter-AS border |
+| E-R1 | 1.1.1.1 | Edge PE |
+| E-R2 | 2.2.2.2 | Edge PE |
 
 **Garnet — AS 65200 (IS-IS + SR-MPLS)**
 
 | Node | Loopback0 | Role |
 |------|-----------|------|
-| PCE | 17.17.17.17 | Path Computation Element |
-| P3–P5 | — | Core P |
-| ASBR2 | 16.16.16.16 | Inter-AS border |
-| PE3 | 11.11.11.11 | Edge PE |
-| PE4 | 12.12.12.12 | Edge PE |
+| Gar-R6 | 16.16.16.16 | Path Computation Element |
+| Gar-R3–Gar-R5 | — | Core P |
+| Gar-R7 | 17.17.17.17 | Inter-AS border |
+| Gar-R1 | 11.11.11.11 | Edge PE |
+| Gar-R2 | 12.12.12.12 | Edge PE |
 
 **Gold — AS 65300 (IS-IS + SRv6)**
 
 | Node | Loopback0 | Role |
 |------|-----------|------|
-| ASBR3 | 21.21.21.21 | Inter-AS border |
-| ASBR4 | 22.22.22.22 | Inter-AS border |
-| P6 | 23.23.23.23 | Core P |
-| PE5 | 24.24.24.24 | Edge PE |
-| PE6 | 25.25.25.25 | Edge PE |
+| G-R4 | 24.24.24.24 | Inter-AS border |
+| G-R5 | 25.25.25.25 | Inter-AS border |
+| G-R3 | 23.23.23.23 | Core P |
+| G-R1 | 21.21.21.21 | Edge PE |
+| G-R2 | 22.22.22.22 | Edge PE |
 
 **Inter-AS links:**
-- ASBR1 ↔ ASBR2 (direct, Emerald ↔ Garnet)
-- ASBR1 ↔ ASBR3 (Emerald ↔ Gold)
-- ASBR4 ↔ ASBR2 (Gold ↔ Garnet)
+- E-R6 ↔ Gar-R7 (direct, Emerald ↔ Garnet)
+- E-R6 ↔ G-R4 (Emerald ↔ Gold)
+- G-R5 ↔ Gar-R7 (Gold ↔ Garnet)
 
 **Inter-AS addressing convention used in this workbook:**
 
 | Link | A-side | B-side |
 |------|--------|--------|
-| ASBR1 ↔ ASBR2 | 10.100.200.5/30 (ASBR1 Gi0/0/0/2) | 10.100.200.6/30 (ASBR2) |
-| ASBR1 ↔ ASBR3 | 10.100.300.5/30 (ASBR1 Gi0/0/0/3) | 10.100.300.21/30 (ASBR3 Gi0/0/0/1) |
-| ASBR4 ↔ ASBR2 | 10.300.200.22/30 (ASBR4 Gi0/0/0/2) | 10.300.200.16/30 (ASBR2 Gi0/0/0/1) |
+| E-R6 ↔ Gar-R7 | 10.100.200.5/30 (E-R6 Gi0/0/0/2) | 10.100.200.6/30 (Gar-R7) |
+| E-R6 ↔ G-R4 | 10.100.300.5/30 (E-R6 Gi0/0/0/3) | 10.100.300.21/30 (G-R4 Gi0/0/0/1) |
+| G-R5 ↔ Gar-R7 | 10.300.200.22/30 (G-R5 Gi0/0/0/2) | 10.300.200.16/30 (Gar-R7 Gi0/0/0/1) |
 
 ---
 
@@ -57,11 +57,11 @@
 
 ### Task 1.1: LDP Neighbor Discovery (5 points)
 
-**Question:** On the Emerald core, enable LDP on all IS-IS core interfaces so that P1 (3.3.3.3), P2 (4.4.4.4), ASBR1 (5.5.5.5), PE1 (1.1.1.1), and PE2 (2.2.2.2) form LDP adjacencies. Use the interface-level `mpls ldp` model. Verify that link-hello (UDP 646) discovery brings up sessions over TCP 646.
+**Question:** On the Emerald core, enable LDP on all IS-IS core interfaces so that E-R3 (3.3.3.3), E-R4 (4.4.4.4), E-R6 (5.5.5.5), E-R1 (1.1.1.1), and E-R2 (2.2.2.2) form LDP adjacencies. Use the interface-level `mpls ldp` model. Verify that link-hello (UDP 646) discovery brings up sessions over TCP 646.
 
 **Solution:**
 
-On PE1 (representative — repeat on every core node, substituting its own core-facing interfaces):
+On E-R1 (representative — repeat on every core node, substituting its own core-facing interfaces):
 
 ```
 mpls ldp
@@ -70,7 +70,7 @@ mpls ldp
 !
 ```
 
-On P1 (two core links toward PE1 and P2):
+On E-R3 (two core links toward E-R1 and E-R4):
 
 ```
 mpls ldp
@@ -98,11 +98,11 @@ Look for `Xmit/Recv` link hellos in `discovery` and `Oper` state in `neighbor br
 
 ### Task 1.2: Targeted LDP Session (5 points)
 
-**Question:** PE1 (1.1.1.1) and PE2 (2.2.2.2) are not directly connected but require a directed LDP session (e.g., for a future L2VPN/AToM pseudowire). Configure a **targeted** LDP session between PE1 and PE2 without relying on link hellos.
+**Question:** E-R1 (1.1.1.1) and E-R2 (2.2.2.2) are not directly connected but require a directed LDP session (e.g., for a future L2VPN/AToM pseudowire). Configure a **targeted** LDP session between E-R1 and E-R2 without relying on link hellos.
 
 **Solution:**
 
-On PE1:
+On E-R1:
 
 ```
 mpls ldp
@@ -110,7 +110,7 @@ mpls ldp
 !
 ```
 
-On PE2:
+On E-R2:
 
 ```
 mpls ldp
@@ -133,11 +133,11 @@ In `discovery` output the session shows `Targeted Hello ... active/passive`; the
 
 ### Task 1.3: LDP Router-ID from Loopback0 (5 points)
 
-**Question:** Ensure every Emerald LSR derives a **deterministic** LDP router-ID and transport address from its `Loopback0` interface, so that LDP IDs match the IS-IS/BGP loopbacks (e.g., PE1 = 1.1.1.1, P1 = 3.3.3.3). Prevent the router from auto-selecting an arbitrary interface address.
+**Question:** Ensure every Emerald LSR derives a **deterministic** LDP router-ID and transport address from its `Loopback0` interface, so that LDP IDs match the IS-IS/BGP loopbacks (e.g., E-R1 = 1.1.1.1, E-R3 = 3.3.3.3). Prevent the router from auto-selecting an arbitrary interface address.
 
 **Solution:**
 
-On PE1 (repeat per node with the matching loopback):
+On E-R1 (repeat per node with the matching loopback):
 
 ```
 mpls ldp
@@ -209,11 +209,11 @@ Only /32s should have a local label; /30 links should show `No Label (local)` / 
 
 ### Task 1.5: LDP Session Protection (5 points)
 
-**Question:** On P1 (3.3.3.3), protect the LDP sessions so that if a directly connected link goes down but the neighbor is still reachable via an alternate IGP path, the **label bindings are retained** and the session survives via a targeted hello. Hold retained bindings for 120 seconds.
+**Question:** On E-R3 (3.3.3.3), protect the LDP sessions so that if a directly connected link goes down but the neighbor is still reachable via an alternate IGP path, the **label bindings are retained** and the session survives via a targeted hello. Hold retained bindings for 120 seconds.
 
 **Solution:**
 
-On P1:
+On E-R3:
 
 ```
 mpls ldp
@@ -250,11 +250,11 @@ The neighbor detail shows `Session Protection: enabled, state: Ready, duration: 
 
 ### Task 2.1: LDP Authentication (MD5) (5 points)
 
-**Question:** Secure the LDP TCP sessions on the ASBR1 (5.5.5.5) ↔ P1 (3.3.3.3) link with **MD5 authentication**. Configure it symmetrically.
+**Question:** Secure the LDP TCP sessions on the E-R6 (5.5.5.5) ↔ E-R3 (3.3.3.3) link with **MD5 authentication**. Configure it symmetrically.
 
 **Solution:**
 
-On ASBR1 (peer = P1 LDP ID 3.3.3.3):
+On E-R6 (peer = E-R3 LDP ID 3.3.3.3):
 
 ```
 mpls ldp
@@ -270,7 +270,7 @@ mpls ldp
 !
 ```
 
-On P1 (peer = ASBR1 5.5.5.5) — must use the **same** key:
+On E-R3 (peer = E-R6 5.5.5.5) — must use the **same** key:
 
 ```
 mpls ldp
@@ -294,11 +294,11 @@ Session should be `Oper`; the detail shows password/MD5 in use. A mismatch yield
 
 ### Task 2.2: LDP Graceful Restart (5 points)
 
-**Question:** Enable **LDP Graceful Restart (GR)** on PE1 (1.1.1.1) and its core neighbor P1 (3.3.3.3) so that an LDP control-plane restart (e.g., RP failover) does not tear down the forwarding path. Set forwarding-state hold and reconnect timers appropriately.
+**Question:** Enable **LDP Graceful Restart (GR)** on E-R1 (1.1.1.1) and its core neighbor E-R3 (3.3.3.3) so that an LDP control-plane restart (e.g., RP failover) does not tear down the forwarding path. Set forwarding-state hold and reconnect timers appropriately.
 
 **Solution:**
 
-On PE1 and P1 (GR must be enabled on both peers before the session comes up):
+On E-R1 and E-R3 (GR must be enabled on both peers before the session comes up):
 
 ```
 mpls ldp
@@ -324,7 +324,7 @@ Neighbor detail shows `Graceful Restart: Yes (Reconnect Timeout: 120, ...)`.
 
 ### Task 2.3: LDP-IGP Synchronization Verification (5 points)
 
-**Question:** LDP-IGP sync is configured on the Emerald IS-IS core. On the P2 (4.4.4.4) ↔ P1 (3.3.3.3) link, **disable `mpls ldp` on the P1 end** to simulate an LDP-not-ready condition, and verify that IS-IS advertises the **maximum metric** for that link until LDP re-synchronizes.
+**Question:** LDP-IGP sync is configured on the Emerald IS-IS core. On the E-R4 (4.4.4.4) ↔ E-R3 (3.3.3.3) link, **disable `mpls ldp` on the E-R3 end** to simulate an LDP-not-ready condition, and verify that IS-IS advertises the **maximum metric** for that link until LDP re-synchronizes.
 
 **Solution:**
 
@@ -340,7 +340,7 @@ router isis EMERALD
 !
 ```
 
-Simulate the failure on P1 (remove LDP from the shared interface):
+Simulate the failure on E-R3 (remove LDP from the shared interface):
 
 ```
 mpls ldp
@@ -348,25 +348,25 @@ mpls ldp
 !
 ```
 
-Explanation: **LDP-IGP synchronization** prevents an IGP link from being used for LSP transport before LDP is ready on it (which would blackhole labeled traffic). While LDP is not "in sync" on the link, IS-IS advertises that adjacency's metric as the **maximum (max-metric 16777214 for wide metrics / 63 for narrow)**, steering traffic away. Once LDP re-establishes and exchanges labels, IS-IS restores the real metric. Removing LDP from P1's interface makes the sync state on P2 go down, triggering the max-metric.
+Explanation: **LDP-IGP synchronization** prevents an IGP link from being used for LSP transport before LDP is ready on it (which would blackhole labeled traffic). While LDP is not "in sync" on the link, IS-IS advertises that adjacency's metric as the **maximum (max-metric 16777214 for wide metrics / 63 for narrow)**, steering traffic away. Once LDP re-establishes and exchanges labels, IS-IS restores the real metric. Removing LDP from E-R3's interface makes the sync state on E-R4 go down, triggering the max-metric.
 
 **Verification:**
 
-On P2 (the still-LDP-enabled end):
+On E-R4 (the still-LDP-enabled end):
 
 ```
 show mpls ldp igp sync
 show isis interface GigabitEthernet0/0/0/1 | include "Metric|LDP Sync"
-show isis database <P2-hostname>.00-00 detail | include "Metric: 16777214"
+show isis database <E-R4-hostname>.00-00 detail | include "Metric: 16777214"
 ```
 
-Expect `Sync status: not achieved` and the IS-IS extended reachability TLV for that link showing metric `16777214`. Re-adding LDP on P1 restores `Sync status: achieved` and the normal metric.
+Expect `Sync status: not achieved` and the IS-IS extended reachability TLV for that link showing metric `16777214`. Re-adding LDP on E-R3 restores `Sync status: achieved` and the normal metric.
 
 ---
 
 ### Task 2.4: LDP Label Advertisement Filtering — PE Loopbacks Only (5 points)
 
-**Question:** On the Emerald core, configure LDP so that each LSR only **advertises** labels for the **PE loopbacks PE1 (1.1.1.1/32) and PE2 (2.2.2.2/32)** to its neighbors — not for P/ASBR/PCE loopbacks. Use advertise (outbound) filtering.
+**Question:** On the Emerald core, configure LDP so that each LSR only **advertises** labels for the **PE loopbacks E-R1 (1.1.1.1/32) and E-R2 (2.2.2.2/32)** to its neighbors — not for P/ASBR/Gar-R6 loopbacks. Use advertise (outbound) filtering.
 
 **Solution:**
 
@@ -388,7 +388,7 @@ mpls ldp
 !
 ```
 
-Explanation: `label local advertise for <prefix-list>` controls **outbound** label advertisement — which locally allocated FEC-label bindings are announced to peers. Restricting it to PE loopbacks means only PE1/PE2 receive transport labels network-wide, which is exactly what you need for MPLS VPN/pseudowire transport (LSPs terminate on PEs). This is *advertisement* filtering, complementary to the *allocation* filtering in Task 1.4: allocation decides whether a label exists locally; advertisement decides whether peers hear about it. You can also filter what you *accept* with `label remote accept from <peer> for <pfx-list>`.
+Explanation: `label local advertise for <prefix-list>` controls **outbound** label advertisement — which locally allocated FEC-label bindings are announced to peers. Restricting it to PE loopbacks means only E-R1/E-R2 receive transport labels network-wide, which is exactly what you need for MPLS VPN/pseudowire transport (LSPs terminate on PEs). This is *advertisement* filtering, complementary to the *allocation* filtering in Task 1.4: allocation decides whether a label exists locally; advertisement decides whether peers hear about it. You can also filter what you *accept* with `label remote accept from <peer> for <pfx-list>`.
 
 **Verification:**
 
@@ -414,7 +414,7 @@ BGP-LU carries an MPLS **label bound to an IPv4/IPv6 prefix** inside BGP Update 
 
 Why not stretch LDP across AS boundaries: it would require a single IGP flooding domain (poor scaling, fate-sharing, no domain isolation), and it can't cross different label technologies (LDP vs SR vs SRv6). BGP-LU scales like BGP, keeps domains isolated, and lets each domain use its native transport while BGP provides the inter-domain label glue with next-hop-self at each ASBR.
 
-Enabling the AF on ASBR1 (5.5.5.5) as the pattern used in 3.2/3.3:
+Enabling the AF on E-R6 (5.5.5.5) as the pattern used in 3.2/3.3:
 
 ```
 router bgp 65100
@@ -434,13 +434,13 @@ Neighbors negotiating the labeled-unicast AF appear in the summary; routes show 
 
 ---
 
-### Task 3.2: BGP-LU between ASBR1 ↔ ASBR3 (Emerald ↔ Gold) (5 points)
+### Task 3.2: BGP-LU between E-R6 ↔ G-R4 (Emerald ↔ Gold) (5 points)
 
-**Question:** Configure eBGP **labeled-unicast** between ASBR1 (Emerald AS 65100, 5.5.5.5) and ASBR3 (Gold AS 65300, 21.21.21.21) over the inter-AS link (ASBR1 10.100.300.5, ASBR3 10.100.300.21). Advertise Emerald PE loopbacks (1.1.1.1/32, 2.2.2.2/32) toward Gold with labels, and set next-hop-self so the label path stitches at the border. eBGP peering is over the directly connected interface addresses.
+**Question:** Configure eBGP **labeled-unicast** between E-R6 (Emerald AS 65100, 5.5.5.5) and G-R4 (Gold AS 65300, 24.24.24.24) over the inter-AS link (E-R6 10.100.300.5, G-R4 10.100.300.21). Advertise Emerald PE loopbacks (1.1.1.1/32, 2.2.2.2/32) toward Gold with labels, and set next-hop-self so the label path stitches at the border. eBGP peering is over the directly connected interface addresses.
 
 **Solution:**
 
-On ASBR1 (AS 65100):
+On E-R6 (AS 65100):
 
 ```
 route-policy PASS-ALL
@@ -452,7 +452,7 @@ router bgp 65100
  !
  neighbor 10.100.300.21
   remote-as 65300
-  description eBGP-LU to ASBR3 (Gold)
+  description eBGP-LU to G-R4 (Gold)
   address-family ipv4 labeled-unicast
    route-policy PASS-ALL in
    route-policy PASS-ALL out
@@ -469,7 +469,7 @@ router bgp 65100
 
 Note: for BGP-LU, labels are assigned to the `ipv4 unicast` prefixes via `allocate-label`, and the labeled-unicast AF carries them to the peer. On IOS-XR the common pattern is to originate the /32s in `ipv4 unicast` with `allocate-label all` and enable the `ipv4 labeled-unicast` neighbor AF. Ensure the /32s are in the RIB (from IS-IS/LDP).
 
-On ASBR3 (AS 65300):
+On G-R4 (AS 65300):
 
 ```
 route-policy PASS-ALL
@@ -482,7 +482,7 @@ router bgp 65300
  !
  neighbor 10.100.300.5
   remote-as 65100
-  description eBGP-LU to ASBR1 (Emerald)
+  description eBGP-LU to E-R6 (Emerald)
   address-family ipv4 labeled-unicast
    route-policy PASS-ALL in
    route-policy PASS-ALL out
@@ -492,7 +492,7 @@ router bgp 65300
 !
 ```
 
-Explanation: eBGP-LU across the border exchanges each PE /32 with a label. At ASBR3, `next-hop-self` on the iBGP re-advertisement into Gold makes ASBR3 the next hop, so Gold's internal nodes resolve the BGP-LU route via ASBR3's own transport (SRv6/IGP) — this is the **label stitch**: incoming BGP label from Emerald ↔ outgoing Gold intra-AS transport. `allocate-label all` (with a policy to scope it in production) tells BGP to assign local labels to the advertised prefixes. For eBGP between directly connected ASBRs, no multihop/loopback-source is needed since peering is on the connected /30.
+Explanation: eBGP-LU across the border exchanges each PE /32 with a label. At G-R4, `next-hop-self` on the iBGP re-advertisement into Gold makes G-R4 the next hop, so Gold's internal nodes resolve the BGP-LU route via G-R4's own transport (SRv6/IGP) — this is the **label stitch**: incoming BGP label from Emerald ↔ outgoing Gold intra-AS transport. `allocate-label all` (with a policy to scope it in production) tells BGP to assign local labels to the advertised prefixes. For eBGP between directly connected ASBRs, no multihop/loopback-source is needed since peering is on the connected /30.
 
 **Verification:**
 
@@ -504,17 +504,17 @@ show mpls forwarding prefix 1.1.1.1/32
 show cef 1.1.1.1/32
 ```
 
-`show bgp ipv4 labeled-unicast 1.1.1.1/32` should show a `Local Label` (assigned by ASBR1) and, on ASBR3, a `Received Label`. The CEF/MPLS forwarding entry should push the correct label.
+`show bgp ipv4 labeled-unicast 1.1.1.1/32` should show a `Local Label` (assigned by E-R6) and, on G-R4, a `Received Label`. The CEF/MPLS forwarding entry should push the correct label.
 
 ---
 
-### Task 3.3: BGP-LU between ASBR4 ↔ ASBR2 (Gold ↔ Garnet) (5 points)
+### Task 3.3: BGP-LU between G-R5 ↔ Gar-R7 (Gold ↔ Garnet) (5 points)
 
-**Question:** Configure eBGP **labeled-unicast** between ASBR4 (Gold AS 65300, 22.22.22.22) and ASBR2 (Garnet AS 65200, 16.16.16.16) over the inter-AS link (ASBR4 10.300.200.22, ASBR2 10.300.200.16). Propagate the Emerald PE loopbacks (learned from Task 3.2) onward into Garnet with labels, and have ASBR2 set next-hop-self so Garnet SR-MPLS resolves the transit. Also advertise Garnet PE3 (11.11.11.11/32) back toward Gold.
+**Question:** Configure eBGP **labeled-unicast** between G-R5 (Gold AS 65300, 25.25.25.25) and Gar-R7 (Garnet AS 65200, 17.17.17.17) over the inter-AS link (G-R5 10.300.200.22, Gar-R7 10.300.200.16). Propagate the Emerald PE loopbacks (learned from Task 3.2) onward into Garnet with labels, and have Gar-R7 set next-hop-self so Garnet SR-MPLS resolves the transit. Also advertise Garnet Gar-R1 (11.11.11.11/32) back toward Gold.
 
 **Solution:**
 
-On ASBR4 (AS 65300):
+On G-R5 (AS 65300):
 
 ```
 route-policy PASS-ALL
@@ -527,7 +527,7 @@ router bgp 65300
  !
  neighbor 10.300.200.16
   remote-as 65200
-  description eBGP-LU to ASBR2 (Garnet)
+  description eBGP-LU to Gar-R7 (Garnet)
   address-family ipv4 labeled-unicast
    route-policy PASS-ALL in
    route-policy PASS-ALL out
@@ -537,7 +537,7 @@ router bgp 65300
 !
 ```
 
-On ASBR2 (AS 65200):
+On Gar-R7 (AS 65200):
 
 ```
 route-policy PASS-ALL
@@ -552,7 +552,7 @@ router bgp 65200
  !
  neighbor 10.300.200.22
   remote-as 65300
-  description eBGP-LU to ASBR4 (Gold)
+  description eBGP-LU to G-R5 (Gold)
   address-family ipv4 labeled-unicast
    route-policy PASS-ALL in
    route-policy PASS-ALL out
@@ -562,7 +562,7 @@ router bgp 65200
 !
 ```
 
-Explanation: This is the second stitch point of the end-to-end Seamless MPLS chain. ASBR4 (Gold) forwards the labeled Emerald PE prefixes it learned from ASBR3 via iBGP-LU across the Gold core, then re-advertises them over eBGP-LU to ASBR2 with `next-hop-self`. ASBR2 injects them into Garnet's iBGP-LU and, with `next-hop-self`, becomes the resolving next hop so **SR-MPLS** carries transit inside Garnet. The reverse direction (Garnet PE3 11.11.11.11/32) is originated at ASBR2 with `allocate-label` and travels back toward Emerald the same way. Each ASBR swaps the inter-AS BGP label for the appropriate intra-AS transport label (LDP in Emerald, SRv6/IGP in Gold, SR in Garnet).
+Explanation: This is the second stitch point of the end-to-end Seamless MPLS chain. G-R5 (Gold) forwards the labeled Emerald PE prefixes it learned from G-R4 via iBGP-LU across the Gold core, then re-advertises them over eBGP-LU to Gar-R7 with `next-hop-self`. Gar-R7 injects them into Garnet's iBGP-LU and, with `next-hop-self`, becomes the resolving next hop so **SR-MPLS** carries transit inside Garnet. The reverse direction (Garnet Gar-R1 11.11.11.11/32) is originated at Gar-R7 with `allocate-label` and travels back toward Emerald the same way. Each ASBR swaps the inter-AS BGP label for the appropriate intra-AS transport label (LDP in Emerald, SRv6/IGP in Gold, SR in Garnet).
 
 **Verification:**
 
@@ -574,17 +574,17 @@ show mpls forwarding
 show cef 1.1.1.1/32 detail
 ```
 
-On ASBR2, `1.1.1.1/32` (Emerald PE, learned transit through Gold) should show a received label from ASBR4 and a locally allocated label re-advertised into Garnet.
+On Gar-R7, `1.1.1.1/32` (Emerald PE, learned transit through Gold) should show a received label from G-R5 and a locally allocated label re-advertised into Garnet.
 
 ---
 
-### Task 3.4: End-to-End Label Path PE1 → (Gold transit) → PE3 (5 points)
+### Task 3.4: End-to-End Label Path E-R1 → (Gold transit) → Gar-R1 (5 points)
 
-**Question:** Verify and explain the **end-to-end Unified MPLS label path** from PE1 (Emerald, 1.1.1.1) to PE3 (Garnet, 11.11.11.11) transiting the **Gold** AS via the ASBR1→ASBR3 and ASBR4→ASBR2 stitches. Ensure PE1 has a labeled route to 11.11.11.11/32 and trace the label operations at each hop.
+**Question:** Verify and explain the **end-to-end Unified MPLS label path** from E-R1 (Emerald, 1.1.1.1) to Gar-R1 (Garnet, 11.11.11.11) transiting the **Gold** AS via the E-R6→G-R4 and G-R5→Gar-R7 stitches. Ensure E-R1 has a labeled route to 11.11.11.11/32 and trace the label operations at each hop.
 
 **Solution (control-plane requirement + walk-through):**
 
-For PE1 to reach 11.11.11.11/32, PE1 must run iBGP-LU with an Emerald route-reflector (or directly with ASBR1) so the labeled route reaches the PE. On PE1:
+For E-R1 to reach 11.11.11.11/32, E-R1 must run iBGP-LU with an Emerald route-reflector (or directly with E-R6) so the labeled route reaches the PE. On E-R1:
 
 ```
 router bgp 65100
@@ -592,7 +592,7 @@ router bgp 65100
  !
  neighbor 5.5.5.5
   remote-as 65100
-  description iBGP-LU to ASBR1 (via loopback)
+  description iBGP-LU to E-R6 (via loopback)
   update-source Loopback0
   address-family ipv4 labeled-unicast
    route-policy PASS-ALL in
@@ -602,7 +602,7 @@ router bgp 65100
 !
 ```
 
-On ASBR1, reflect/next-hop-self toward Emerald PEs:
+On E-R6, reflect/next-hop-self toward Emerald PEs:
 
 ```
 router bgp 65100
@@ -617,20 +617,20 @@ router bgp 65100
 !
 ```
 
-**End-to-end label stack / stitch walk-through for a packet PE1 → PE3 (11.11.11.11):**
+**End-to-end label stack / stitch walk-through for a packet E-R1 → Gar-R1 (11.11.11.11):**
 
-1. **PE1** has 11.11.11.11/32 as a BGP-LU route with next-hop = ASBR1 (5.5.5.5). It imposes **{BGP label from ASBR1}** and then, to reach ASBR1's loopback, pushes the **LDP transport label** for 5.5.5.5 learned from the Emerald core. Stack (top→bottom): `[LDP→ASBR1][BGP-LU→11.11.11.11]`.
-2. **Emerald core (P1/P2)** label-switches on the outer LDP label to ASBR1; penultimate hop pops the LDP label (PHP), exposing the BGP-LU label at ASBR1.
-3. **ASBR1** (stitch #1) swaps the incoming BGP-LU label for the outgoing eBGP-LU label advertised by **ASBR3** and forwards across the Emerald↔Gold link.
-4. **ASBR3 → Gold core → ASBR4:** ASBR3 imposes Gold's intra-AS transport (SRv6/IGP) to reach ASBR4 (which had next-hop-self for this prefix inside Gold), carrying the BGP-LU label to ASBR4.
-5. **ASBR4** (stitch #2) swaps to the eBGP-LU label advertised by **ASBR2** and forwards across the Gold↔Garnet link.
-6. **ASBR2 → Garnet core → PE3:** ASBR2 imposes Garnet's **SR-MPLS** transport to reach PE3 (11.11.11.11), carrying the BGP-LU label; PE3 pops and delivers.
+1. **E-R1** has 11.11.11.11/32 as a BGP-LU route with next-hop = E-R6 (5.5.5.5). It imposes **{BGP label from E-R6}** and then, to reach E-R6's loopback, pushes the **LDP transport label** for 5.5.5.5 learned from the Emerald core. Stack (top→bottom): `[LDP→E-R6][BGP-LU→11.11.11.11]`.
+2. **Emerald core (P1/P2)** label-switches on the outer LDP label to E-R6; penultimate hop pops the LDP label (PHP), exposing the BGP-LU label at E-R6.
+3. **E-R6** (stitch #1) swaps the incoming BGP-LU label for the outgoing eBGP-LU label advertised by **G-R4** and forwards across the Emerald↔Gold link.
+4. **G-R4 → Gold core → G-R5:** G-R4 imposes Gold's intra-AS transport (SRv6/IGP) to reach G-R5 (which had next-hop-self for this prefix inside Gold), carrying the BGP-LU label to G-R5.
+5. **G-R5** (stitch #2) swaps to the eBGP-LU label advertised by **Gar-R7** and forwards across the Gold↔Garnet link.
+6. **Gar-R7 → Garnet core → Gar-R1:** Gar-R7 imposes Garnet's **SR-MPLS** transport to reach Gar-R1 (11.11.11.11), carrying the BGP-LU label; Gar-R1 pops and delivers.
 
 The key principle: **transport labels are local to each AS; the BGP-LU label identifies the destination PE prefix end to end and is swapped at each ASBR stitch point.**
 
 **Verification:**
 
-On PE1:
+On E-R1:
 
 ```
 show bgp ipv4 labeled-unicast 11.11.11.11/32
@@ -640,18 +640,18 @@ show mpls forwarding prefix 11.11.11.11/32
 traceroute 11.11.11.11 source Loopback0
 ```
 
-Expect the BGP-LU entry to show next-hop 5.5.5.5 with a received label; `show cef ... detail` should display the **two-label stack** (outer LDP transport to ASBR1 + inner BGP-LU). `show mpls forwarding` at each ASBR shows the **swap** operation. `traceroute mpls ...` (or a standard traceroute with label display) confirms the labeled path transits Gold.
+Expect the BGP-LU entry to show next-hop 5.5.5.5 with a received label; `show cef ... detail` should display the **two-label stack** (outer LDP transport to E-R6 + inner BGP-LU). `show mpls forwarding` at each ASBR shows the **swap** operation. `traceroute mpls ...` (or a standard traceroute with label display) confirms the labeled path transits Gold.
 
 Additional per-hop checks:
 
 ```
-! On ASBR1
+! On E-R6
 show mpls forwarding labels <in-label>
 show bgp ipv4 labeled-unicast 11.11.11.11/32
-! On ASBR3 / ASBR4 (Gold)
+! On G-R4 / G-R5 (Gold)
 show mpls forwarding
 show bgp ipv4 labeled-unicast 11.11.11.11/32
-! On ASBR2
+! On Gar-R7
 show mpls forwarding
 show bgp ipv4 labeled-unicast 11.11.11.11/32
 ```
@@ -662,7 +662,7 @@ show bgp ipv4 labeled-unicast 11.11.11.11/32
 
 ### Task 4.1: LDP Session Down — Transport Address Mismatch (5 points)
 
-**Question:** On the ASBR1 (5.5.5.5) ↔ P1 (3.3.3.3) link, LDP **discovery** shows hellos being exchanged, but the session never reaches `Oper` (stuck initializing / no TCP). No MD5 is configured. Diagnose and fix.
+**Question:** On the E-R6 (5.5.5.5) ↔ E-R3 (3.3.3.3) link, LDP **discovery** shows hellos being exchanged, but the session never reaches `Oper` (stuck initializing / no TCP). No MD5 is configured. Diagnose and fix.
 
 **Symptom / Diagnosis:**
 
@@ -675,11 +675,11 @@ show tcp brief | include :646
 ! No established TCP 646 to the peer's expected address
 ```
 
-Root cause: a **transport-address mismatch**. One end advertises a `discovery transport-address` (or interface address) that is **not reachable / not in the IGP** by the peer, or the two ends disagree on which address to open the TCP session to (e.g., P1 set `discovery transport-address 3.3.3.3` but 3.3.3.3/32 is not advertised into IS-IS, so ASBR1 cannot open TCP to it). LDP hellos are UDP and still succeed, but the TCP 646 session fails because the transport address is unroutable.
+Root cause: a **transport-address mismatch**. One end advertises a `discovery transport-address` (or interface address) that is **not reachable / not in the IGP** by the peer, or the two ends disagree on which address to open the TCP session to (e.g., E-R3 set `discovery transport-address 3.3.3.3` but 3.3.3.3/32 is not advertised into IS-IS, so E-R6 cannot open TCP to it). LDP hellos are UDP and still succeed, but the TCP 646 session fails because the transport address is unroutable.
 
 **Solution:**
 
-Make the transport address a routable loopback and ensure it is in the IGP. On P1:
+Make the transport address a routable loopback and ensure it is in the IGP. On E-R3:
 
 ```
 router isis EMERALD
@@ -708,25 +708,25 @@ show tcp brief | include :646
 show mpls ldp neighbor brief
 ```
 
-3.3.3.3/32 must be in the RIB on ASBR1; TCP 646 becomes `ESTAB`; neighbor goes `Oper`.
+3.3.3.3/32 must be in the RIB on E-R6; TCP 646 becomes `ESTAB`; neighbor goes `Oper`.
 
 ---
 
 ### Task 4.2: Label Not in LFIB — Allocation Filtering Too Aggressive (5 points)
 
-**Question:** After applying the label allocation filter from Task 1.4, traffic to a specific PE loopback **PE2 (2.2.2.2/32)** is being IP-forwarded (unlabeled) on part of the Emerald core, and `show mpls forwarding` on P1 has **no entry** for 2.2.2.2/32. LDP sessions are up. Diagnose and fix.
+**Question:** After applying the label allocation filter from Task 1.4, traffic to a specific PE loopback **E-R2 (2.2.2.2/32)** is being IP-forwarded (unlabeled) on part of the Emerald core, and `show mpls forwarding` on E-R3 has **no entry** for 2.2.2.2/32. LDP sessions are up. Diagnose and fix.
 
 **Symptom / Diagnosis:**
 
 ```
 show mpls ldp bindings 2.2.2.2/32
-! No local binding on P1 -> label was never allocated
+! No local binding on E-R3 -> label was never allocated
 show mpls forwarding prefix 2.2.2.2/32
 ! No LFIB entry
 show run formal | include "prefix-list|allocate for"
 ```
 
-Root cause: the **allocation prefix-list is too aggressive** — it does not match 2.2.2.2/32 (e.g., the prefix-set was written as `0.0.0.0/0 eq 32` but was accidentally scoped to specific hosts like only `1.1.1.1/32`, or a `le/ge` bound excludes it). Because no **local label** is allocated for the FEC, P1 has nothing to advertise or install, and forwarding for that prefix falls back to plain IP.
+Root cause: the **allocation prefix-list is too aggressive** — it does not match 2.2.2.2/32 (e.g., the prefix-set was written as `0.0.0.0/0 eq 32` but was accidentally scoped to specific hosts like only `1.1.1.1/32`, or a `le/ge` bound excludes it). Because no **local label** is allocated for the FEC, E-R3 has nothing to advertise or install, and forwarding for that prefix falls back to plain IP.
 
 **Solution:**
 
@@ -739,7 +739,7 @@ ipv4 prefix-list HOST-ROUTES
 !
 ```
 
-Or if intentionally listing PEs, ensure PE2 is included:
+Or if intentionally listing PEs, ensure E-R2 is included:
 
 ```
 ipv4 prefix-list HOST-ROUTES
@@ -780,7 +780,7 @@ traceroute 2.2.2.2 source Loopback0
 
 ### Task 4.3: BGP-LU Next-Hop Not Resolvable (5 points)
 
-**Question:** On ASBR2 (Garnet, 16.16.16.16), the Emerald PE prefix 1.1.1.1/32 is present in the BGP-LU table but is marked **not usable** — it is not installed in the RIB/CEF and not re-advertised into Garnet. The eBGP-LU session to ASBR4 is up. Diagnose and fix.
+**Question:** On Gar-R7 (Garnet, 17.17.17.17), the Emerald PE prefix 1.1.1.1/32 is present in the BGP-LU table but is marked **not usable** — it is not installed in the RIB/CEF and not re-advertised into Garnet. The eBGP-LU session to G-R5 is up. Diagnose and fix.
 
 **Symptom / Diagnosis:**
 
@@ -792,11 +792,11 @@ show route <bgp-next-hop>
 ! The BGP next hop has no route
 ```
 
-Root cause: the **BGP next-hop is not resolvable / not label-reachable**. Because ASBR4 did **not** apply `next-hop-self` (or the inter-AS /30 link address it left as next hop isn't redistributed into Garnet's IGP, and there is no label to it), ASBR2 has no resolving route+label to the next hop. BGP requires the next hop to be reachable **and, for labeled-unicast transit, label-reachable**; an unresolvable next hop makes the route unusable and unadvertised.
+Root cause: the **BGP next-hop is not resolvable / not label-reachable**. Because G-R5 did **not** apply `next-hop-self` (or the inter-AS /30 link address it left as next hop isn't redistributed into Garnet's IGP, and there is no label to it), Gar-R7 has no resolving route+label to the next hop. BGP requires the next hop to be reachable **and, for labeled-unicast transit, label-reachable**; an unresolvable next hop makes the route unusable and unadvertised.
 
 **Solution:**
 
-Set `next-hop-self` at the advertising ASBR (ASBR4, toward Garnet) so the next hop becomes ASBR4's loopback, which Garnet resolves via SR-MPLS. On **ASBR4** (AS 65300):
+Set `next-hop-self` at the advertising ASBR (G-R5, toward Garnet) so the next hop becomes G-R5's loopback, which Garnet resolves via SR-MPLS. On **G-R5** (AS 65300):
 
 ```
 router bgp 65300
@@ -809,13 +809,13 @@ router bgp 65300
 !
 ```
 
-Alternatively, if peering across the connected /30 without next-hop-self, ensure the /30 (or the peer address) is reachable **with a label** on ASBR2 — but `next-hop-self` at the border is the correct Seamless-MPLS pattern because it makes each ASBR the label-stitch point and keeps inter-AS link subnets out of the IGP.
+Alternatively, if peering across the connected /30 without next-hop-self, ensure the /30 (or the peer address) is reachable **with a label** on Gar-R7 — but `next-hop-self` at the border is the correct Seamless-MPLS pattern because it makes each ASBR the label-stitch point and keeps inter-AS link subnets out of the IGP.
 
-Also verify ASBR2 can resolve/label the (new) next hop:
+Also verify Gar-R7 can resolve/label the (new) next hop:
 
 ```
-show route 22.22.22.22/32
-show mpls forwarding prefix 22.22.22.22/32
+show route 25.25.25.25/32
+show mpls forwarding prefix 25.25.25.25/32
 ```
 
 Explanation: In Unified MPLS the recursion is **BGP-LU prefix → BGP next hop → intra-AS transport label**. If the next hop can't be resolved to a label-switched path, the labeled route is invalid. `next-hop-self` at each ASBR guarantees the next hop is that ASBR's loopback, which the local IGP/transport (SR-MPLS here) always makes label-reachable.

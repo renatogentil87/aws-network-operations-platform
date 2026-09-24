@@ -2,7 +2,7 @@
 
 **Platform:** IOS-XRv 9000 — EVE-NG
 🔴 **CCIE Prep Platform:** EVE-NG (IOS-XRv 9000) — see `00_EVENG_Topology.md` for the Emerald+Gold topology
-**Topology (path under test):** `PE1(Emerald) → P1 → P2 → ASBR1 → ASBR3 → P6 → PE5(Gold)`
+**Topology (path under test):** `E-R1(Emerald) → E-R3 → E-R4 → E-R6 → G-R4 → G-R3 → G-R1(Gold)`
 **Focus:** ingress classification & marking at the PE trust boundary, DSCP→Traffic-Class (MPLS EXP) in the core, per-hop behaviors, and egress queuing/shaping toward the customer.
 **Initial configs:** IGP + MPLS/LDP (or SR) + at least one L3VPN so there is real per-VRF customer traffic to classify (Workbooks 01/03/04).
 
@@ -18,7 +18,7 @@
 ## Section 1 — IOS-XR QoS Model (MQC)
 
 ### Task 1.1 — class-map: match DSCP / ACL / protocol
-**Question:** On PE1, define classification for the SP class model. Match EF and AF classes by **DSCP**, match a management flow by **ACL**, and match a control protocol by **protocol**. Show `match-any` vs `match-all` semantics.
+**Question:** On E-R1, define classification for the SP class model. Match EF and AF classes by **DSCP**, match a management flow by **ACL**, and match a control protocol by **protocol**. Show `match-any` vs `match-all` semantics.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -30,15 +30,15 @@
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
 ### Task 1.3 — service-policy: apply ingress/egress + understand the 2-level hierarchy
-**Question:** Apply `PM-INGRESS-EDGE` inbound on the PE1→CE link and `PM-EGRESS-QUEUE` outbound. Then explain the **XR 2-level hierarchy** (parent shaper + child queuing) and why queuing lives only in the child.
+**Question:** Apply `PM-INGRESS-EDGE` inbound on the E-R1→CE link and `PM-EGRESS-QUEUE` outbound. Then explain the **XR 2-level hierarchy** (parent shaper + child queuing) and why queuing lives only in the child.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
 ## Section 2 — Classification & Marking
 
-### Task 2.1 — Ingress classification at PE1 (match VRF customer traffic by DSCP)
-**Question:** Customer "Emerald" is in VRF `EMERALD` on PE1. Classify inbound customer traffic **by the DSCP the CE sends**, into the SP model, on the VRF-attached sub-interface.
+### Task 2.1 — Ingress classification at E-R1 (match VRF customer traffic by DSCP)
+**Question:** Customer "Emerald" is in VRF `EMERALD` on E-R1. Classify inbound customer traffic **by the DSCP the CE sends**, into the SP model, on the VRF-attached sub-interface.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -50,7 +50,7 @@
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
 ### Task 2.3 — DSCP→Traffic-Class → MPLS EXP mapping for the core
-**Question:** At **label imposition** on PE1, map the classified traffic into the **MPLS EXP** bits so the P routers (P1/P2/P6) apply PHBs on EXP alone. Do the DSCP→EXP mapping.
+**Question:** At **label imposition** on E-R1, map the classified traffic into the **MPLS EXP** bits so the P routers (P1/P2/P6) apply PHBs on EXP alone. Do the DSCP→EXP mapping.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -64,7 +64,7 @@
 ## Section 3 — Policing
 
 ### Task 3.1 — Single-rate policer (conform / exceed / violate)
-**Question:** On PE1 ingress, enforce a **single-rate three-color** policer (srTCM) on the voice class: CIR 2 Mbps, Bc 8000 bytes, Be 8000 bytes. Conform→transmit, exceed→re-mark, violate→drop.
+**Question:** On E-R1 ingress, enforce a **single-rate three-color** policer (srTCM) on the voice class: CIR 2 Mbps, Bc 8000 bytes, Be 8000 bytes. Conform→transmit, exceed→re-mark, violate→drop.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -84,7 +84,7 @@
 ## Section 4 — Queuing & Scheduling
 
 ### Task 4.1 — Egress queuing (PQ for EF, bandwidth for AF, default for BE)
-**Question:** On PE1's core-facing egress (toward P1), classify on **EXP** and build the queuing policy: strict-priority for EF (policed), bandwidth guarantees for AF, and BE takes the remainder.
+**Question:** On E-R1's core-facing egress (toward E-R3), classify on **EXP** and build the queuing policy: strict-priority for EF (policed), bandwidth guarantees for AF, and BE takes the remainder.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -110,7 +110,7 @@
 ## Section 5 — Shaping
 
 ### Task 5.1 — Shape at PE egress (sub-line-rate for customer SLA)
-**Question:** PE1's physical port is 1 Gbps but customer Emerald bought **200 Mbps**. Shape the egress toward the CE to 200 Mbps so the customer never sees more than their SLA (and downstream CE buffers don't overrun).
+**Question:** E-R1's physical port is 1 Gbps but customer Emerald bought **200 Mbps**. Shape the egress toward the CE to 200 Mbps so the customer never sees more than their SLA (and downstream CE buffers don't overrun).
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -121,10 +121,10 @@
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
-## Section 6 — End-to-End QoS (PE1 Emerald → PE5 Gold)
+## Section 6 — End-to-End QoS (E-R1 Emerald → G-R1 Gold)
 
 ### Task 6.1 — Full-path policy placement
-**Question:** Assemble the complete DiffServ chain across `PE1 → P1 → P2 → ASBR1 → ASBR3 → P6 → PE5` and state **which policy goes on which node/direction**.
+**Question:** Assemble the complete DiffServ chain across `E-R1 → E-R3 → E-R4 → E-R6 → G-R4 → G-R3 → G-R1` and state **which policy goes on which node/direction**.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -136,7 +136,7 @@
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
 ### Task 6.3 — End-to-end validation (`show policy-map interface`)
-**Question:** Validate the whole design under load: confirm classification at PE1, marking, per-VRF policing, EXP coloring, per-hop queuing, and egress shaping at PE5 — using `show policy-map interface` at each node.
+**Question:** Validate the whole design under load: confirm classification at E-R1, marking, per-VRF policing, EXP coloring, per-hop queuing, and egress shaping at G-R1 — using `show policy-map interface` at each node.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -144,13 +144,13 @@
 ## Section 7 — Troubleshooting
 
 ### Task 7.1 — Drops on egress (queue full — check WRED thresholds / queue-limit)
-**Question:** Users report loss on the BE/AF4 traffic on PE1's core egress under load. `show policy-map interface` shows rising drop counters. Diagnose and fix.
+**Question:** Users report loss on the BE/AF4 traffic on E-R1's core egress under load. `show policy-map interface` shows rising drop counters. Diagnose and fix.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
 ### Task 7.2 — Wrong DSCP at destination (re-marking / service-policy direction)
-**Question:** The Gold CE behind PE5 receives packets with the **wrong DSCP** (e.g., voice arriving as BE, or SP-internal marks leaking to the customer). Diagnose and fix.
+**Question:** The Gold CE behind G-R1 receives packets with the **wrong DSCP** (e.g., voice arriving as BE, or SP-internal marks leaking to the customer). Diagnose and fix.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*

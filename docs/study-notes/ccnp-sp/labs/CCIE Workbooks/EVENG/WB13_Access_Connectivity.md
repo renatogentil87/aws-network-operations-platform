@@ -3,7 +3,7 @@
 **Domain:** 3 — Access Connectivity (10%)
 **Platform:** EVE-NG (IOS-XRv 9000)
 🔴 **CCIE Prep Platform:** EVE-NG — see `../00_EVENG_Topology.md`
-**Topology:** Emerald — PE1, PE2 + CEs. Access-layer concepts (L2 access, ERPS, MC-LAG, BNG).
+**Topology:** Emerald — E-R1, E-R2 + CEs. Access-layer concepts (L2 access, ERPS, MC-LAG, BNG).
 **Format:** Question → Solution → Verification.
 
 > **Note on scope:** IOS-XRv 9000 supports L2VPN/L2 access, VLAN rewrite, and MC-LAG/ICCP.
@@ -17,8 +17,8 @@
 ### Task 1 — 802.1Q VLAN tagging on a PE-CE link
 
 **Question:**
-CE1 connects to PE1 on `GigabitEthernet0/0/0/1`. Customer traffic arrives tagged with VLAN 100.
-Terminate VLAN 100 into an L2 service (bridge/xconnect) on PE1 using an 802.1Q sub-interface.
+CE1 connects to E-R1 on `GigabitEthernet0/0/0/1`. Customer traffic arrives tagged with VLAN 100.
+Terminate VLAN 100 into an L2 service (bridge/xconnect) on E-R1 using an 802.1Q sub-interface.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -26,7 +26,7 @@ Terminate VLAN 100 into an L2 service (bridge/xconnect) on PE1 using an 802.1Q s
 ### Task 2 — Q-in-Q (802.1ad double tagging) for SP access
 
 **Question:**
-Provide a wholesale access service on PE1 `Gi0/0/0/2`. The customer sends single-tagged frames
+Provide a wholesale access service on E-R1 `Gi0/0/0/2`. The customer sends single-tagged frames
 (inner C-VLAN, e.g. any of 200-299); the SP adds an outer S-VLAN (S-Tag) of 500 to carry them
 across the provider network. Configure the Q-in-Q access sub-interface.
 
@@ -36,7 +36,7 @@ across the provider network. Configure the Q-in-Q access sub-interface.
 ### Task 3 — VLAN translation / rewrite on IOS-XR
 
 **Question:**
-CE arrives on PE1 tagged VLAN 100, but the core service expects VLAN 900. Translate (rewrite)
+CE arrives on E-R1 tagged VLAN 100, but the core service expects VLAN 900. Translate (rewrite)
 the ingress VLAN 100 to 900 symmetrically so the return traffic maps back correctly.
 
 
@@ -45,7 +45,7 @@ the ingress VLAN 100 to 900 symmetrically so the return traffic maps back correc
 ### Task 4 — Sub-interface per VLAN (service demux)
 
 **Question:**
-CE1 trunks VLANs 10, 20, 30 to PE1 on `Gi0/0/0/1`. Terminate each VLAN into its own L2 service
+CE1 trunks VLANs 10, 20, 30 to E-R1 on `Gi0/0/0/1`. Terminate each VLAN into its own L2 service
 (one bridge-domain per VLAN) using one sub-interface per VLAN.
 
 
@@ -60,7 +60,7 @@ CE1 trunks VLANs 10, 20, 30 to PE1 on `Gi0/0/0/1`. Terminate each VLAN into its 
 
 **Question:**
 Explain G.8032 Ethernet Ring Protection: what problem it solves, and the roles of the RPL and
-the RPL Owner in the ring PE1–CE1–CE2–PE2–(back to PE1).
+the RPL Owner in the ring E-R1–CE1–CE2–E-R2–(back to E-R1).
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -68,7 +68,7 @@ the RPL Owner in the ring PE1–CE1–CE2–PE2–(back to PE1).
 ### Task 6 — Configure the ring (reference syntax)
 
 **Question:**
-Configure G.8032 on the ring PE1–CE1–CE2–PE2. Make PE1 the RPL Owner, use control VLAN 4090,
+Configure G.8032 on the ring E-R1–CE1–CE2–E-R2. Make E-R1 the RPL Owner, use control VLAN 4090,
 and protect data VLANs 100-200.
 
 
@@ -88,16 +88,16 @@ revertive behavior when the link is restored.
 ### Task 8 — MC-LAG concept and ICCP
 
 **Question:**
-CE2 is dual-homed to PE1 and PE2. Explain MC-LAG and the role of ICCP. Why does CE2 believe it is
+CE2 is dual-homed to E-R1 and E-R2. Explain MC-LAG and the role of ICCP. Why does CE2 believe it is
 connected to a single LACP peer?
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
-### Task 9 — Configure MC-LAG (CE2 → PE1 + PE2)
+### Task 9 — Configure MC-LAG (CE2 → E-R1 + E-R2)
 
 **Question:**
-Configure MC-LAG so CE2 is dual-homed via `Bundle-Ether1` to PE1 (primary) and PE2 (backup),
+Configure MC-LAG so CE2 is dual-homed via `Bundle-Ether1` to E-R1 (primary) and E-R2 (backup),
 using ICCP redundancy group 1, LACP System MAC `0000.0000.00cc`.
 
 
@@ -145,7 +145,7 @@ Explain CUPS and how it enables Cloud Native BNG. What are the CP and UP roles?
 ### Task 14 — Q-in-Q outer tag not preserved (missing rewrite rule)
 
 **Question:**
-A Q-in-Q access service on PE1 `Gi0/0/0/2.500` was expected to carry the customer's inner C-Tag
+A Q-in-Q access service on E-R1 `Gi0/0/0/2.500` was expected to carry the customer's inner C-Tag
 across the core with the SP S-Tag 500 imposed. Customer reports the **outer S-Tag is missing** on
 the far end (frames arrive single-tagged / mis-mapped). Diagnose and fix.
 
@@ -165,7 +165,7 @@ push on the core side) removes the S-Tag so it is not preserved across the core.
 ### Task 15 — MC-LAG failover not working (ICCP session down)
 
 **Question:**
-You shut PE1's CE2-facing link expecting PE2 to take over `Bundle-Ether1`, but CE2 loses
+You shut E-R1's CE2-facing link expecting E-R2 to take over `Bundle-Ether1`, but CE2 loses
 connectivity — **failover does not occur**. Diagnose and fix.
 
 **Diagnosis:**
@@ -173,13 +173,13 @@ connectivity — **failover does not occur**. Diagnose and fix.
 show iccp group 1
   ! ICCP session state = NOT Connected (Down)  <-- root cause
 show mpls ldp neighbor
-  ! No LDP session PE1 <-> PE2 (ICCP transport is LDP-based)
+  ! No LDP session E-R1 <-> E-R2 (ICCP transport is LDP-based)
 show lacp mlacp
-  ! PE2 never promoted to Active because it received no ICCP state sync
+  ! E-R2 never promoted to Active because it received no ICCP state sync
 ```
-Root cause chain: **ICCP session is DOWN** → PEs cannot synchronize mLACP state → PE2 does not
+Root cause chain: **ICCP session is DOWN** → PEs cannot synchronize mLACP state → E-R2 does not
 know it must become Active → no failover. Common underlying causes:
-- LDP session between PE1/PE2 not established (routing/loopback reachability, `mpls ldp neighbor`),
+- LDP session between E-R1/E-R2 not established (routing/loopback reachability, `mpls ldp neighbor`),
 - wrong ICCP `member neighbor` IP,
 - mismatched `mlacp system mac` / node IDs.
 

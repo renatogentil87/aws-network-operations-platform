@@ -12,30 +12,30 @@
 ## Topology (Emerald AS 65100)
 
 ```
-                       PCE1 (6.6.6.6)
+                       E-R5 (6.6.6.6)
                          │ 10.1.1.0/24
                          │
-   ASBR1 (5.5.5.5) ──────P2 (4.4.4.4)
+   E-R6 (5.5.5.5) ──────E-R4 (4.4.4.4)
         10.1.2.0/24      │ 10.1.3.0/24
                          │
-                       P1 (3.3.3.3)
+                       E-R3 (3.3.3.3)
               10.1.4.0/24 │ │ 10.1.5.0/24
                  ┌────────┘ └────────┐
-              PE1 (1.1.1.1)        PE2 (2.2.2.2)
+              E-R1 (1.1.1.1)        E-R2 (2.2.2.2)
                  └──────────────────┘
                      10.1.6.0/24
 ```
 
 | Link | Subnet | A-end / Z-end |
 |------|--------|---------------|
-| PCE1 ↔ P2   | 10.1.1.0/24 | PCE1=.6 / P2=.4 |
-| P2 ↔ ASBR1  | 10.1.2.0/24 | P2=.4 / ASBR1=.5 |
-| P2 ↔ P1     | 10.1.3.0/24 | P2=.4 / P1=.3 |
-| P1 ↔ PE1    | 10.1.4.0/24 | P1=.3 / PE1=.1 |
-| P1 ↔ PE2    | 10.1.5.0/24 | P1=.3 / PE2=.2 |
-| PE1 ↔ PE2   | 10.1.6.0/24 | PE1=.1 / PE2=.2 |
+| E-R5 ↔ E-R4   | 10.1.1.0/24 | E-R5=.6 / E-R4=.4 |
+| E-R4 ↔ E-R6  | 10.1.2.0/24 | E-R4=.4 / E-R6=.5 |
+| E-R4 ↔ E-R3     | 10.1.3.0/24 | E-R4=.4 / E-R3=.3 |
+| E-R3 ↔ E-R1    | 10.1.4.0/24 | E-R3=.3 / E-R1=.1 |
+| E-R3 ↔ E-R2    | 10.1.5.0/24 | E-R3=.3 / E-R2=.2 |
+| E-R1 ↔ E-R2   | 10.1.6.0/24 | E-R1=.1 / E-R2=.2 |
 
-**Path note:** The IGP shortest path PE1→PE2 is the direct link `10.1.6.0/24` (1 hop). TE tunnels in this workbook are engineered *away* from that path — via **PE1→P1→PE2** — so you can observe TE overriding IGP.
+**Path note:** The IGP shortest path E-R1→E-R2 is the direct link `10.1.6.0/24` (1 hop). TE tunnels in this workbook are engineered *away* from that path — via **E-R1→E-R3→E-R2** — so you can observe TE overriding IGP.
 
 ---
 
@@ -48,23 +48,23 @@ Enable the RSVP-TE control plane globally and per-interface, extend IS-IS to flo
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
-### Task 1.2 — Configure a TE tunnel PE1→PE2 via explicit path (PE1→P1→PE2)
+### Task 1.2 — Configure a TE tunnel E-R1→E-R2 via explicit path (E-R1→E-R3→E-R2)
 
-On PE1 build `tunnel-te1` to PE2 (2.2.2.2) forced onto the **non-shortest** path PE1→P1→PE2 using an explicit-path.
+On E-R1 build `tunnel-te1` to E-R2 (2.2.2.2) forced onto the **non-shortest** path E-R1→E-R3→E-R2 using an explicit-path.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
 ### Task 1.3 — Autoroute announce
 
-Make PE1's IGP/CEF use `tunnel-te1` to reach PE2 and prefixes behind it, without static routes.
+Make E-R1's IGP/CEF use `tunnel-te1` to reach E-R2 and prefixes behind it, without static routes.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
 ### Task 1.4 — Verify tunnel UP and traffic forwarded
 
-Confirm the LSP is UP end-to-end and data-plane traffic is actually label-switched over PE1→P1→PE2.
+Confirm the LSP is UP end-to-end and data-plane traffic is actually label-switched over E-R1→E-R3→E-R2.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -80,14 +80,14 @@ Configure the tunnel to compute its dynamic path using the **TE metric** instead
 
 ### Task 2.1 — Link protection (facility backup bypass tunnel)
 
-Protect the PE1→P1 link (primary tunnel's first hop) with a **NHOP bypass** tunnel on PE1 that reroutes around the protected link to P1.
+Protect the E-R1→E-R3 link (primary tunnel's first hop) with a **NHOP bypass** tunnel on E-R1 that reroutes around the protected link to E-R3.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
 ### Task 2.2 — Node protection (NNHOP bypass)
 
-Protect against **P1 node** failure with a bypass on PE1 that skips P1 entirely and terminates at the **next-next-hop** PE2.
+Protect against **E-R3 node** failure with a bypass on E-R1 that skips E-R3 entirely and terminates at the **next-next-hop** E-R2.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -101,7 +101,7 @@ Arm the primary `tunnel-te1` to actually *use* the bypass LSPs, requesting node 
 
 ### Task 2.4 — Test with link failure (sub-50ms switchover)
 
-Prove FRR delivers sub-50ms protection: run continuous traffic through `tunnel-te1`, fail the PE1→P1 link, count loss.
+Prove FRR delivers sub-50ms protection: run continuous traffic through `tunnel-te1`, fail the E-R1→E-R3 link, count loss.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -131,7 +131,7 @@ Assign `tunnel-te1` a setup and hold priority so it can be positioned in the pre
 
 ### Task 3.3 — Preemption scenario (high-priority tunnel preempts low-priority)
 
-Create a second tunnel `tunnel-te2` (PE1→PE2, same PE1→P1→PE2 path) with a **better** priority and enough bandwidth to force preemption of `tunnel-te1` when the link is congested.
+Create a second tunnel `tunnel-te2` (E-R1→E-R2, same E-R1→E-R3→E-R2 path) with a **better** priority and enough bandwidth to force preemption of `tunnel-te1` when the link is congested.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -177,7 +177,7 @@ Add a fully **dynamic** path-option and observe **CSPF** honoring all constraint
 
 ### Task 5.1 — Autoroute announce with VPN (L3VPN traffic over TE tunnel)
 
-Carry **VPNv4 (L3VPN)** customer traffic from PE1 to PE2 over `tunnel-te1` using autoroute announce, so the VPN label rides inside the TE LSP.
+Carry **VPNv4 (L3VPN)** customer traffic from E-R1 to E-R2 over `tunnel-te1` using autoroute announce, so the VPN label rides inside the TE LSP.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -191,7 +191,7 @@ Steer **only** VRF CUST_A over the TE tunnel while other VRFs / global traffic k
 
 ### Task 5.3 — Forwarding-adjacency
 
-Advertise `tunnel-te1` into IS-IS as a **real link** so *other* routers (not just PE1) can compute paths through it.
+Advertise `tunnel-te1` into IS-IS as a **real link** so *other* routers (not just E-R1) can compute paths through it.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -238,15 +238,15 @@ show rsvp session                                      ! where the Path stalls
 show isis neighbors  /  show route 2.2.2.2             ! is the tail/next-hop actually reachable?
 
 ! Common cause: an explicit-path hop or the destination has no IGP route
-! (e.g., IS-IS adjacency down on P1<->PE2, or wrong strict next-address).
+! (e.g., IS-IS adjacency down on E-R3<->E-R2, or wrong strict next-address).
 ! Fix — restore reachability / correct the explicit path:
 router isis EMERALD
- interface GigabitEthernet0/0/0/2      ! P1<->PE2 link that was down
+ interface GigabitEthernet0/0/0/2      ! E-R3<->E-R2 link that was down
   no shutdown
 !
 ! or correct a bad hop:
 explicit-path name PE1_via_P1_to_PE2
- index 20 next-address strict ipv4 unicast 10.1.5.2    ! correct PE2 address
+ index 20 next-address strict ipv4 unicast 10.1.5.2    ! correct E-R2 address
 ```
 
 A **PathErr "no route to destination"** means RSVP's Path message reached a node that has no IGP route to the next explicit hop or to the tail — signaling can't proceed even though the head-end's CSPF (which used a possibly stale or explicit path) thought a path existed. Typical causes: a **strict** explicit hop pointing at an address that isn't directly connected, an IGP adjacency down along the path, or the tail loopback not in the IGP. Fix reachability (restore the adjacency, correct the `next-address`) so RSVP can walk the path to the tail and return Resv. This is a **downstream signaling** failure, distinct from Task 6.1's head-end CSPF failure.
@@ -256,7 +256,7 @@ A **PathErr "no route to destination"** means RSVP's Path message reached a node
 
 ### Task 6.3 — Tunnel UP but no traffic (missing autoroute announce)
 
-**Symptom:** `tunnel-te1` shows UP/UP and RSVP is fully signaled, yet traffic to PE2 still takes the direct IGP link — the tunnel carries nothing.
+**Symptom:** `tunnel-te1` shows UP/UP and RSVP is fully signaled, yet traffic to E-R2 still takes the direct IGP link — the tunnel carries nothing.
 
 **Diagnosis & Fix**
 

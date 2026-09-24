@@ -12,30 +12,30 @@
 ## Topology (Emerald AS 65100)
 
 ```
-                       PCE1 (6.6.6.6)
+                       E-R5 (6.6.6.6)
                          │ 10.1.1.0/24
                          │
-   ASBR1 (5.5.5.5) ──────P2 (4.4.4.4)
+   E-R6 (5.5.5.5) ──────E-R4 (4.4.4.4)
         10.1.2.0/24      │ 10.1.3.0/24
                          │
-                       P1 (3.3.3.3)
+                       E-R3 (3.3.3.3)
               10.1.4.0/24 │ │ 10.1.5.0/24
                  ┌────────┘ └────────┐
-              PE1 (1.1.1.1)        PE2 (2.2.2.2)
+              E-R1 (1.1.1.1)        E-R2 (2.2.2.2)
                  └──────────────────┘
                      10.1.6.0/24
 ```
 
 | Link | Subnet | A-end / Z-end |
 |------|--------|---------------|
-| PCE1 ↔ P2   | 10.1.1.0/24 | PCE1=.6 / P2=.4 |
-| P2 ↔ ASBR1  | 10.1.2.0/24 | P2=.4 / ASBR1=.5 |
-| P2 ↔ P1     | 10.1.3.0/24 | P2=.4 / P1=.3 |
-| P1 ↔ PE1    | 10.1.4.0/24 | P1=.3 / PE1=.1 |
-| P1 ↔ PE2    | 10.1.5.0/24 | P1=.3 / PE2=.2 |
-| PE1 ↔ PE2   | 10.1.6.0/24 | PE1=.1 / PE2=.2 |
+| E-R5 ↔ E-R4   | 10.1.1.0/24 | E-R5=.6 / E-R4=.4 |
+| E-R4 ↔ E-R6  | 10.1.2.0/24 | E-R4=.4 / E-R6=.5 |
+| E-R4 ↔ E-R3     | 10.1.3.0/24 | E-R4=.4 / E-R3=.3 |
+| E-R3 ↔ E-R1    | 10.1.4.0/24 | E-R3=.3 / E-R1=.1 |
+| E-R3 ↔ E-R2    | 10.1.5.0/24 | E-R3=.3 / E-R2=.2 |
+| E-R1 ↔ E-R2   | 10.1.6.0/24 | E-R1=.1 / E-R2=.2 |
 
-**Path note:** The IGP shortest path PE1→PE2 is the direct link `10.1.6.0/24` (1 hop). TE tunnels in this workbook are engineered *away* from that path — via **PE1→P1→PE2** — so you can observe TE overriding IGP.
+**Path note:** The IGP shortest path E-R1→E-R2 is the direct link `10.1.6.0/24` (1 hop). TE tunnels in this workbook are engineered *away* from that path — via **E-R1→E-R3→E-R2** — so you can observe TE overriding IGP.
 
 ---
 
@@ -48,7 +48,7 @@ Enable the RSVP-TE control plane globally and per-interface, extend IS-IS to flo
 **Configuration**
 
 ```
-! ---- On every Emerald core node (PE1, PE2, P1, P2, ASBR1, PCE1) ----
+! ---- On every Emerald core node (E-R1, E-R2, E-R3, E-R4, E-R6, E-R5) ----
 
 rsvp
  interface GigabitEthernet0/0/0/0
@@ -78,17 +78,17 @@ RSVP-TE has two planes. The **IGP** (IS-IS with the TE extensions) floods each l
 
 ---
 
-### Task 1.2 — Configure a TE tunnel PE1→PE2 via explicit path (PE1→P1→PE2)
+### Task 1.2 — Configure a TE tunnel E-R1→E-R2 via explicit path (E-R1→E-R3→E-R2)
 
-On PE1 build `tunnel-te1` to PE2 (2.2.2.2) forced onto the **non-shortest** path PE1→P1→PE2 using an explicit-path.
+On E-R1 build `tunnel-te1` to E-R2 (2.2.2.2) forced onto the **non-shortest** path E-R1→E-R3→E-R2 using an explicit-path.
 
 **Configuration**
 
 ```
-! ---- PE1 ----
+! ---- E-R1 ----
 explicit-path name PE1_via_P1_to_PE2
- index 10 next-address strict ipv4 unicast 10.1.4.3    ! PE1 -> P1
- index 20 next-address strict ipv4 unicast 10.1.5.2    ! P1  -> PE2
+ index 10 next-address strict ipv4 unicast 10.1.4.3    ! E-R1 -> E-R3
+ index 20 next-address strict ipv4 unicast 10.1.5.2    ! E-R3  -> E-R2
 !
 interface tunnel-te1
  ipv4 unnumbered Loopback0
@@ -97,29 +97,29 @@ interface tunnel-te1
 !
 ```
 
-An RSVP-TE tunnel is **unidirectional** and head-end signaled. `ipv4 unnumbered Loopback0` borrows the loopback address (tunnel interfaces don't need their own subnet). The **explicit-path** with `strict` hops forces the LSP through P1 rather than the direct PE1↔PE2 link — the whole point of TE. PE1 sends an RSVP **Path** message hop-by-hop to PE2; PE2 replies with **Resv**, distributing labels upstream (downstream-on-demand). The result is an LSP whose forwarding is decoupled from the IGP shortest path.
+An RSVP-TE tunnel is **unidirectional** and head-end signaled. `ipv4 unnumbered Loopback0` borrows the loopback address (tunnel interfaces don't need their own subnet). The **explicit-path** with `strict` hops forces the LSP through E-R3 rather than the direct E-R1↔E-R2 link — the whole point of TE. E-R1 sends an RSVP **Path** message hop-by-hop to E-R2; E-R2 replies with **Resv**, distributing labels upstream (downstream-on-demand). The result is an LSP whose forwarding is decoupled from the IGP shortest path.
 
 **Verification**
-- `show mpls traffic-eng tunnels tunnel-te1` — state **up**, signalled path lists P1 then PE2.
+- `show mpls traffic-eng tunnels tunnel-te1` — state **up**, signalled path lists E-R3 then E-R2.
 - `show mpls traffic-eng tunnels brief` — `tunnel-te1` UP/UP.
-- `traceroute` sourced through the tunnel: hops PE1→P1→PE2, **not** the direct link.
+- `traceroute` sourced through the tunnel: hops E-R1→E-R3→E-R2, **not** the direct link.
 
 ---
 
 ### Task 1.3 — Autoroute announce
 
-Make PE1's IGP/CEF use `tunnel-te1` to reach PE2 and prefixes behind it, without static routes.
+Make E-R1's IGP/CEF use `tunnel-te1` to reach E-R2 and prefixes behind it, without static routes.
 
 **Configuration**
 
 ```
-! ---- PE1 ----
+! ---- E-R1 ----
 interface tunnel-te1
  autoroute announce
 !
 ```
 
-`autoroute announce` inserts the tunnel into the head-end's SPF as a **logical link to the tail-end** — the head-end's IGP computes routes to the tail (and destinations behind it) *as if* the tunnel were a direct adjacency. This is how traffic actually enters the tunnel: no policy-based routing or static needed. The tunnel does **not** get flooded to other routers (it's local to PE1's RIB/CEF). Compare with `forwarding-adjacency` (Task 5.3), which *does* advertise the tunnel into the IGP as a real link.
+`autoroute announce` inserts the tunnel into the head-end's SPF as a **logical link to the tail-end** — the head-end's IGP computes routes to the tail (and destinations behind it) *as if* the tunnel were a direct adjacency. This is how traffic actually enters the tunnel: no policy-based routing or static needed. The tunnel does **not** get flooded to other routers (it's local to E-R1's RIB/CEF). Compare with `forwarding-adjacency` (Task 5.3), which *does* advertise the tunnel into the IGP as a real link.
 
 **Verification**
 - `show route 2.2.2.2` — next-hop is `tunnel-te1`.
@@ -130,24 +130,24 @@ interface tunnel-te1
 
 ### Task 1.4 — Verify tunnel UP and traffic forwarded
 
-Confirm the LSP is UP end-to-end and data-plane traffic is actually label-switched over PE1→P1→PE2.
+Confirm the LSP is UP end-to-end and data-plane traffic is actually label-switched over E-R1→E-R3→E-R2.
 
 **Configuration**
 
 ```
-! Generate traffic PE1 -> PE2 loopback (via tunnel due to autoroute)
-! ---- PE1 ----
+! Generate traffic E-R1 -> E-R2 loopback (via tunnel due to autoroute)
+! ---- E-R1 ----
 ping 2.2.2.2 source 1.1.1.1
 traceroute 2.2.2.2 source 1.1.1.1
 ```
 
-Tunnel "up" in the control plane (RSVP signaled) is not proof of forwarding — you must confirm the FIB points at the tunnel *and* packets traverse it. `show mpls forwarding` on P1 shows the mid-point label swap; the traceroute shows P1 as the transit hop, proving TE is overriding the 1-hop IGP path.
+Tunnel "up" in the control plane (RSVP signaled) is not proof of forwarding — you must confirm the FIB points at the tunnel *and* packets traverse it. `show mpls forwarding` on E-R3 shows the mid-point label swap; the traceroute shows E-R3 as the transit hop, proving TE is overriding the 1-hop IGP path.
 
 **Verification**
 - `show mpls traffic-eng tunnels tunnel-te1 detail` — Admin: up / Oper: up, RSVP Resv received.
-- On PE1: `show mpls forwarding tunnels` — labels imposed for tunnel-te1.
-- On P1: `show mpls forwarding` — label swap entry for the tunnel LSP (transit).
-- `traceroute 2.2.2.2 source 1.1.1.1` — path PE1→P1→PE2.
+- On E-R1: `show mpls forwarding tunnels` — labels imposed for tunnel-te1.
+- On E-R3: `show mpls forwarding` — label swap entry for the tunnel LSP (transit).
+- `traceroute 2.2.2.2 source 1.1.1.1` — path E-R1→E-R3→E-R2.
 
 ---
 
@@ -164,7 +164,7 @@ mpls traffic-eng
   admin-weight 5           ! TE metric, independent of IGP cost
  !
 !
-! ---- PE1: add a dynamic path-option that optimizes on TE metric ----
+! ---- E-R1: add a dynamic path-option that optimizes on TE metric ----
 interface tunnel-te1
  path-selection metric te
  path-option 20 dynamic
@@ -184,30 +184,30 @@ Every TE link carries **two** costs: the IGP metric (used by normal SPF and by T
 
 ### Task 2.1 — Link protection (facility backup bypass tunnel)
 
-Protect the PE1→P1 link (primary tunnel's first hop) with a **NHOP bypass** tunnel on PE1 that reroutes around the protected link to P1.
+Protect the E-R1→E-R3 link (primary tunnel's first hop) with a **NHOP bypass** tunnel on E-R1 that reroutes around the protected link to E-R3.
 
 **Configuration**
 
 ```
-! ---- PE1: bypass around the PE1->P1 link, reaching P1 via PE2->... ----
+! ---- E-R1: bypass around the E-R1->E-R3 link, reaching E-R3 via E-R2->... ----
 explicit-path name BYPASS_NHOP_to_P1
- index 10 next-address strict ipv4 unicast 10.1.6.2    ! PE1 -> PE2
- index 20 next-address strict ipv4 unicast 10.1.5.3    ! PE2 -> P1
+ index 10 next-address strict ipv4 unicast 10.1.6.2    ! E-R1 -> E-R2
+ index 20 next-address strict ipv4 unicast 10.1.5.3    ! E-R2 -> E-R3
 !
 interface tunnel-te10
  ipv4 unnumbered Loopback0
- destination 3.3.3.3                                   ! P1 = Next-Hop (NHOP)
+ destination 3.3.3.3                                   ! E-R3 = Next-Hop (NHOP)
  path-option 10 explicit name BYPASS_NHOP_to_P1
  backup-bwlimit ...        ! optional bandwidth to protect
 !
 mpls traffic-eng
- interface GigabitEthernet0/0/0/0                       ! the PE1->P1 physical interface
+ interface GigabitEthernet0/0/0/0                       ! the E-R1->E-R3 physical interface
   backup-path tunnel-te10
  !
 !
 ```
 
-**Facility backup** (RFC 4090) protects the *facility* (a link or node) with one pre-signaled **bypass LSP** that can carry *many* protected LSPs — far more scalable than one-to-one/detour backup. The **PLR** (Point of Local Repair = PE1) pre-signals the bypass around the protected link to the **MP** (Merge Point). On failure the PLR **pushes an extra label** (the bypass LSP's label) so protected traffic tunnels around the break and re-merges at the MP — all in hardware, before the head-end reroutes. A **NHOP** bypass terminates at the *next hop* (P1), protecting against **link** failure.
+**Facility backup** (RFC 4090) protects the *facility* (a link or node) with one pre-signaled **bypass LSP** that can carry *many* protected LSPs — far more scalable than one-to-one/detour backup. The **PLR** (Point of Local Repair = E-R1) pre-signals the bypass around the protected link to the **MP** (Merge Point). On failure the PLR **pushes an extra label** (the bypass LSP's label) so protected traffic tunnels around the break and re-merges at the MP — all in hardware, before the head-end reroutes. A **NHOP** bypass terminates at the *next hop* (E-R3), protecting against **link** failure.
 
 **Verification**
 - `show mpls traffic-eng tunnels tunnel-te10` — bypass UP.
@@ -218,28 +218,28 @@ mpls traffic-eng
 
 ### Task 2.2 — Node protection (NNHOP bypass)
 
-Protect against **P1 node** failure with a bypass on PE1 that skips P1 entirely and terminates at the **next-next-hop** PE2.
+Protect against **E-R3 node** failure with a bypass on E-R1 that skips E-R3 entirely and terminates at the **next-next-hop** E-R2.
 
 **Configuration**
 
 ```
-! ---- PE1: bypass to NNHOP (PE2), avoiding node P1 ----
+! ---- E-R1: bypass to NNHOP (E-R2), avoiding node E-R3 ----
 explicit-path name BYPASS_NNHOP_to_PE2
- index 10 next-address strict ipv4 unicast 10.1.6.2    ! PE1 -> PE2 directly
+ index 10 next-address strict ipv4 unicast 10.1.6.2    ! E-R1 -> E-R2 directly
 !
 interface tunnel-te11
  ipv4 unnumbered Loopback0
- destination 2.2.2.2                                    ! PE2 = Next-Next-Hop (NNHOP)
+ destination 2.2.2.2                                    ! E-R2 = Next-Next-Hop (NNHOP)
  path-option 10 explicit name BYPASS_NNHOP_to_PE2
 !
 mpls traffic-eng
- interface GigabitEthernet0/0/0/0                        ! PE1->P1 interface
+ interface GigabitEthernet0/0/0/0                        ! E-R1->E-R3 interface
   backup-path tunnel-te11
  !
 !
 ```
 
-An **NNHOP** bypass terminates at the *next-next-hop* (PE2), so it protects against failure of the **entire P1 node**, not just the PE1→P1 link. The key subtlety: the MP is now PE2, so the PLR must impose the label that P1 *would have* given to PE2 (the "backup label" learned from RSVP RRO/label recording) beneath the bypass label — otherwise PE2 would receive an unexpected label. Node protection is strictly stronger than link protection; a node-protecting bypass also covers the link.
+An **NNHOP** bypass terminates at the *next-next-hop* (E-R2), so it protects against failure of the **entire E-R3 node**, not just the E-R1→E-R3 link. The key subtlety: the MP is now E-R2, so the PLR must impose the label that E-R3 *would have* given to E-R2 (the "backup label" learned from RSVP RRO/label recording) beneath the bypass label — otherwise E-R2 would receive an unexpected label. Node protection is strictly stronger than link protection; a node-protecting bypass also covers the link.
 
 **Verification**
 - `show mpls traffic-eng tunnels tunnel-te11 detail` — NNHOP, tail 2.2.2.2.
@@ -255,7 +255,7 @@ Arm the primary `tunnel-te1` to actually *use* the bypass LSPs, requesting node 
 **Configuration**
 
 ```
-! ---- PE1 ----
+! ---- E-R1 ----
 interface tunnel-te1
  fast-reroute
  fast-reroute protection node-protection      ! request node (implies link) protection
@@ -273,13 +273,13 @@ interface tunnel-te1
 
 ### Task 2.4 — Test with link failure (sub-50ms switchover)
 
-Prove FRR delivers sub-50ms protection: run continuous traffic through `tunnel-te1`, fail the PE1→P1 link, count loss.
+Prove FRR delivers sub-50ms protection: run continuous traffic through `tunnel-te1`, fail the E-R1→E-R3 link, count loss.
 
 **Configuration**
 
 ```
-! ---- Continuous traffic (behind PE1 toward a PE2 dest), then fail the link ----
-! ---- P1 (or PE1): shut the protected interface ----
+! ---- Continuous traffic (behind E-R1 toward a E-R2 dest), then fail the link ----
+! ---- E-R3 (or E-R1): shut the protected interface ----
 interface GigabitEthernet0/0/0/0
  shutdown
 ```
@@ -331,7 +331,7 @@ rsvp
   bandwidth 1000000        ! 1 Gbps reservable (kbps)
  !
 !
-! ---- PE1: request bandwidth on the tunnel ----
+! ---- E-R1: request bandwidth on the tunnel ----
 interface tunnel-te1
  signalled-bandwidth 200000    ! reserve 200 Mbps (kbps)
 !
@@ -353,7 +353,7 @@ Assign `tunnel-te1` a setup and hold priority so it can be positioned in the pre
 **Configuration**
 
 ```
-! ---- PE1 ----
+! ---- E-R1 ----
 interface tunnel-te1
  priority 3 3            ! setup-priority 3, hold-priority 3 (0=best,7=worst)
 !
@@ -369,14 +369,14 @@ Every LSP has a **setup priority** (how aggressively it can preempt others to ge
 
 ### Task 3.3 — Preemption scenario (high-priority tunnel preempts low-priority)
 
-Create a second tunnel `tunnel-te2` (PE1→PE2, same PE1→P1→PE2 path) with a **better** priority and enough bandwidth to force preemption of `tunnel-te1` when the link is congested.
+Create a second tunnel `tunnel-te2` (E-R1→E-R2, same E-R1→E-R3→E-R2 path) with a **better** priority and enough bandwidth to force preemption of `tunnel-te1` when the link is congested.
 
 **Configuration**
 
 ```
-! ---- PE1: low-priority incumbent already up = tunnel-te1 (priority 3 3, 200 Mbps) ----
+! ---- E-R1: low-priority incumbent already up = tunnel-te1 (priority 3 3, 200 Mbps) ----
 
-! ---- PE1: high-priority challenger needing bandwidth that only fits by preempting ----
+! ---- E-R1: high-priority challenger needing bandwidth that only fits by preempting ----
 interface tunnel-te2
  ipv4 unnumbered Loopback0
  destination 2.2.2.2
@@ -408,7 +408,7 @@ Enable **auto-bandwidth** on `tunnel-te1` so it samples actual traffic and perio
 mpls traffic-eng
  auto-bw collect frequency 5           ! sample every 5 minutes
 !
-! ---- PE1: enable on the tunnel ----
+! ---- E-R1: enable on the tunnel ----
 interface tunnel-te1
  auto-bw
   bw-limit min 100000 max 800000       ! clamp adjustments (kbps)
@@ -436,7 +436,7 @@ Reoptimize `tunnel-te1` onto a better path without dropping traffic, using **Sha
 **Configuration**
 
 ```
-! ---- PE1: enable periodic reoptimization ----
+! ---- E-R1: enable periodic reoptimization ----
 mpls traffic-eng
  reoptimize timers frequency 3600      ! reoptimize hourly
 !
@@ -472,7 +472,7 @@ rsvp
   ! bandwidth rdm bc0 1000000 bc1 300000
  !
 !
-! ---- PE1: tunnel reserving from the sub-pool (class-type 1) ----
+! ---- E-R1: tunnel reserving from the sub-pool (class-type 1) ----
 interface tunnel-te1
  signalled-bandwidth 200000 class-type 1
 !
@@ -505,7 +505,7 @@ mpls traffic-eng
  !
  affinity-map RED bit-position 0
 !
-! ---- PE1: tunnel affinity constraint ----
+! ---- E-R1: tunnel affinity constraint ----
 interface tunnel-te1
  affinity exclude RED           ! do not traverse RED links
  ! or:  affinity include-strict BLUE
@@ -528,7 +528,7 @@ Add a fully **dynamic** path-option and observe **CSPF** honoring all constraint
 **Configuration**
 
 ```
-! ---- PE1 ----
+! ---- E-R1 ----
 interface tunnel-te1
  path-selection metric te
  signalled-bandwidth 200000
@@ -550,26 +550,26 @@ interface tunnel-te1
 
 ### Task 5.1 — Autoroute announce with VPN (L3VPN traffic over TE tunnel)
 
-Carry **VPNv4 (L3VPN)** customer traffic from PE1 to PE2 over `tunnel-te1` using autoroute announce, so the VPN label rides inside the TE LSP.
+Carry **VPNv4 (L3VPN)** customer traffic from E-R1 to E-R2 over `tunnel-te1` using autoroute announce, so the VPN label rides inside the TE LSP.
 
 **Configuration**
 
 ```
-! ---- Assumes L3VPN from Workbook 04: VRF CUST_A, VPNv4 iBGP PE1<->PE2 ----
-! ---- PE1: tunnel already has autoroute announce (Task 1.3) ----
+! ---- Assumes L3VPN from Workbook 04: VRF CUST_A, VPNv4 iBGP E-R1<->E-R2 ----
+! ---- E-R1: tunnel already has autoroute announce (Task 1.3) ----
 interface tunnel-te1
  autoroute announce
 !
 ! Nothing VPN-specific is needed on the tunnel — BGP next-hop resolution does the rest.
 ```
 
-L3VPN forwarding is a **two-label** stack: the **inner** VPN label (allocated by the egress PE2, identifies the VRF/prefix) and the **outer** transport label (gets the packet to PE2). Normally the transport label comes from LDP; with `autoroute announce`, PE1's route to the **BGP next-hop (2.2.2.2 = PE2)** resolves via `tunnel-te1`, so the transport label becomes the **TE LSP** instead of an LDP LSP. The VPN label is untouched — VPN and TE are orthogonal layers. Result: all VPNv4 traffic whose next-hop is PE2 is automatically engineered over the TE tunnel, no per-VRF config.
+L3VPN forwarding is a **two-label** stack: the **inner** VPN label (allocated by the egress E-R2, identifies the VRF/prefix) and the **outer** transport label (gets the packet to E-R2). Normally the transport label comes from LDP; with `autoroute announce`, E-R1's route to the **BGP next-hop (2.2.2.2 = E-R2)** resolves via `tunnel-te1`, so the transport label becomes the **TE LSP** instead of an LDP LSP. The VPN label is untouched — VPN and TE are orthogonal layers. Result: all VPNv4 traffic whose next-hop is E-R2 is automatically engineered over the TE tunnel, no per-VRF config.
 
 **Verification**
 - `show bgp vpnv4 unicast vrf CUST_A <prefix>` — next-hop 2.2.2.2.
 - `show route vrf CUST_A <prefix>` → recurses to 2.2.2.2 → `tunnel-te1`.
 - `show cef vrf CUST_A <prefix> detail` — imposes {VPN label, tunnel-te1 transport label}.
-- `traceroute vrf CUST_A ...` — path PE1→P1→PE2.
+- `traceroute vrf CUST_A ...` — path E-R1→E-R3→E-R2.
 
 ---
 
@@ -580,7 +580,7 @@ Steer **only** VRF CUST_A over the TE tunnel while other VRFs / global traffic k
 **Configuration**
 
 ```
-! ---- PE1: remove global autoroute if you want per-VRF selectivity, then ----
+! ---- E-R1: remove global autoroute if you want per-VRF selectivity, then ----
 router static
  vrf CUST_A
   address-family ipv4 unicast
@@ -596,30 +596,30 @@ router static
 **Verification**
 - `show route vrf CUST_A <prefix>` — next-hop `tunnel-te1`; other VRFs show LDP-resolved next-hop.
 - `show cef vrf CUST_A <prefix> detail` vs another VRF — only CUST_A imposes the TE transport label.
-- `traceroute` per VRF — CUST_A via P1; other VRF via IGP/LDP path.
+- `traceroute` per VRF — CUST_A via E-R3; other VRF via IGP/LDP path.
 
 ---
 
 ### Task 5.3 — Forwarding-adjacency
 
-Advertise `tunnel-te1` into IS-IS as a **real link** so *other* routers (not just PE1) can compute paths through it.
+Advertise `tunnel-te1` into IS-IS as a **real link** so *other* routers (not just E-R1) can compute paths through it.
 
 **Configuration**
 
 ```
-! ---- PE1 ----
+! ---- E-R1 ----
 interface tunnel-te1
  forwarding-adjacency                ! advertise tunnel into IGP as a link
  ! optionally set the IGP metric of the advertised adjacency
 !
 ```
 
-`autoroute announce` (Task 1.3) is **local** — only the head-end uses the tunnel; the rest of the network never sees it. **`forwarding-adjacency`** goes further: PE1 injects the tunnel into IS-IS as a **point-to-point link to PE2**, so *every* router runs SPF *including* that virtual link and may route transit traffic through it. Use it to create a "virtual topology" (e.g., make a multi-hop TE LSP look like a single IGP hop) so remote nodes steer traffic into it. Caution: it can create routing asymmetry and micro-loops if the reverse direction isn't also modeled — usually you configure it as a pair (one FA each direction).
+`autoroute announce` (Task 1.3) is **local** — only the head-end uses the tunnel; the rest of the network never sees it. **`forwarding-adjacency`** goes further: E-R1 injects the tunnel into IS-IS as a **point-to-point link to E-R2**, so *every* router runs SPF *including* that virtual link and may route transit traffic through it. Use it to create a "virtual topology" (e.g., make a multi-hop TE LSP look like a single IGP hop) so remote nodes steer traffic into it. Caution: it can create routing asymmetry and micro-loops if the reverse direction isn't also modeled — usually you configure it as a pair (one FA each direction).
 
 **Verification**
-- `show isis database <PE1-LSP>` — the tunnel appears as an advertised adjacency/link to PE2.
-- On a **remote** node (e.g., P2): `show isis topology` includes the FA; `show route 2.2.2.2` may prefer it.
-- Contrast with Task 1.3: autoroute → only PE1's RIB; forwarding-adjacency → whole-IGP visibility.
+- `show isis database <E-R1-LSP>` — the tunnel appears as an advertised adjacency/link to E-R2.
+- On a **remote** node (e.g., E-R4): `show isis topology` includes the FA; `show route 2.2.2.2` may prefer it.
+- Contrast with Task 1.3: autoroute → only E-R1's RIB; forwarding-adjacency → whole-IGP visibility.
 
 ---
 
@@ -668,28 +668,28 @@ show rsvp session                                      ! where the Path stalls
 show isis neighbors  /  show route 2.2.2.2             ! is the tail/next-hop actually reachable?
 
 ! Common cause: an explicit-path hop or the destination has no IGP route
-! (e.g., IS-IS adjacency down on P1<->PE2, or wrong strict next-address).
+! (e.g., IS-IS adjacency down on E-R3<->E-R2, or wrong strict next-address).
 ! Fix — restore reachability / correct the explicit path:
 router isis EMERALD
- interface GigabitEthernet0/0/0/2      ! P1<->PE2 link that was down
+ interface GigabitEthernet0/0/0/2      ! E-R3<->E-R2 link that was down
   no shutdown
 !
 ! or correct a bad hop:
 explicit-path name PE1_via_P1_to_PE2
- index 20 next-address strict ipv4 unicast 10.1.5.2    ! correct PE2 address
+ index 20 next-address strict ipv4 unicast 10.1.5.2    ! correct E-R2 address
 ```
 
 A **PathErr "no route to destination"** means RSVP's Path message reached a node that has no IGP route to the next explicit hop or to the tail — signaling can't proceed even though the head-end's CSPF (which used a possibly stale or explicit path) thought a path existed. Typical causes: a **strict** explicit hop pointing at an address that isn't directly connected, an IGP adjacency down along the path, or the tail loopback not in the IGP. Fix reachability (restore the adjacency, correct the `next-address`) so RSVP can walk the path to the tail and return Resv. This is a **downstream signaling** failure, distinct from Task 6.1's head-end CSPF failure.
 
 **Verification**
 - `show rsvp session` — Path/Resv now complete end-to-end (no PathErr).
-- `show mpls traffic-eng tunnels tunnel-te1 detail` — Oper up, RRO lists all hops to PE2.
+- `show mpls traffic-eng tunnels tunnel-te1 detail` — Oper up, RRO lists all hops to E-R2.
 
 ---
 
 ### Task 6.3 — Tunnel UP but no traffic (missing autoroute announce)
 
-**Symptom:** `tunnel-te1` shows UP/UP and RSVP is fully signaled, yet traffic to PE2 still takes the direct IGP link — the tunnel carries nothing.
+**Symptom:** `tunnel-te1` shows UP/UP and RSVP is fully signaled, yet traffic to E-R2 still takes the direct IGP link — the tunnel carries nothing.
 
 **Diagnosis & Fix**
 
@@ -708,18 +708,18 @@ A signaled RSVP-TE LSP is just a **forwarding path that nothing points at** unti
 
 **Verification**
 - After `autoroute announce`: `show route 2.2.2.2` — next-hop `tunnel-te1`.
-- `show cef 2.2.2.2` — outgoing interface `tunnel-te1`; `show mpls traffic-eng autoroute` now lists PE2.
-- `traceroute 2.2.2.2 source 1.1.1.1` — path PE1→P1→PE2; interface counters on the tunnel increment.
+- `show cef 2.2.2.2` — outgoing interface `tunnel-te1`; `show mpls traffic-eng autoroute` now lists E-R2.
+- `traceroute 2.2.2.2 source 1.1.1.1` — path E-R1→E-R3→E-R2; interface counters on the tunnel increment.
 
 ---
 
 ## CCIE Challenge Tasks
 
-### Challenge A — PCE-delegated RSVP-TE
-Point PE1/PE2 at **PCE1 (6.6.6.6)** as a stateful PCE (PCEP) and delegate `tunnel-te1` computation. Have the PCE compute an inter-area/constrained path and push updates. Contrast PCE-computed RSVP-TE with head-end CSPF, and with SR-PCE (WB09).
+### Challenge A — Gar-R6-delegated RSVP-TE
+Point E-R1/E-R2 at **E-R5 (6.6.6.6)** as a stateful Gar-R6 (PCEP) and delegate `tunnel-te1` computation. Have the Gar-R6 compute an inter-area/constrained path and push updates. Contrast Gar-R6-computed RSVP-TE with head-end CSPF, and with SR-PCE (WB09).
 
 ### Challenge B — Inter-area / inter-AS TE
-Extend a tunnel toward **ASBR1 (5.5.5.5)** using **loose** explicit hops and per-area **ERO expansion** (or a PCE) since one CSPF cannot see across areas/ASes. Explain why RSVP-TE needs loose hops + boundary re-computation where SR-TE would use a segment-list.
+Extend a tunnel toward **E-R6 (5.5.5.5)** using **loose** explicit hops and per-area **ERO expansion** (or a Gar-R6) since one CSPF cannot see across areas/ASes. Explain why RSVP-TE needs loose hops + boundary re-computation where SR-TE would use a segment-list.
 
 ### Challenge C — Bidirectional & co-routed protection
-Model a pair of tunnels (PE1↔PE2 both directions) with **SE-style MBB**, node-protecting FRR, and DS-TE sub-pool bandwidth for EF. Prove sub-50ms protection *and* zero-loss reoptimization simultaneously, then compare the total per-node state against the SR TI-LFA equivalent from Workbook 09.
+Model a pair of tunnels (E-R1↔E-R2 both directions) with **SE-style MBB**, node-protecting FRR, and DS-TE sub-pool bandwidth for EF. Prove sub-50ms protection *and* zero-loss reoptimization simultaneously, then compare the total per-node state against the SR TI-LFA equivalent from Workbook 09.

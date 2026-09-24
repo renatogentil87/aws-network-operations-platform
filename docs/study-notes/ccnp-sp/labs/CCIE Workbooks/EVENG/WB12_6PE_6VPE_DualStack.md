@@ -2,16 +2,16 @@
 
 **Platform:** IOS-XRv 9000
 **Topology:** Emerald AS65100 — IPv4 MPLS core with LDP.
-**Core PEs:** PE1 (1.1.1.1), PE2 (2.2.2.2)
+**Core PEs:** E-R1 (1.1.1.1), E-R2 (2.2.2.2)
 **CEs:** CE1, CE3 (IPv6 addresses)
 **6VPE domain:** Garnet
 
 ```
-        CE1 ---(IPv6)--- PE1 ==== IPv4/MPLS Core (LDP) ==== PE2 ---(IPv6)--- CE3
+        CE1 ---(IPv6)--- E-R1 ==== IPv4/MPLS Core (LDP) ==== E-R2 ---(IPv6)--- CE3
        AS65001         1.1.1.1        AS65100 (Emerald)     2.2.2.2         AS65003
 ```
 
-- Core loopbacks: PE1 Lo0 = 1.1.1.1/32, PE2 Lo0 = 2.2.2.2/32
+- Core loopbacks: E-R1 Lo0 = 1.1.1.1/32, E-R2 Lo0 = 2.2.2.2/32
 - Core IGP: OSPF or IS-IS (IPv4), LDP for transport labels
 - The core is **IPv4-only** — no IPv6 in the core. IPv6 is tunneled edge-to-edge using MPLS labels (6PE / 6VPE).
 
@@ -23,18 +23,18 @@
 
 ---
 
-### Task 1.1 — Enable IPv6 and BGP IPv6 unicast on PE1
+### Task 1.1 — Enable IPv6 and BGP IPv6 unicast on E-R1
 
 **Question:**
-On PE1, enable IPv6 addressing toward CE1 and configure MP-BGP `address-family ipv6 unicast` toward PE2 (2.2.2.2). The PE–PE BGP session runs over the IPv4 loopbacks (existing iBGP). Ensure the next-hop advertised to PE2 uses the IPv4-mapped form so it resolves over the IPv4 LSP.
+On E-R1, enable IPv6 addressing toward CE1 and configure MP-BGP `address-family ipv6 unicast` toward E-R2 (2.2.2.2). The PE–PE BGP session runs over the IPv4 loopbacks (existing iBGP). Ensure the next-hop advertised to E-R2 uses the IPv4-mapped form so it resolves over the IPv4 LSP.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
-### Task 1.2 — Configure PE2 and CE3 side, redistribute/advertise CE IPv6 prefixes
+### Task 1.2 — Configure E-R2 and CE3 side, redistribute/advertise CE IPv6 prefixes
 
 **Question:**
-Mirror the 6PE configuration on PE2 (2.2.2.2) facing CE3, and advertise CE3's IPv6 prefix (`2001:db8:33::/64`) into BGP so PE1 learns it. Use eBGP toward CE3.
+Mirror the 6PE configuration on E-R2 (2.2.2.2) facing CE3, and advertise CE3's IPv6 prefix (`2001:db8:33::/64`) into BGP so E-R1 learns it. Use eBGP toward CE3.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -42,7 +42,7 @@ Mirror the 6PE configuration on PE2 (2.2.2.2) facing CE3, and advertise CE3's IP
 ### Task 1.3 — Verify the IPv4-mapped next-hop and label allocation
 
 **Question:**
-On PE1, confirm that the IPv6 prefix `2001:db8:33::/64` learned from PE2 arrives with an **IPv4-mapped IPv6 next-hop** (`::FFFF:2.2.2.2`) and carries a BGP-allocated MPLS label. Confirm the label stack (transport LDP label + BGP 6PE label).
+On E-R1, confirm that the IPv6 prefix `2001:db8:33::/64` learned from E-R2 arrives with an **IPv4-mapped IPv6 next-hop** (`::FFFF:2.2.2.2`) and carries a BGP-allocated MPLS label. Confirm the label stack (transport LDP label + BGP 6PE label).
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -64,7 +64,7 @@ Confirm CE1 (`2001:db8:11::/64`) can reach CE3 (`2001:db8:33::/64`) end-to-end, 
 ### Task 2.1 — Create a VRF with an IPv6 address-family
 
 **Question:**
-On PE1 create VRF `GARNET` with RD `65100:100`, and configure both import/export route-targets for the IPv6 address-family.
+On E-R1 create VRF `GARNET` with RD `65100:100`, and configure both import/export route-targets for the IPv6 address-family.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -72,7 +72,7 @@ On PE1 create VRF `GARNET` with RD `65100:100`, and configure both import/export
 ### Task 2.2 — Enable the VPNv6 address-family in MP-BGP
 
 **Question:**
-Enable the `vpnv6 unicast` address-family between PE1 and PE2 so VRF IPv6 routes are exchanged as VPNv6 (labeled) routes across the IPv4 core.
+Enable the `vpnv6 unicast` address-family between E-R1 and E-R2 so VRF IPv6 routes are exchanged as VPNv6 (labeled) routes across the IPv4 core.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -80,7 +80,7 @@ Enable the `vpnv6 unicast` address-family between PE1 and PE2 so VRF IPv6 routes
 ### Task 2.3 — Configure a dual-stack VRF (IPv4 + IPv6 in the same VRF)
 
 **Question:**
-Extend VRF `GARNET` so it carries **both** IPv4 and IPv6 customer routes. Configure IPv4 and IPv6 AFs under the VRF and under BGP, and enable both VPNv4 and VPNv6 AFs to PE2.
+Extend VRF `GARNET` so it carries **both** IPv4 and IPv6 customer routes. Configure IPv4 and IPv6 AFs under the VRF and under BGP, and enable both VPNv4 and VPNv6 AFs to E-R2.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -88,7 +88,7 @@ Extend VRF `GARNET` so it carries **both** IPv4 and IPv6 customer routes. Config
 ### Task 2.4 — CE–PE IPv6 routing (eBGP or OSPFv3) and verify VPNv6 exchange
 
 **Question:**
-On PE1 configure CE–PE IPv6 routing for VRF `GARNET`. Provide both the eBGP option and the OSPFv3 option. Then verify VRF IPv6 routes are exchanged as VPNv6 between PE1 and PE2 and installed on the remote PE.
+On E-R1 configure CE–PE IPv6 routing for VRF `GARNET`. Provide both the eBGP option and the OSPFv3 option. Then verify VRF IPv6 routes are exchanged as VPNv6 between E-R1 and E-R2 and installed on the remote PE.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -135,10 +135,10 @@ A dual-stack customer's IPv4 routes are present in VRF `GARNET` but its **IPv6 r
 **Diagnosis:**
 
 ```
-RP/0/RP0/CPU0:PE1# show vrf GARNET detail
+RP/0/RP0/CPU0:E-R1# show vrf GARNET detail
 ! Symptom: only "Address family IPv4 Unicast" listed — no IPv6 AF / no IPv6 RTs
 
-RP/0/RP0/CPU0:PE1# show bgp vrf GARNET ipv6 unicast
+RP/0/RP0/CPU0:E-R1# show bgp vrf GARNET ipv6 unicast
 ! Symptom: "% No such address family" or empty — VRF has no ipv6 AF to import into
 ```
 
@@ -150,18 +150,18 @@ Root cause: the VRF is missing `address-family ipv6 unicast` (and its import/exp
 ### Task 4.2 — 6PE label not allocated (missing IPv6 label allocation in BGP)
 
 **Question:**
-IPv6 prefixes are exchanged between PE1 and PE2 over the `ipv6 unicast` BGP session and appear in `show bgp ipv6 unicast`, but end-to-end forwarding fails and CEF shows **no label imposed** for the remote IPv6 prefix. The IPv4 LDP LSP between PEs is healthy. Identify and fix.
+IPv6 prefixes are exchanged between E-R1 and E-R2 over the `ipv6 unicast` BGP session and appear in `show bgp ipv6 unicast`, but end-to-end forwarding fails and CEF shows **no label imposed** for the remote IPv6 prefix. The IPv4 LDP LSP between PEs is healthy. Identify and fix.
 
 **Diagnosis:**
 
 ```
-RP/0/RP0/CPU0:PE1# show bgp ipv6 unicast 2001:db8:33::/64
+RP/0/RP0/CPU0:E-R1# show bgp ipv6 unicast 2001:db8:33::/64
 ! Symptom: path present but "Received Label" is absent / "no label"
 
-RP/0/RP0/CPU0:PE1# show cef ipv6 2001:db8:33::/64 detail
+RP/0/RP0/CPU0:E-R1# show cef ipv6 2001:db8:33::/64 detail
 ! Symptom: no labels imposed -> attempts native IPv6 forwarding over an IPv4 core -> fails
 
-RP/0/RP0/CPU0:PE1# show bgp ipv6 unicast neighbors 2.2.2.2 | include label
+RP/0/RP0/CPU0:E-R1# show bgp ipv6 unicast neighbors 2.2.2.2 | include label
 ! Symptom: send-label capability not negotiated
 ```
 

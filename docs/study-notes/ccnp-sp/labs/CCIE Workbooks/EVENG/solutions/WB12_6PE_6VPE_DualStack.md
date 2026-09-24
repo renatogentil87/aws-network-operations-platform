@@ -2,16 +2,16 @@
 
 **Platform:** IOS-XRv 9000
 **Topology:** Emerald AS65100 — IPv4 MPLS core with LDP.
-**Core PEs:** PE1 (1.1.1.1), PE2 (2.2.2.2)
+**Core PEs:** E-R1 (1.1.1.1), E-R2 (2.2.2.2)
 **CEs:** CE1, CE3 (IPv6 addresses)
 **6VPE domain:** Garnet
 
 ```
-        CE1 ---(IPv6)--- PE1 ==== IPv4/MPLS Core (LDP) ==== PE2 ---(IPv6)--- CE3
+        CE1 ---(IPv6)--- E-R1 ==== IPv4/MPLS Core (LDP) ==== E-R2 ---(IPv6)--- CE3
        AS65001         1.1.1.1        AS65100 (Emerald)     2.2.2.2         AS65003
 ```
 
-- Core loopbacks: PE1 Lo0 = 1.1.1.1/32, PE2 Lo0 = 2.2.2.2/32
+- Core loopbacks: E-R1 Lo0 = 1.1.1.1/32, E-R2 Lo0 = 2.2.2.2/32
 - Core IGP: OSPF or IS-IS (IPv4), LDP for transport labels
 - The core is **IPv4-only** — no IPv6 in the core. IPv6 is tunneled edge-to-edge using MPLS labels (6PE / 6VPE).
 
@@ -23,10 +23,10 @@
 
 ---
 
-### Task 1.1 — Enable IPv6 and BGP IPv6 unicast on PE1
+### Task 1.1 — Enable IPv6 and BGP IPv6 unicast on E-R1
 
 **Question:**
-On PE1, enable IPv6 addressing toward CE1 and configure MP-BGP `address-family ipv6 unicast` toward PE2 (2.2.2.2). The PE–PE BGP session runs over the IPv4 loopbacks (existing iBGP). Ensure the next-hop advertised to PE2 uses the IPv4-mapped form so it resolves over the IPv4 LSP.
+On E-R1, enable IPv6 addressing toward CE1 and configure MP-BGP `address-family ipv6 unicast` toward E-R2 (2.2.2.2). The PE–PE BGP session runs over the IPv4 loopbacks (existing iBGP). Ensure the next-hop advertised to E-R2 uses the IPv4-mapped form so it resolves over the IPv4 LSP.
 
 **Solution:**
 
@@ -37,7 +37,7 @@ interface GigabitEthernet0/0/0/0
  ipv6 address 2001:db8:11::1/64
  no shutdown
 !
-! --- Core-facing loopback already 1.1.1.1/32, IPv4 iBGP session to PE2 exists ---
+! --- Core-facing loopback already 1.1.1.1/32, IPv4 iBGP session to E-R2 exists ---
 router bgp 65100
  bgp router-id 1.1.1.1
  address-family ipv6 unicast
@@ -56,29 +56,29 @@ router bgp 65100
 
 Key points:
 - `send-label` under the IPv6 unicast neighbor AF is what turns a plain MP-BGP IPv6 session into **6PE** — it triggers MPLS label allocation for each IPv6 prefix.
-- `next-hop-self` causes PE1 to advertise the next-hop as its own loopback. On a 6PE session over an IPv4 transport, IOS-XR encodes this as the IPv4-mapped IPv6 next-hop `::FFFF:1.1.1.1`.
+- `next-hop-self` causes E-R1 to advertise the next-hop as its own loopback. On a 6PE session over an IPv4 transport, IOS-XR encodes this as the IPv4-mapped IPv6 next-hop `::FFFF:1.1.1.1`.
 
 **Verification:**
 
 ```
-RP/0/RP0/CPU0:PE1# show bgp ipv6 unicast summary
+RP/0/RP0/CPU0:E-R1# show bgp ipv6 unicast summary
 ! Session to 2.2.2.2 should be Established, State/PfxRcd shows received count
 
-RP/0/RP0/CPU0:PE1# show bgp ipv6 unicast neighbors 2.2.2.2 | include Send.*label
+RP/0/RP0/CPU0:E-R1# show bgp ipv6 unicast neighbors 2.2.2.2 | include Send.*label
 ! Confirms "My AS is advertising labeled routes" / send-label capability negotiated
 ```
 
 ---
 
-### Task 1.2 — Configure PE2 and CE3 side, redistribute/advertise CE IPv6 prefixes
+### Task 1.2 — Configure E-R2 and CE3 side, redistribute/advertise CE IPv6 prefixes
 
 **Question:**
-Mirror the 6PE configuration on PE2 (2.2.2.2) facing CE3, and advertise CE3's IPv6 prefix (`2001:db8:33::/64`) into BGP so PE1 learns it. Use eBGP toward CE3.
+Mirror the 6PE configuration on E-R2 (2.2.2.2) facing CE3, and advertise CE3's IPv6 prefix (`2001:db8:33::/64`) into BGP so E-R1 learns it. Use eBGP toward CE3.
 
 **Solution:**
 
 ```
-! --- PE2 interface toward CE3 ---
+! --- E-R2 interface toward CE3 ---
 interface GigabitEthernet0/0/0/0
  description To-CE3
  ipv6 address 2001:db8:33::1/64
@@ -88,7 +88,7 @@ router bgp 65100
  bgp router-id 2.2.2.2
  address-family ipv6 unicast
  !
- ! iBGP to PE1 (6PE)
+ ! iBGP to E-R1 (6PE)
  neighbor 1.1.1.1
   remote-as 65100
   update-source Loopback0
@@ -115,10 +115,10 @@ end-policy
 **Verification:**
 
 ```
-RP/0/RP0/CPU0:PE2# show bgp ipv6 unicast
+RP/0/RP0/CPU0:E-R2# show bgp ipv6 unicast
 ! CE3 prefix 2001:db8:33::/64 present, learned from eBGP neighbor
 
-RP/0/RP0/CPU0:PE2# show bgp ipv6 unicast neighbors 2001:db8:33::2 received-routes
+RP/0/RP0/CPU0:E-R2# show bgp ipv6 unicast neighbors 2001:db8:33::2 received-routes
 ```
 
 ---
@@ -126,12 +126,12 @@ RP/0/RP0/CPU0:PE2# show bgp ipv6 unicast neighbors 2001:db8:33::2 received-route
 ### Task 1.3 — Verify the IPv4-mapped next-hop and label allocation
 
 **Question:**
-On PE1, confirm that the IPv6 prefix `2001:db8:33::/64` learned from PE2 arrives with an **IPv4-mapped IPv6 next-hop** (`::FFFF:2.2.2.2`) and carries a BGP-allocated MPLS label. Confirm the label stack (transport LDP label + BGP 6PE label).
+On E-R1, confirm that the IPv6 prefix `2001:db8:33::/64` learned from E-R2 arrives with an **IPv4-mapped IPv6 next-hop** (`::FFFF:2.2.2.2`) and carries a BGP-allocated MPLS label. Confirm the label stack (transport LDP label + BGP 6PE label).
 
 **Solution / Inspection:**
 
 ```
-RP/0/RP0/CPU0:PE1# show bgp ipv6 unicast 2001:db8:33::/64
+RP/0/RP0/CPU0:E-R1# show bgp ipv6 unicast 2001:db8:33::/64
 ```
 
 Expected output highlights:
@@ -139,25 +139,25 @@ Expected output highlights:
 Paths: (1 available, best #1)
   ...
     ::ffff:2.2.2.2 (metric ...) from 2.2.2.2 (2.2.2.2)
-      Received Label 24012          <-- BGP 6PE label allocated by PE2
+      Received Label 24012          <-- BGP 6PE label allocated by E-R2
       Origin IGP, ...
       Local Vpn-handle ...
 ```
 
-- The next-hop `::ffff:2.2.2.2` is the **IPv4-mapped IPv6 address** of PE2's loopback. This is the essence of 6PE: an IPv6 control-plane entry whose next-hop resolves via the IPv4 LDP LSP.
+- The next-hop `::ffff:2.2.2.2` is the **IPv4-mapped IPv6 address** of E-R2's loopback. This is the essence of 6PE: an IPv6 control-plane entry whose next-hop resolves via the IPv4 LDP LSP.
 
 **Verification (label stack in CEF):**
 
 ```
-RP/0/RP0/CPU0:PE1# show route ipv6 2001:db8:33::/64
+RP/0/RP0/CPU0:E-R1# show route ipv6 2001:db8:33::/64
 ! Next-hop resolves recursively via ::ffff:2.2.2.2 -> IPv4 LSP to 2.2.2.2
 
-RP/0/RP0/CPU0:PE1# show cef ipv6 2001:db8:33::/64
+RP/0/RP0/CPU0:E-R1# show cef ipv6 2001:db8:33::/64
 ! labels imposed: {LDP_transport_label BGP_6PE_label}
 ! e.g. labels imposed {24001 24012}
 ```
 
-The two-label stack = outer LDP transport label (gets swapped hop-by-hop across the IPv4 core) + inner BGP 6PE label (identifies the egress IPv6 prefix on PE2).
+The two-label stack = outer LDP transport label (gets swapped hop-by-hop across the IPv4 core) + inner BGP 6PE label (identifies the egress IPv6 prefix on E-R2).
 
 ---
 
@@ -172,19 +172,19 @@ Confirm CE1 (`2001:db8:11::/64`) can reach CE3 (`2001:db8:33::/64`) end-to-end, 
 ! From CE1
 CE1# ping ipv6 2001:db8:33::2 source 2001:db8:11::2
 
-! On PE1 — confirm forwarding uses MPLS
-RP/0/RP0/CPU0:PE1# show cef ipv6 2001:db8:33::/64 detail
+! On E-R1 — confirm forwarding uses MPLS
+RP/0/RP0/CPU0:E-R1# show cef ipv6 2001:db8:33::/64 detail
 ! Shows label imposition (LDP + 6PE labels), outgoing core interface
 
 ! Confirm the LDP LSP to the egress PE exists (IPv4 transport)
-RP/0/RP0/CPU0:PE1# show mpls forwarding prefix 2.2.2.2/32
+RP/0/RP0/CPU0:E-R1# show mpls forwarding prefix 2.2.2.2/32
 
 ! On a P (core) router — verify only IPv4/MPLS, no IPv6 knowledge
-RP/0/RP0/CPU0:P1# show mpls forwarding
+RP/0/RP0/CPU0:E-R3# show mpls forwarding
 ! Core swaps labels; it never inspects the IPv6 payload
 ```
 
-Success criteria: ping succeeds; core routers have no IPv6 RIB entry for the customer prefixes; forwarding is label-switched (two-label stack imposed at PE1, swapped in core, BGP label popped/looked-up at PE2).
+Success criteria: ping succeeds; core routers have no IPv6 RIB entry for the customer prefixes; forwarding is label-switched (two-label stack imposed at E-R1, swapped in core, BGP label popped/looked-up at E-R2).
 
 ---
 
@@ -197,7 +197,7 @@ Success criteria: ping succeeds; core routers have no IPv6 RIB entry for the cus
 ### Task 2.1 — Create a VRF with an IPv6 address-family
 
 **Question:**
-On PE1 create VRF `GARNET` with RD `65100:100`, and configure both import/export route-targets for the IPv6 address-family.
+On E-R1 create VRF `GARNET` with RD `65100:100`, and configure both import/export route-targets for the IPv6 address-family.
 
 **Solution:**
 
@@ -224,10 +224,10 @@ router bgp 65100
 **Verification:**
 
 ```
-RP/0/RP0/CPU0:PE1# show vrf GARNET detail
+RP/0/RP0/CPU0:E-R1# show vrf GARNET detail
 ! Confirms IPv6 AF, RD 65100:100, import/export RT 65100:100
 
-RP/0/RP0/CPU0:PE1# show bgp vrf GARNET ipv6 unicast summary
+RP/0/RP0/CPU0:E-R1# show bgp vrf GARNET ipv6 unicast summary
 ```
 
 ---
@@ -235,7 +235,7 @@ RP/0/RP0/CPU0:PE1# show bgp vrf GARNET ipv6 unicast summary
 ### Task 2.2 — Enable the VPNv6 address-family in MP-BGP
 
 **Question:**
-Enable the `vpnv6 unicast` address-family between PE1 and PE2 so VRF IPv6 routes are exchanged as VPNv6 (labeled) routes across the IPv4 core.
+Enable the `vpnv6 unicast` address-family between E-R1 and E-R2 so VRF IPv6 routes are exchanged as VPNv6 (labeled) routes across the IPv4 core.
 
 **Solution:**
 
@@ -259,10 +259,10 @@ Notes:
 **Verification:**
 
 ```
-RP/0/RP0/CPU0:PE1# show bgp vpnv6 unicast summary
+RP/0/RP0/CPU0:E-R1# show bgp vpnv6 unicast summary
 ! Session 2.2.2.2 Established under VPNv6
 
-RP/0/RP0/CPU0:PE1# show bgp vpnv6 unicast rd 65100:100
+RP/0/RP0/CPU0:E-R1# show bgp vpnv6 unicast rd 65100:100
 ```
 
 ---
@@ -270,7 +270,7 @@ RP/0/RP0/CPU0:PE1# show bgp vpnv6 unicast rd 65100:100
 ### Task 2.3 — Configure a dual-stack VRF (IPv4 + IPv6 in the same VRF)
 
 **Question:**
-Extend VRF `GARNET` so it carries **both** IPv4 and IPv6 customer routes. Configure IPv4 and IPv6 AFs under the VRF and under BGP, and enable both VPNv4 and VPNv6 AFs to PE2.
+Extend VRF `GARNET` so it carries **both** IPv4 and IPv6 customer routes. Configure IPv4 and IPv6 AFs under the VRF and under BGP, and enable both VPNv4 and VPNv6 AFs to E-R2.
 
 **Solution:**
 
@@ -324,11 +324,11 @@ interface GigabitEthernet0/0/0/1
 **Verification:**
 
 ```
-RP/0/RP0/CPU0:PE1# show vrf GARNET detail
+RP/0/RP0/CPU0:E-R1# show vrf GARNET detail
 ! Both ipv4 and ipv6 AFs listed
 
-RP/0/RP0/CPU0:PE1# show bgp vrf GARNET ipv4 unicast
-RP/0/RP0/CPU0:PE1# show bgp vrf GARNET ipv6 unicast
+RP/0/RP0/CPU0:E-R1# show bgp vrf GARNET ipv4 unicast
+RP/0/RP0/CPU0:E-R1# show bgp vrf GARNET ipv6 unicast
 ```
 
 ---
@@ -336,7 +336,7 @@ RP/0/RP0/CPU0:PE1# show bgp vrf GARNET ipv6 unicast
 ### Task 2.4 — CE–PE IPv6 routing (eBGP or OSPFv3) and verify VPNv6 exchange
 
 **Question:**
-On PE1 configure CE–PE IPv6 routing for VRF `GARNET`. Provide both the eBGP option and the OSPFv3 option. Then verify VRF IPv6 routes are exchanged as VPNv6 between PE1 and PE2 and installed on the remote PE.
+On E-R1 configure CE–PE IPv6 routing for VRF `GARNET`. Provide both the eBGP option and the OSPFv3 option. Then verify VRF IPv6 routes are exchanged as VPNv6 between E-R1 and E-R2 and installed on the remote PE.
 
 **Solution (eBGP CE–PE):**
 
@@ -388,16 +388,16 @@ router ospfv3 1
 **Verification:**
 
 ```
-! On PE2 — confirm PE1's VRF IPv6 prefixes arrive via VPNv6 and land in the VRF RIB
-RP/0/RP0/CPU0:PE2# show bgp vpnv6 unicast rd 65100:100
-RP/0/RP0/CPU0:PE2# show bgp vrf GARNET ipv6 unicast
-RP/0/RP0/CPU0:PE2# show route vrf GARNET ipv6
+! On E-R2 — confirm E-R1's VRF IPv6 prefixes arrive via VPNv6 and land in the VRF RIB
+RP/0/RP0/CPU0:E-R2# show bgp vpnv6 unicast rd 65100:100
+RP/0/RP0/CPU0:E-R2# show bgp vrf GARNET ipv6 unicast
+RP/0/RP0/CPU0:E-R2# show route vrf GARNET ipv6
 
 ! CE-PE session state (eBGP option)
-RP/0/RP0/CPU0:PE1# show bgp vrf GARNET ipv6 unicast neighbors 2001:db8:100:11::2
+RP/0/RP0/CPU0:E-R1# show bgp vrf GARNET ipv6 unicast neighbors 2001:db8:100:11::2
 
 ! CE-PE adjacency (OSPFv3 option)
-RP/0/RP0/CPU0:PE1# show ospfv3 vrf GARNET neighbor
+RP/0/RP0/CPU0:E-R1# show ospfv3 vrf GARNET neighbor
 ```
 
 ---
@@ -452,9 +452,9 @@ Design note: A single RD identifies the VRF instance; the same RT (`65100:200`) 
 **Verification:**
 
 ```
-RP/0/RP0/CPU0:PE1# show vrf GOLD detail
-RP/0/RP0/CPU0:PE1# show bgp vrf GOLD ipv4 unicast
-RP/0/RP0/CPU0:PE1# show bgp vrf GOLD ipv6 unicast
+RP/0/RP0/CPU0:E-R1# show vrf GOLD detail
+RP/0/RP0/CPU0:E-R1# show bgp vrf GOLD ipv4 unicast
+RP/0/RP0/CPU0:E-R1# show bgp vrf GOLD ipv6 unicast
 ```
 
 ---
@@ -514,11 +514,11 @@ router bgp 65100
 **Verification:**
 
 ```
-RP/0/RP0/CPU0:PE1# show segment-routing srv6 sid
+RP/0/RP0/CPU0:E-R1# show segment-routing srv6 sid
 ! Look for a SID with function End.DT46 associated with VRF GOLD
 
-RP/0/RP0/CPU0:PE1# show segment-routing srv6 locator GOLD_LOC detail
-RP/0/RP0/CPU0:PE1# show bgp vpnv6 unicast rd 65100:200
+RP/0/RP0/CPU0:E-R1# show segment-routing srv6 locator GOLD_LOC detail
+RP/0/RP0/CPU0:E-R1# show bgp vpnv6 unicast rd 65100:200
 ! VPNv6 NLRI carries the SRv6 SID (PSID TLV) instead of an MPLS label
 ```
 
@@ -550,10 +550,10 @@ Guidance:
 
 ```
 ! Unified: single VRF shows both AFs
-RP/0/RP0/CPU0:PE1# show vrf GOLD detail
+RP/0/RP0/CPU0:E-R1# show vrf GOLD detail
 
 ! Separate: two VRFs each with one AF
-RP/0/RP0/CPU0:PE1# show vrf all detail
+RP/0/RP0/CPU0:E-R1# show vrf all detail
 ```
 
 ---
@@ -570,10 +570,10 @@ A dual-stack customer's IPv4 routes are present in VRF `GARNET` but its **IPv6 r
 **Diagnosis:**
 
 ```
-RP/0/RP0/CPU0:PE1# show vrf GARNET detail
+RP/0/RP0/CPU0:E-R1# show vrf GARNET detail
 ! Symptom: only "Address family IPv4 Unicast" listed — no IPv6 AF / no IPv6 RTs
 
-RP/0/RP0/CPU0:PE1# show bgp vrf GARNET ipv6 unicast
+RP/0/RP0/CPU0:E-R1# show bgp vrf GARNET ipv6 unicast
 ! Symptom: "% No such address family" or empty — VRF has no ipv6 AF to import into
 ```
 
@@ -603,11 +603,11 @@ router bgp 65100
 **Verification:**
 
 ```
-RP/0/RP0/CPU0:PE1# show vrf GARNET detail
+RP/0/RP0/CPU0:E-R1# show vrf GARNET detail
 ! Now shows IPv6 Unicast AF with import/export RT 65100:100
 
-RP/0/RP0/CPU0:PE1# show bgp vrf GARNET ipv6 unicast
-RP/0/RP0/CPU0:PE1# show route vrf GARNET ipv6
+RP/0/RP0/CPU0:E-R1# show bgp vrf GARNET ipv6 unicast
+RP/0/RP0/CPU0:E-R1# show route vrf GARNET ipv6
 ! Remote IPv6 prefixes now imported and installed
 ```
 
@@ -616,18 +616,18 @@ RP/0/RP0/CPU0:PE1# show route vrf GARNET ipv6
 ### Task 4.2 — 6PE label not allocated (missing IPv6 label allocation in BGP)
 
 **Question:**
-IPv6 prefixes are exchanged between PE1 and PE2 over the `ipv6 unicast` BGP session and appear in `show bgp ipv6 unicast`, but end-to-end forwarding fails and CEF shows **no label imposed** for the remote IPv6 prefix. The IPv4 LDP LSP between PEs is healthy. Identify and fix.
+IPv6 prefixes are exchanged between E-R1 and E-R2 over the `ipv6 unicast` BGP session and appear in `show bgp ipv6 unicast`, but end-to-end forwarding fails and CEF shows **no label imposed** for the remote IPv6 prefix. The IPv4 LDP LSP between PEs is healthy. Identify and fix.
 
 **Diagnosis:**
 
 ```
-RP/0/RP0/CPU0:PE1# show bgp ipv6 unicast 2001:db8:33::/64
+RP/0/RP0/CPU0:E-R1# show bgp ipv6 unicast 2001:db8:33::/64
 ! Symptom: path present but "Received Label" is absent / "no label"
 
-RP/0/RP0/CPU0:PE1# show cef ipv6 2001:db8:33::/64 detail
+RP/0/RP0/CPU0:E-R1# show cef ipv6 2001:db8:33::/64 detail
 ! Symptom: no labels imposed -> attempts native IPv6 forwarding over an IPv4 core -> fails
 
-RP/0/RP0/CPU0:PE1# show bgp ipv6 unicast neighbors 2.2.2.2 | include label
+RP/0/RP0/CPU0:E-R1# show bgp ipv6 unicast neighbors 2.2.2.2 | include label
 ! Symptom: send-label capability not negotiated
 ```
 
@@ -650,13 +650,13 @@ router bgp 65100
 **Verification:**
 
 ```
-RP/0/RP0/CPU0:PE1# show bgp ipv6 unicast neighbors 2.2.2.2 | include label
+RP/0/RP0/CPU0:E-R1# show bgp ipv6 unicast neighbors 2.2.2.2 | include label
 ! send-label capability now negotiated
 
-RP/0/RP0/CPU0:PE1# show bgp ipv6 unicast 2001:db8:33::/64
+RP/0/RP0/CPU0:E-R1# show bgp ipv6 unicast 2001:db8:33::/64
 ! Now shows "Received Label <n>" and next-hop ::ffff:2.2.2.2
 
-RP/0/RP0/CPU0:PE1# show cef ipv6 2001:db8:33::/64 detail
+RP/0/RP0/CPU0:E-R1# show cef ipv6 2001:db8:33::/64 detail
 ! Two-label stack imposed {LDP_transport_label 6PE_label}; forwarding restored
 ```
 

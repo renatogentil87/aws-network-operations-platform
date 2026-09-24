@@ -6,8 +6,8 @@
 
 ---
 
-### Task 1: Manual VPLS (LDP-signaled, PE1+PE2 full mesh)
-1. `l2vpn / bridge group / bridge-domain` with PW neighbors PE1↔PE2. VPN-ID 100.
+### Task 1: Manual VPLS (LDP-signaled, E-R1+E-R2 full mesh)
+1. `l2vpn / bridge group / bridge-domain` with PW neighbors E-R1↔E-R2. VPN-ID 100.
 2. Bind AC (CE1/CE2 facing interfaces) to bridge-domain. MAC learning.
 3. Verify: `show l2vpn bridge-domain` — PWs UP, MACs learned.
 
@@ -19,11 +19,11 @@
 2. PEs discover each other via BGP. No manual neighbor config.
 
 ### Task 4: H-VPLS
-1. PE1 = hub (N-PE), PE2 = spoke (U-PE). Spoke only peers with hub. Hub does full mesh.
+1. E-R1 = hub (N-PE), E-R2 = spoke (U-PE). Spoke only peers with hub. Hub does full mesh.
 
 ## Checklist
 ```
 [ ] Manual VPLS (full mesh PWs, MAC learning, split-horizon)
 [ ] BGP VPLS auto-discovery
-[ ] H-VPLS (hub PE1, spoke PE2)
+[ ] H-VPLS (hub E-R1, spoke E-R2)
 ```

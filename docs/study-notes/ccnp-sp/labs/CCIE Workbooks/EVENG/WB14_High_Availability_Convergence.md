@@ -17,7 +17,7 @@
 ### Task 1.1 — NSF, NSR, and Graceful Restart: configure and distinguish
 
 **Question**
-On PE1 (dual-RP), enable **NSR** for IS-IS, OSPF, LDP, and BGP so that an RP switchover is invisible to neighbors *without* relying on them. Then, for the case where NSR is not available on a protocol/peer, enable **Graceful Restart (NSF)**. Explain precisely how NSF, NSR, GR, and SSO relate.
+On E-R1 (dual-RP), enable **NSR** for IS-IS, OSPF, LDP, and BGP so that an RP switchover is invisible to neighbors *without* relying on them. Then, for the case where NSR is not available on a protocol/peer, enable **Graceful Restart (NSF)**. Explain precisely how NSF, NSR, GR, and SSO relate.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -25,7 +25,7 @@ On PE1 (dual-RP), enable **NSR** for IS-IS, OSPF, LDP, and BGP so that an RP swi
 ### Task 1.2 — Trigger an RP switchover and prove data-plane continuity
 
 **Question**
-Start continuous CE-to-CE traffic through PE1. Force an RP switchover (`redundancy switchover`). Prove there is **zero (or near-zero) traffic loss** and that neighbors did **not** reset the adjacency.
+Start continuous CE-to-CE traffic through E-R1. Force an RP switchover (`redundancy switchover`). Prove there is **zero (or near-zero) traffic loss** and that neighbors did **not** reset the adjacency.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -103,7 +103,7 @@ Under repeated LDP setup failures (e.g., a misconfigured/label-conflicting neigh
 ### Task 4.1 — BGP PIC Edge (prefix-independent convergence)
 
 **Question**
-On PE3 (Garnet), a VPNv4/eBGP prefix has a primary and a backup path. Configure **BGP PIC Edge** so that on primary-path failure, convergence is a **single FIB pointer swap** independent of the number of prefixes.
+On Gar-R1 (Garnet), a VPNv4/eBGP prefix has a primary and a backup path. Configure **BGP PIC Edge** so that on primary-path failure, convergence is a **single FIB pointer swap** independent of the number of prefixes.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -137,7 +137,7 @@ On a PE that has both an **external (eBGP)** path and an **internal (iBGP via RR
 ### Task 5.1 — RSVP-TE Fast Reroute (link/node protection)
 
 **Question**
-On the Emerald core between P1 and P2, build a primary RSVP-TE tunnel and a **pre-signaled backup tunnel**; enable **FRR** so a protected link failure switches to the backup in <50 ms.
+On the Emerald core between E-R3 and E-R4, build a primary RSVP-TE tunnel and a **pre-signaled backup tunnel**; enable **FRR** so a protected link failure switches to the backup in <50 ms.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -153,7 +153,7 @@ On the same failure scenario, use **TI-LFA** (SR/IGP-computed) instead of RSVP-F
 ### Task 5.3 — Same failure, measure and compare
 
 **Question**
-Run **identical** continuous CE-to-CE traffic through the protected P1-P2 link. Fail the link once under RSVP-FRR and once under TI-LFA. Compare **convergence (packet loss)** and **state/operational cost**.
+Run **identical** continuous CE-to-CE traffic through the protected E-R3-P2 link. Fail the link once under RSVP-FRR and once under TI-LFA. Compare **convergence (packet loss)** and **state/operational cost**.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*

@@ -15,24 +15,24 @@ Three service providers, each an autonomous system, interconnected at their ASBR
 
 ```
         EMERALD  AS 65100                    GOLD  AS 65300                    GARNET  AS 65200
-   RR = PCE1 (6.6.6.6)                 RR = ASBR3 (21.21.21.21)           RR = PCE (17.17.17.17)
+   RR = E-R5 (6.6.6.6)                 RR = G-R4 (24.24.24.24)           RR = Gar-R6 (16.16.16.16)
 
-   PE1 1.1.1.1                          ASBR3 21.21.21.21 (RR)             PE3 11.11.11.11
-   PE2 2.2.2.2                          ASBR4 22.22.22.22                  PE4 12.12.12.12
-   P1, P2                               P6                                 P3, P4, P5
-   ASBR1 5.5.5.5                        PE5 24.24.24.24                    ASBR2 16.16.16.16
-   PCE1 6.6.6.6 (RR)                    PE6 25.25.25.25
+   E-R1 1.1.1.1                          G-R4 24.24.24.24 (RR)             Gar-R1 11.11.11.11
+   E-R2 2.2.2.2                          G-R5 25.25.25.25                  Gar-R2 12.12.12.12
+   E-R3, E-R4                               G-R3                                 Gar-R3, Gar-R4, Gar-R5
+   E-R6 5.5.5.5                        G-R1 21.21.21.21                    Gar-R7 17.17.17.17
+   E-R5 6.6.6.6 (RR)                    G-R2 22.22.22.22
 
-                        ASBR1 ══════════════ ASBR3        (Emerald ↔ Gold,   eBGP)
-                        ASBR1 ══════════════ ASBR2        (Emerald ↔ Garnet, eBGP, direct)
-                        ASBR4 ══════════════ ASBR2        (Gold   ↔ Garnet,  eBGP)
+                        E-R6 ══════════════ G-R4        (Emerald ↔ Gold,   eBGP)
+                        E-R6 ══════════════ Gar-R7        (Emerald ↔ Garnet, eBGP, direct)
+                        G-R5 ══════════════ Gar-R7        (Gold   ↔ Garnet,  eBGP)
 ```
 
 | SP | AS | RR | PEs | ASBRs |
 |----|----|----|-----|-------|
-| Emerald | 65100 | PCE1 (6.6.6.6) | PE1 (1.1.1.1), PE2 (2.2.2.2) | ASBR1 (5.5.5.5) |
-| Gold | 65300 | ASBR3 (21.21.21.21) | PE5 (24.24.24.24), PE6 (25.25.25.25) | ASBR3 (21.21.21.21), ASBR4 (22.22.22.22) |
-| Garnet | 65200 | PCE (17.17.17.17) | PE3 (11.11.11.11), PE4 (12.12.12.12) | ASBR2 (16.16.16.16) |
+| Emerald | 65100 | E-R5 (6.6.6.6) | E-R1 (1.1.1.1), E-R2 (2.2.2.2) | E-R6 (5.5.5.5) |
+| Gold | 65300 | G-R4 (24.24.24.24) | G-R1 (21.21.21.21), G-R2 (22.22.22.22) | G-R4 (24.24.24.24), G-R5 (25.25.25.25) |
+| Garnet | 65200 | Gar-R6 (16.16.16.16) | Gar-R1 (11.11.11.11), Gar-R2 (12.12.12.12) | Gar-R7 (17.17.17.17) |
 
 **Customers:** A (AS 65012) = Emerald + Gold; B (AS 65013) = Gold + Garnet; C (EVPN) = Gold + Garnet.
 
@@ -40,16 +40,16 @@ Three service providers, each an autonomous system, interconnected at their ASBR
 
 | Link | Left | Right |
 |------|------|-------|
-| ASBR1 ↔ ASBR2 | 10.0.12.5/30 | 10.0.12.6/30 |
-| ASBR1 ↔ ASBR3 | 10.0.13.5/30 | 10.0.13.21/30 |
-| ASBR4 ↔ ASBR2 | 10.0.42.22/30 | 10.0.42.16/30 |
+| E-R6 ↔ Gar-R7 | 10.0.12.5/30 | 10.0.12.6/30 |
+| E-R6 ↔ G-R4 | 10.0.13.5/30 | 10.0.13.21/30 |
+| G-R5 ↔ Gar-R7 | 10.0.42.22/30 | 10.0.42.16/30 |
 
 ---
 
 ## Section 1 — iBGP + Route Reflectors
 
 ### Task 1.1
-- Design the iBGP mesh for **Emerald** as a route-reflector topology: **PCE1 (6.6.6.6)** is the RR; PE1, PE2, and ASBR1 are RR clients.
+- Design the iBGP mesh for **Emerald** as a route-reflector topology: **E-R5 (6.6.6.6)** is the RR; E-R1, E-R2, and E-R6 are RR clients.
 - All iBGP sessions peer on **Loopback0** with **update-source Loopback0**.
 
 **Solution**
@@ -57,7 +57,7 @@ Three service providers, each an autonomous system, interconnected at their ASBR
 iBGP requires a full mesh (n·(n-1)/2 sessions) because iBGP-learned routes are not re-advertised to other iBGP peers (loop prevention). A **Route Reflector** breaks that rule: the RR *reflects* routes between clients, collapsing the mesh to a hub-and-spoke and scaling O(n). Peering on **Loopback0** decouples the session from any single physical link — the IGP provides multiple paths to the loopback, so a link failure doesn't drop the BGP session. `update-source Loopback0` forces the TCP source to match the loopback the neighbor expects.
 
 ```
-! ===== PCE1 (Emerald RR, 6.6.6.6) =====
+! ===== E-R5 (Emerald RR, 6.6.6.6) =====
 router bgp 65100
  bgp router-id 6.6.6.6
  address-family ipv4 unicast
@@ -80,7 +80,7 @@ router bgp 65100
  !
 !
 
-! ===== PE1 (RR client, 1.1.1.1) — representative client =====
+! ===== E-R1 (RR client, 1.1.1.1) — representative client =====
 router bgp 65100
  bgp router-id 1.1.1.1
  neighbor 6.6.6.6
@@ -93,21 +93,21 @@ router bgp 65100
 ```
 
 **Verification**
-- `show bgp ipv4 unicast summary` on PCE1 — 3 neighbors (1.1.1.1, 2.2.2.2, 5.5.5.5) in `Established`.
-- `show bgp neighbor 6.6.6.6 | i Route-Reflector` on PE1 — session up; on PCE1 the client shows `Route-Reflector Client: TRUE`.
+- `show bgp ipv4 unicast summary` on E-R5 — 3 neighbors (1.1.1.1, 2.2.2.2, 5.5.5.5) in `Established`.
+- `show bgp neighbor 6.6.6.6 | i Route-Reflector` on E-R1 — session up; on E-R5 the client shows `Route-Reflector Client: TRUE`.
 - `show tcp brief | i :179` — TCP source/dest addresses are the Loopback0 /32s.
 
 ### Task 1.2
-- Repeat the RR design for **Gold** (RR = **ASBR3 21.21.21.21**; clients ASBR4, PE5, PE6, P6) and **Garnet** (RR = **PCE 17.17.17.17**; clients PE3, PE4, ASBR2).
+- Repeat the RR design for **Gold** (RR = **G-R4 24.24.24.24**; clients G-R5, G-R1, G-R2, G-R3) and **Garnet** (RR = **Gar-R6 16.16.16.16**; clients Gar-R1, Gar-R2, Gar-R7).
 
 **Solution**
 
-Each AS runs its own independent RR cluster. Gold uses its ASBR as the RR (a common design where the border node doubles as the reflector); Garnet uses a dedicated PCE. The pattern is identical — the RR is the hub, every other iBGP speaker is a client. Keeping the RR on Loopback0 with `update-source` is mandatory in all three.
+Each AS runs its own independent RR cluster. Gold uses its ASBR as the RR (a common design where the border node doubles as the reflector); Garnet uses a dedicated Gar-R6. The pattern is identical — the RR is the hub, every other iBGP speaker is a client. Keeping the RR on Loopback0 with `update-source` is mandatory in all three.
 
 ```
-! ===== ASBR3 (Gold RR, 21.21.21.21) =====
+! ===== G-R4 (Gold RR, 24.24.24.24) =====
 router bgp 65300
- bgp router-id 21.21.21.21
+ bgp router-id 24.24.24.24
  neighbor-group GOLD-CLIENTS
   remote-as 65300
   update-source Loopback0
@@ -115,17 +115,17 @@ router bgp 65300
    route-reflector-client
   !
  !
- neighbor 22.22.22.22
-  use neighbor-group GOLD-CLIENTS
- neighbor 24.24.24.24
-  use neighbor-group GOLD-CLIENTS
  neighbor 25.25.25.25
+  use neighbor-group GOLD-CLIENTS
+ neighbor 21.21.21.21
+  use neighbor-group GOLD-CLIENTS
+ neighbor 22.22.22.22
   use neighbor-group GOLD-CLIENTS
 !
 
-! ===== PCE (Garnet RR, 17.17.17.17) =====
+! ===== Gar-R6 (Garnet RR, 16.16.16.16) =====
 router bgp 65200
- bgp router-id 17.17.17.17
+ bgp router-id 16.16.16.16
  neighbor-group GARNET-CLIENTS
   remote-as 65200
   update-source Loopback0
@@ -137,7 +137,7 @@ router bgp 65200
   use neighbor-group GARNET-CLIENTS
  neighbor 12.12.12.12
   use neighbor-group GARNET-CLIENTS
- neighbor 16.16.16.16
+ neighbor 17.17.17.17
   use neighbor-group GARNET-CLIENTS
 !
 ```
@@ -155,7 +155,7 @@ router bgp 65200
 A pure RR imports no VRFs, so by default it would **drop** VPNv4 routes whose RTs it doesn't import — breaking reflection. `retain route-target all` tells the RR to keep every VPNv4 route regardless of RT so it can reflect them. The `route-reflector-client` flag must be set **per address family**: reflecting IPv4 does not reflect VPNv4 unless you say so explicitly. This is the single most common "VPNv4 not reflected" bug (see Section 5, Task 5.3).
 
 ```
-! ===== PCE1 (Emerald RR) — add VPNv4 =====
+! ===== E-R5 (Emerald RR) — add VPNv4 =====
 router bgp 65100
  address-family vpnv4 unicast
   retain route-target all
@@ -167,7 +167,7 @@ router bgp 65100
  !
 !
 
-! ===== PE1 (client) — add VPNv4 =====
+! ===== E-R1 (client) — add VPNv4 =====
 router bgp 65100
  address-family vpnv4 unicast
  !
@@ -185,7 +185,7 @@ router bgp 65100
 
 ### Task 1.4
 - Set a **cluster-id** on each RR so a future second RR in the same cluster shares it (cluster-list loop prevention).
-- Emerald cluster-id `6.6.6.6`; Gold `21.21.21.21`; Garnet `17.17.17.17`.
+- Emerald cluster-id `6.6.6.6`; Gold `24.24.24.24`; Garnet `16.16.16.16`.
 
 **Solution**
 
@@ -196,10 +196,10 @@ router bgp 65100
  bgp cluster-id 6.6.6.6
 !
 router bgp 65300
- bgp cluster-id 21.21.21.21
+ bgp cluster-id 24.24.24.24
 !
 router bgp 65200
- bgp cluster-id 17.17.17.17
+ bgp cluster-id 16.16.16.16
 !
 ```
 
@@ -216,7 +216,7 @@ router bgp 65200
 An eBGP-learned route carries the *external* peer's address as next-hop. Advertised into iBGP unchanged, interior routers would need that external subnet in their IGP — which they don't have, so the route is unusable (`next-hop unreachable`, see Section 5 Task 5.2). **next-hop-self** rewrites the next-hop to the advertising router's Loopback0, which the IGP *does* carry, so every iBGP speaker can recurse to it over MPLS. For VPNv4 this is what makes the label-switched path terminate on the correct egress PE.
 
 ```
-! ===== ASBR1 (Emerald) — rewrite eBGP next-hops into iBGP =====
+! ===== E-R6 (Emerald) — rewrite eBGP next-hops into iBGP =====
 router bgp 65100
  neighbor 6.6.6.6
   address-family ipv4 unicast
@@ -241,18 +241,18 @@ router bgp 65100
 ## Section 2 — eBGP Inter-AS
 
 ### Task 2.1
-- Configure **direct eBGP** on the ASBR1 ↔ ASBR2 link (Emerald AS 65100 ↔ Garnet AS 65200) peering on the **directly-connected interface addresses**.
+- Configure **direct eBGP** on the E-R6 ↔ Gar-R7 link (Emerald AS 65100 ↔ Garnet AS 65200) peering on the **directly-connected interface addresses**.
 
 **Solution**
 
 eBGP defaults to **TTL=1** and peers on the connected interface — no update-source, no multihop. This is the classic Inter-AS Option A/B border session. Peering on the interface (not loopback) keeps TTL=1 and gives immediate transport failure detection when the link drops.
 
 ```
-! ===== ASBR1 (Emerald, 5.5.5.5) =====
+! ===== E-R6 (Emerald, 5.5.5.5) =====
 router bgp 65100
  neighbor 10.0.12.6
   remote-as 65200
-  description eBGP to ASBR2 (Garnet)
+  description eBGP to Gar-R7 (Garnet)
   address-family ipv4 unicast
    route-policy PASS-ALL in
    route-policy PASS-ALL out
@@ -264,11 +264,11 @@ route-policy PASS-ALL
 end-policy
 !
 
-! ===== ASBR2 (Garnet, 16.16.16.16) =====
+! ===== Gar-R7 (Garnet, 17.17.17.17) =====
 router bgp 65200
  neighbor 10.0.12.5
   remote-as 65100
-  description eBGP to ASBR1 (Emerald)
+  description eBGP to E-R6 (Emerald)
   address-family ipv4 unicast
    route-policy PASS-ALL in
    route-policy PASS-ALL out
@@ -284,18 +284,18 @@ router bgp 65200
 - `show bgp neighbor 10.0.12.6 | i Connections|Multihop` — single-hop, TTL 1.
 
 ### Task 2.2
-- Configure **eBGP ASBR1 ↔ ASBR3** (Emerald AS 65100 ↔ Gold AS 65300) and **ASBR4 ↔ ASBR2** (Gold AS 65300 ↔ Garnet AS 65200), both directly connected.
+- Configure **eBGP E-R6 ↔ G-R4** (Emerald AS 65100 ↔ Gold AS 65300) and **G-R5 ↔ Gar-R7** (Gold AS 65300 ↔ Garnet AS 65200), both directly connected.
 
 **Solution**
 
 Same single-hop eBGP pattern, completing the triangle so every AS has two inter-AS neighbors and thus a direct path plus a transit path to any other AS. This redundancy is what Section 3's path manipulation engineers (prefer the Gold transit vs. the direct link).
 
 ```
-! ===== ASBR1 (Emerald) → ASBR3 (Gold) =====
+! ===== E-R6 (Emerald) → G-R4 (Gold) =====
 router bgp 65100
  neighbor 10.0.13.21
   remote-as 65300
-  description eBGP to ASBR3 (Gold)
+  description eBGP to G-R4 (Gold)
   address-family ipv4 unicast
    route-policy PASS-ALL in
    route-policy PASS-ALL out
@@ -303,11 +303,11 @@ router bgp 65100
  !
 !
 
-! ===== ASBR4 (Gold, 22.22.22.22) → ASBR2 (Garnet) =====
+! ===== G-R5 (Gold, 25.25.25.25) → Gar-R7 (Garnet) =====
 router bgp 65300
  neighbor 10.0.42.16
   remote-as 65200
-  description eBGP to ASBR2 (Garnet)
+  description eBGP to Gar-R7 (Garnet)
   address-family ipv4 unicast
    route-policy PASS-ALL in
    route-policy PASS-ALL out
@@ -317,11 +317,11 @@ router bgp 65300
 ```
 
 **Verification**
-- `show bgp ipv4 unicast summary` on ASBR1, ASBR3, ASBR4, ASBR2 — all inter-AS sessions `Established`.
+- `show bgp ipv4 unicast summary` on E-R6, G-R4, G-R5, Gar-R7 — all inter-AS sessions `Established`.
 - `show bgp ipv4 unicast <remote-loopback>` — reachable via two different AS-paths (direct vs. transit).
 
 ### Task 2.3
-- Build **multihop eBGP for VPNv4 between the RRs** (Inter-AS Option C-style): PCE1 (Emerald RR, 6.6.6.6) ↔ ASBR3 (Gold RR, 21.21.21.21), peering **loopback-to-loopback** across the AS boundary, exchanging **labeled VPNv4** without importing VRFs on the ASBRs.
+- Build **multihop eBGP for VPNv4 between the RRs** (Inter-AS Option C-style): E-R5 (Emerald RR, 6.6.6.6) ↔ G-R4 (Gold RR, 24.24.24.24), peering **loopback-to-loopback** across the AS boundary, exchanging **labeled VPNv4** without importing VRFs on the ASBRs.
 
 **Solution**
 
@@ -329,7 +329,7 @@ Inter-AS **Option C** keeps VPNv4 off the ASBRs entirely: ASBRs exchange only **
 
 ```
 ! ===== Prereq: ASBRs advertise labeled loopbacks (BGP-LU) so RR loopbacks are reachable inter-AS =====
-! ===== ASBR1 (Emerald) — send labeled IPv4 for loopbacks to ASBR3 =====
+! ===== E-R6 (Emerald) — send labeled IPv4 for loopbacks to G-R4 =====
 router bgp 65100
  neighbor 10.0.13.21
   remote-as 65300
@@ -344,11 +344,11 @@ router bgp 65100
  !
 !
 
-! ===== PCE1 (Emerald RR, 6.6.6.6) — multihop eBGP VPNv4 to Gold RR =====
+! ===== E-R5 (Emerald RR, 6.6.6.6) — multihop eBGP VPNv4 to Gold RR =====
 router bgp 65100
- neighbor 21.21.21.21
+ neighbor 24.24.24.24
   remote-as 65300
-  description Multihop eBGP VPNv4 to Gold RR (ASBR3)
+  description Multihop eBGP VPNv4 to Gold RR (G-R4)
   ebgp-multihop 255
   update-source Loopback0
   address-family vpnv4 unicast
@@ -359,11 +359,11 @@ router bgp 65100
  !
 !
 
-! ===== ASBR3 (Gold RR, 21.21.21.21) — mirror =====
+! ===== G-R4 (Gold RR, 24.24.24.24) — mirror =====
 router bgp 65300
  neighbor 6.6.6.6
   remote-as 65100
-  description Multihop eBGP VPNv4 to Emerald RR (PCE1)
+  description Multihop eBGP VPNv4 to Emerald RR (E-R5)
   ebgp-multihop 255
   update-source Loopback0
   address-family vpnv4 unicast
@@ -378,9 +378,9 @@ router bgp 65300
 > `next-hop-unchanged` preserves the originating PE's next-hop across the eBGP boundary (Option C requirement) so the inter-AS LSP terminates on the true egress PE. This depends on the labeled-loopback reachability from the prereq.
 
 **Verification**
-- `show bgp vpnv4 unicast summary` on PCE1 — neighbor 21.21.21.21 `Established` (eBGP, VPNv4).
-- `show bgp ipv4 labeled-unicast 21.21.21.21/32` on ASBR1 — Gold RR loopback learned with a label.
-- `show bgp vpnv4 unicast rd <gold-rd> <prefix> detail` on PCE1 — next-hop = originating Gold PE loopback (unchanged).
+- `show bgp vpnv4 unicast summary` on E-R5 — neighbor 24.24.24.24 `Established` (eBGP, VPNv4).
+- `show bgp ipv4 labeled-unicast 24.24.24.24/32` on E-R6 — Gold RR loopback learned with a label.
+- `show bgp vpnv4 unicast rd <gold-rd> <prefix> detail` on E-R5 — next-hop = originating Gold PE loopback (unchanged).
 - End-to-end `traceroute` in a shared VRF crosses both ASes over MPLS.
 
 ### Task 2.4
@@ -391,21 +391,21 @@ router bgp 65300
 `ebgp-multihop N` only widens the accepted TTL range — it does nothing to *authenticate* the hop distance and can be spoofed. **TTL security (GTSM, RFC 5082)** flips the check: it sends packets with TTL=255 and accepts only packets arriving with TTL ≥ (255 − hops). A spoofed packet from far away arrives with a lower TTL and is dropped in hardware. For a known-distance multihop peer this is both a security control and a cheap DoS filter. Note GTSM and `ebgp-multihop` are mutually exclusive on the same neighbor — GTSM implies multihop.
 
 ```
-! ===== PCE1 — replace ebgp-multihop with ttl-security =====
+! ===== E-R5 — replace ebgp-multihop with ttl-security =====
 router bgp 65100
- neighbor 21.21.21.21
+ neighbor 24.24.24.24
   no ebgp-multihop 255
   ttl-security
   address-family vpnv4 unicast
   !
  !
 !
-! Mirror on ASBR3. Ensure the actual hop count ≤ the GTSM window;
+! Mirror on G-R4. Ensure the actual hop count ≤ the GTSM window;
 ! XR auto-derives the accepted min TTL from the session.
 ```
 
 **Verification**
-- `show bgp neighbor 21.21.21.21 | i TTL` — `External BGP neighbor with TTL security` (GTSM enabled).
+- `show bgp neighbor 24.24.24.24 | i TTL` — `External BGP neighbor with TTL security` (GTSM enabled).
 - Session stays `Established`; a source more hops away than the window cannot bring up a spoofed session.
 
 ### Task 2.5
@@ -423,7 +423,7 @@ Use **ebgp-multihop** when the peer is legitimately more than one hop away and y
 ## Section 3 — BGP Path Manipulation
 
 ### Task 3.1
-- Engineer Emerald to **prefer the Gold transit path** (via ASBR3) over the **direct** ASBR1↔ASBR2 path for reaching Garnet's prefixes, using **LOCAL_PREF**.
+- Engineer Emerald to **prefer the Gold transit path** (via G-R4) over the **direct** E-R6↔Gar-R7 path for reaching Garnet's prefixes, using **LOCAL_PREF**.
 
 **Solution**
 
@@ -440,12 +440,12 @@ route-policy GARNET-VIA-GOLD-IN
 end-policy
 !
 router bgp 65100
- neighbor 10.0.13.21          ! ASBR1 → ASBR3 (Gold)
+ neighbor 10.0.13.21          ! E-R6 → G-R4 (Gold)
   address-family ipv4 unicast
    route-policy GARNET-VIA-GOLD-IN in
   !
  !
- neighbor 10.0.12.6           ! ASBR1 → ASBR2 (direct Garnet) — leave default 100
+ neighbor 10.0.12.6           ! E-R6 → Gar-R7 (direct Garnet) — leave default 100
   address-family ipv4 unicast
    route-policy PASS-ALL in
   !
@@ -455,10 +455,10 @@ router bgp 65100
 
 **Verification**
 - `show bgp ipv4 unicast <garnet-prefix>` on any Emerald router — best path has `localpref 200`, next-hop toward Gold; AS-path is the longer `65300 65200`.
-- `traceroute <garnet-host>` egresses via ASBR3 (Gold), not the direct link.
+- `traceroute <garnet-host>` egresses via G-R4 (Gold), not the direct link.
 
 ### Task 3.2
-- Make the **direct** ASBR1↔ASBR2 link *less preferred inbound* (so Garnet reaches Emerald via Gold) using **AS-PATH prepend** outbound on the direct link.
+- Make the **direct** E-R6↔Gar-R7 link *less preferred inbound* (so Garnet reaches Emerald via Gold) using **AS-PATH prepend** outbound on the direct link.
 
 **Solution**
 
@@ -471,7 +471,7 @@ route-policy PREPEND-DIRECT-OUT
 end-policy
 !
 router bgp 65100
- neighbor 10.0.12.6           ! ASBR1 → ASBR2 direct
+ neighbor 10.0.12.6           ! E-R6 → Gar-R7 direct
   address-family ipv4 unicast
    route-policy PREPEND-DIRECT-OUT out
   !
@@ -480,8 +480,8 @@ router bgp 65100
 ```
 
 **Verification**
-- On ASBR2 (Garnet): `show bgp ipv4 unicast <emerald-prefix>` — direct path AS-path `65100 65100 65100 65100`, Gold path `65300 65100`; best-path = Gold (shorter).
-- Return traffic from Garnet enters Emerald via ASBR3/Gold.
+- On Gar-R7 (Garnet): `show bgp ipv4 unicast <emerald-prefix>` — direct path AS-path `65100 65100 65100 65100`, Gold path `65300 65100`; best-path = Gold (shorter).
+- Return traffic from Garnet enters Emerald via G-R4/Gold.
 
 ### Task 3.3
 - Use **MED** to influence **inbound** traffic across the two links to a *single* neighboring AS (Gold), steering Gold to prefer one Emerald entry point.
@@ -627,7 +627,7 @@ router bgp 65100
 ## Section 4 — BGP Advanced Features
 
 ### Task 4.1
-- Enable **BGP Add-Path** on the Emerald RR (PCE1) so it advertises **best + additional paths** for a multi-homed prefix, restoring path diversity to the clients.
+- Enable **BGP Add-Path** on the Emerald RR (E-R5) so it advertises **best + additional paths** for a multi-homed prefix, restoring path diversity to the clients.
 
 **Solution**
 
@@ -692,7 +692,7 @@ route-policy SET-AIGP
 end-policy
 !
 router bgp 65100
- neighbor 21.21.21.21           ! multihop RR session to Gold
+ neighbor 24.24.24.24           ! multihop RR session to Gold
   address-family vpnv4 unicast
    aigp
    route-policy SET-AIGP in
@@ -716,7 +716,7 @@ By default an RR with `retain route-target all` receives *every* VPNv4 route —
 router bgp 65100
  address-family ipv4 rt-filter
  !
- neighbor 21.21.21.21           ! RR-to-RR
+ neighbor 24.24.24.24           ! RR-to-RR
   address-family ipv4 rt-filter
   !
  !
@@ -733,7 +733,7 @@ router bgp 65100
 - On the RR: VPNv4 table now holds only routes with RTs some client imports (compare table size before/after).
 
 ### Task 4.5
-- Configure **conditional route advertisement** on ASBR1: advertise a backup aggregate to Garnet **only if** the primary Gold-transit path is *not* present (advertise-map / non-exist-map behavior).
+- Configure **conditional route advertisement** on E-R6: advertise a backup aggregate to Garnet **only if** the primary Gold-transit path is *not* present (advertise-map / non-exist-map behavior).
 
 **Solution**
 
@@ -765,7 +765,7 @@ route-policy TRACK-PRIMARY
 end-policy
 !
 router bgp 65100
- neighbor 10.0.12.6            ! ASBR1 → ASBR2 (Garnet)
+ neighbor 10.0.12.6            ! E-R6 → Gar-R7 (Garnet)
   address-family ipv4 unicast
    advertise conditional route-policy ADV-BACKUP non-exist-map TRACK-PRIMARY
   !
@@ -882,7 +882,7 @@ router bgp <asn>
 ## CCIE Challenge Tasks
 
 ### Challenge A — Full 3-AS VPN reachability
-- Bring up Customer B (AS 65013, spanning Gold + Garnet) end-to-end across the ASBR4↔ASBR2 Option-C path; prove CE-to-CE reachability over two AS boundaries with a single VPNv4 label stack.
+- Bring up Customer B (AS 65013, spanning Gold + Garnet) end-to-end across the G-R5↔Gar-R7 Option-C path; prove CE-to-CE reachability over two AS boundaries with a single VPNv4 label stack.
 
 ### Challenge B — Deterministic failover
 - Combine Add-Path + PIC-Edge + Best-External so a multi-homed Customer A prefix (Emerald + Gold) fails over in <1s on egress-PE loss; measure packet loss with continuous traffic.

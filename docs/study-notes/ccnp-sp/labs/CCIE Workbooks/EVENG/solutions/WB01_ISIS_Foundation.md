@@ -15,77 +15,77 @@
 
 NET-ID format: `49.<area>.<system-id>.00`. The **system-id** is derived from the Loopback0 IPv4 address by padding each octet to 3 digits and regrouping into three 4-hex-digit blocks (the classic "IP-to-NET" method).
 
-Example — PE1 Loopback0 `1.1.1.1` → `001.001.001.001` → `0010.0100.1001`.
+Example — E-R1 Loopback0 `1.1.1.1` → `001.001.001.001` → `0010.0100.1001`.
 
 | SP (area) | Node | Role | Loopback0 | Derived NET-ID |
 |-----------|------|------|-----------|----------------|
-| **Emerald** 49.0001 | PE1 | PE | 1.1.1.1 | `49.0001.0010.0100.1001.00` |
-| | PE2 | PE | 2.2.2.2 | `49.0001.0020.0200.2002.00` |
-| | P1 | P | 3.3.3.3 | `49.0001.0030.0300.3003.00` |
-| | P2 | P | 4.4.4.4 | `49.0001.0040.0400.4004.00` |
-| | ASBR1 | ASBR | 5.5.5.5 | `49.0001.0050.0500.5005.00` |
-| | PCE1 | RR+PCE | 6.6.6.6 | `49.0001.0060.0600.6006.00` |
-| **Garnet** 49.0002 | PE3 | PE | 11.11.11.11 | `49.0002.0110.1101.1011.00` |
-| | PE4 | PE | 12.12.12.12 | `49.0002.0120.1201.2012.00` |
-| | P3 | P | 13.13.13.13 | `49.0002.0130.1301.3013.00` |
-| | P4 | P | 14.14.14.14 | `49.0002.0140.1401.4014.00` |
-| | P5 | P | 15.15.15.15 | `49.0002.0150.1501.5015.00` |
-| | ASBR2 | ASBR | 16.16.16.16 | `49.0002.0160.1601.6016.00` |
-| | PCE | RR+PCE | 17.17.17.17 | `49.0002.0170.1701.7017.00` |
-| **Gold** 49.0003 | ASBR3 | ASBR+RR+PCE | 21.21.21.21 | `49.0003.0210.2102.1021.00` |
-| | ASBR4 | ASBR | 22.22.22.22 | `49.0003.0220.2202.2022.00` |
-| | P6 | P | 23.23.23.23 | `49.0003.0230.2302.3023.00` |
-| | PE5 | PE | 24.24.24.24 | `49.0003.0240.2402.4024.00` |
-| | PE6 | PE | 25.25.25.25 | `49.0003.0250.2502.5025.00` |
+| **Emerald** 49.0001 | E-R1 | PE | 1.1.1.1 | `49.0001.0010.0100.1001.00` |
+| | E-R2 | PE | 2.2.2.2 | `49.0001.0020.0200.2002.00` |
+| | E-R3 | P | 3.3.3.3 | `49.0001.0030.0300.3003.00` |
+| | E-R4 | P | 4.4.4.4 | `49.0001.0040.0400.4004.00` |
+| | E-R6 | ASBR | 5.5.5.5 | `49.0001.0050.0500.5005.00` |
+| | E-R5 | RR+Gar-R6 | 6.6.6.6 | `49.0001.0060.0600.6006.00` |
+| **Garnet** 49.0002 | Gar-R1 | PE | 11.11.11.11 | `49.0002.0110.1101.1011.00` |
+| | Gar-R2 | PE | 12.12.12.12 | `49.0002.0120.1201.2012.00` |
+| | Gar-R3 | P | 13.13.13.13 | `49.0002.0130.1301.3013.00` |
+| | Gar-R4 | P | 14.14.14.14 | `49.0002.0140.1401.4014.00` |
+| | Gar-R5 | P | 15.15.15.15 | `49.0002.0150.1501.5015.00` |
+| | Gar-R7 | ASBR | 17.17.17.17 | `49.0002.0160.1601.6016.00` |
+| | Gar-R6 | RR+Gar-R6 | 16.16.16.16 | `49.0002.0170.1701.7017.00` |
+| **Gold** 49.0003 | G-R4 | ASBR+RR+Gar-R6 | 24.24.24.24 | `49.0003.0210.2102.1021.00` |
+| | G-R5 | ASBR | 25.25.25.25 | `49.0003.0220.2202.2022.00` |
+| | G-R3 | P | 23.23.23.23 | `49.0003.0230.2302.3023.00` |
+| | G-R1 | PE | 21.21.21.21 | `49.0003.0240.2402.4024.00` |
+| | G-R2 | PE | 22.22.22.22 | `49.0003.0250.2502.5025.00` |
 
 ### Per-router core (IS-IS) interfaces — from the link map
 
 | SP | Node | Core Gi interfaces (run IS-IS) | Non-core (NO IS-IS) |
 |----|------|--------------------------------|---------------------|
-| Emerald | PE1 | Gi0/0/0/2 (→P1), Gi0/0/0/3 (→PE2) | Gi0/0/0/0 (CE1), Gi0/0/0/1 (CE2) |
-| Emerald | PE2 | Gi0/0/0/0 (→P1), Gi0/0/0/3 (→PE1) | Gi0/0/0/1 (CE2), Gi0/0/0/2 (CE3) |
-| Emerald | P1 | Gi0/0/0/0 (→PE2), Gi0/0/0/1 (→P2), Gi0/0/0/2 (→PE1) | — |
-| Emerald | P2 | Gi0/0/0/1 (→P1), Gi0/0/0/2 (→ASBR1), Gi0/0/0/3 (→PCE1) | — |
-| Emerald | ASBR1 | Gi0/0/0/2 (→P2) | Gi0/0/0/1 (inter-AS Garnet), Gi0/0/0/3 (inter-AS Gold) |
-| Emerald | PCE1 | Gi0/0/0/3 (→P2) | — |
-| Garnet | PE3 | Gi0/0/0/1 (→P4), Gi0/0/0/3 (→PE4) | Gi0/0/0/2 (CE4), Gi0/0/0/0 (CE5) |
-| Garnet | PE4 | Gi0/0/0/2 (→P5), Gi0/0/0/3 (→PE3) | Gi0/0/0/1 (CE5), Gi0/0/0/0 (CE6) |
-| Garnet | P3 | Gi0/0/0/0 (→P4), Gi0/0/0/1 (→P5), Gi0/0/0/2 (→ASBR2), Gi0/0/0/3 (→PCE) | — |
-| Garnet | P4 | Gi0/0/0/0 (→P3), Gi0/0/0/1 (→PE3), Gi0/0/0/3 (→P5) | — |
-| Garnet | P5 | Gi0/0/0/1 (→P3), Gi0/0/0/2 (→PE4), Gi0/0/0/3 (→P4) | — |
-| Garnet | ASBR2 | Gi0/0/0/2 (→P3) | Gi0/0/0/1 (inter-AS Emerald), Gi0/0/0/3 (inter-AS Gold) |
-| Garnet | PCE | Gi0/0/0/3 (→P3) | — |
-| Gold | ASBR3 | Gi0/0/0/1 (→P6), Gi0/0/0/2 (→ASBR4) | Gi0/0/0/3 (inter-AS Emerald) |
-| Gold | ASBR4 | Gi0/0/0/0 (→P6), Gi0/0/0/2 (→ASBR3) | Gi0/0/0/3 (inter-AS Garnet) |
-| Gold | P6 | Gi0/0/0/0 (→ASBR4), Gi0/0/0/1 (→ASBR3), Gi0/0/0/2 (→PE5), Gi0/0/0/3 (→PE6) | — |
-| Gold | PE5 | Gi0/0/0/2 (→P6) | Gi0/0/0/0 (CE9), Gi0/0/0/1 (CE8) |
-| Gold | PE6 | Gi0/0/0/3 (→P6) | Gi0/0/0/0 (CE7), Gi0/0/0/1 (CE8) |
+| Emerald | E-R1 | Gi0/0/0/2 (→E-R3), Gi0/0/0/3 (→E-R2) | Gi0/0/0/0 (CE1), Gi0/0/0/1 (CE2) |
+| Emerald | E-R2 | Gi0/0/0/0 (→E-R3), Gi0/0/0/3 (→E-R1) | Gi0/0/0/1 (CE2), Gi0/0/0/2 (CE3) |
+| Emerald | E-R3 | Gi0/0/0/0 (→E-R2), Gi0/0/0/1 (→E-R4), Gi0/0/0/2 (→E-R1) | — |
+| Emerald | E-R4 | Gi0/0/0/1 (→E-R3), Gi0/0/0/2 (→E-R6), Gi0/0/0/3 (→E-R5) | — |
+| Emerald | E-R6 | Gi0/0/0/2 (→E-R4) | Gi0/0/0/1 (inter-AS Garnet), Gi0/0/0/3 (inter-AS Gold) |
+| Emerald | E-R5 | Gi0/0/0/3 (→E-R4) | — |
+| Garnet | Gar-R1 | Gi0/0/0/1 (→Gar-R4), Gi0/0/0/3 (→Gar-R2) | Gi0/0/0/2 (CE4), Gi0/0/0/0 (CE5) |
+| Garnet | Gar-R2 | Gi0/0/0/2 (→Gar-R5), Gi0/0/0/3 (→Gar-R1) | Gi0/0/0/1 (CE5), Gi0/0/0/0 (CE6) |
+| Garnet | Gar-R3 | Gi0/0/0/0 (→Gar-R4), Gi0/0/0/1 (→Gar-R5), Gi0/0/0/2 (→Gar-R7), Gi0/0/0/3 (→Gar-R6) | — |
+| Garnet | Gar-R4 | Gi0/0/0/0 (→Gar-R3), Gi0/0/0/1 (→Gar-R1), Gi0/0/0/3 (→Gar-R5) | — |
+| Garnet | Gar-R5 | Gi0/0/0/1 (→Gar-R3), Gi0/0/0/2 (→Gar-R2), Gi0/0/0/3 (→Gar-R4) | — |
+| Garnet | Gar-R7 | Gi0/0/0/2 (→Gar-R3) | Gi0/0/0/1 (inter-AS Emerald), Gi0/0/0/3 (inter-AS Gold) |
+| Garnet | Gar-R6 | Gi0/0/0/3 (→Gar-R3) | — |
+| Gold | G-R4 | Gi0/0/0/1 (→G-R3), Gi0/0/0/2 (→G-R5) | Gi0/0/0/3 (inter-AS Emerald) |
+| Gold | G-R5 | Gi0/0/0/0 (→G-R3), Gi0/0/0/2 (→G-R4) | Gi0/0/0/3 (inter-AS Garnet) |
+| Gold | G-R3 | Gi0/0/0/0 (→G-R5), Gi0/0/0/1 (→G-R4), Gi0/0/0/2 (→G-R1), Gi0/0/0/3 (→G-R2) | — |
+| Gold | G-R1 | Gi0/0/0/2 (→G-R3) | Gi0/0/0/0 (CE9), Gi0/0/0/1 (CE8) |
+| Gold | G-R2 | Gi0/0/0/3 (→G-R3) | Gi0/0/0/0 (CE7), Gi0/0/0/1 (CE8) |
 
 ### Core link subnets (for interface addressing)
 
 | SP | Link | Subnet | Addresses |
 |----|------|--------|-----------|
-| Emerald | PCE1(Gi3)–P2(Gi3) | 10.1.1.0/24 | PCE1 .6, P2 .4 |
-| Emerald | P2(Gi2)–ASBR1(Gi2) | 10.1.2.0/24 | P2 .4, ASBR1 .5 |
-| Emerald | P2(Gi1)–P1(Gi1) | 10.1.3.0/24 | P2 .4, P1 .3 |
-| Emerald | P1(Gi2)–PE1(Gi2) | 10.1.4.0/24 | P1 .3, PE1 .1 |
-| Emerald | P1(Gi0)–PE2(Gi0) | 10.1.5.0/24 | P1 .3, PE2 .2 |
-| Emerald | PE1(Gi3)–PE2(Gi3) | 10.1.6.0/24 | PE1 .1, PE2 .2 |
-| Garnet | PCE(Gi3)–P3(Gi3) | 10.2.1.0/24 | PCE .17, P3 .13 |
-| Garnet | ASBR2(Gi2)–P3(Gi2) | 10.2.2.0/24 | ASBR2 .16, P3 .13 |
-| Garnet | P3(Gi0)–P4(Gi0) | 10.2.3.0/24 | P3 .13, P4 .14 |
-| Garnet | P3(Gi1)–P5(Gi1) | 10.2.4.0/24 | P3 .13, P5 .15 |
-| Garnet | P4(Gi3)–P5(Gi3) | 10.2.5.0/24 | P4 .14, P5 .15 |
-| Garnet | P4(Gi1)–PE3(Gi1) | 10.2.6.0/24 | P4 .14, PE3 .11 |
-| Garnet | P5(Gi2)–PE4(Gi2) | 10.2.7.0/24 | P5 .15, PE4 .12 |
-| Garnet | PE3(Gi3)–PE4(Gi3) | 10.2.8.0/24 | PE3 .11, PE4 .12 |
-| Gold | ASBR3(Gi2)–ASBR4(Gi2) | 10.3.1.0/24 | ASBR3 .21, ASBR4 .22 |
-| Gold | ASBR3(Gi1)–P6(Gi1) | 10.3.2.0/24 | ASBR3 .21, P6 .23 |
-| Gold | ASBR4(Gi0)–P6(Gi0) | 10.3.3.0/24 | ASBR4 .22, P6 .23 |
-| Gold | P6(Gi2)–PE5(Gi2) | 10.3.4.0/24 | P6 .23, PE5 .24 |
-| Gold | P6(Gi3)–PE6(Gi3) | 10.3.5.0/24 | P6 .23, PE6 .25 |
+| Emerald | E-R5(Gi3)–E-R4(Gi3) | 10.1.1.0/24 | E-R5 .6, E-R4 .4 |
+| Emerald | E-R4(Gi2)–E-R6(Gi2) | 10.1.2.0/24 | E-R4 .4, E-R6 .5 |
+| Emerald | E-R4(Gi1)–E-R3(Gi1) | 10.1.3.0/24 | E-R4 .4, E-R3 .3 |
+| Emerald | E-R3(Gi2)–E-R1(Gi2) | 10.1.4.0/24 | E-R3 .3, E-R1 .1 |
+| Emerald | E-R3(Gi0)–E-R2(Gi0) | 10.1.5.0/24 | E-R3 .3, E-R2 .2 |
+| Emerald | E-R1(Gi3)–E-R2(Gi3) | 10.1.6.0/24 | E-R1 .1, E-R2 .2 |
+| Garnet | Gar-R6(Gi3)–Gar-R3(Gi3) | 10.2.1.0/24 | Gar-R6 .17, Gar-R3 .13 |
+| Garnet | Gar-R7(Gi2)–Gar-R3(Gi2) | 10.2.2.0/24 | Gar-R7 .16, Gar-R3 .13 |
+| Garnet | Gar-R3(Gi0)–Gar-R4(Gi0) | 10.2.3.0/24 | Gar-R3 .13, Gar-R4 .14 |
+| Garnet | Gar-R3(Gi1)–Gar-R5(Gi1) | 10.2.4.0/24 | Gar-R3 .13, Gar-R5 .15 |
+| Garnet | Gar-R4(Gi3)–Gar-R5(Gi3) | 10.2.5.0/24 | Gar-R4 .14, Gar-R5 .15 |
+| Garnet | Gar-R4(Gi1)–Gar-R1(Gi1) | 10.2.6.0/24 | Gar-R4 .14, Gar-R1 .11 |
+| Garnet | Gar-R5(Gi2)–Gar-R2(Gi2) | 10.2.7.0/24 | Gar-R5 .15, Gar-R2 .12 |
+| Garnet | Gar-R1(Gi3)–Gar-R2(Gi3) | 10.2.8.0/24 | Gar-R1 .11, Gar-R2 .12 |
+| Gold | G-R4(Gi2)–G-R5(Gi2) | 10.3.1.0/24 | G-R4 .21, G-R5 .22 |
+| Gold | G-R4(Gi1)–G-R3(Gi1) | 10.3.2.0/24 | G-R4 .21, G-R3 .23 |
+| Gold | G-R5(Gi0)–G-R3(Gi0) | 10.3.3.0/24 | G-R5 .22, G-R3 .23 |
+| Gold | G-R3(Gi2)–G-R1(Gi2) | 10.3.4.0/24 | G-R3 .23, G-R1 .24 |
+| Gold | G-R3(Gi3)–G-R2(Gi3) | 10.3.5.0/24 | G-R3 .23, G-R2 .25 |
 
-> **IPv6 core convention (Task 1.5):** mirror the IPv4 subnet as `2001:db8:1:X::/64` (Emerald), `2001:db8:2:X::/64` (Garnet), `2001:db8:3:X::/64` (Gold), host bits = the router's loopback octet. Loopback0 IPv6 = `2001:db8::<loop>/128` (e.g., PE1 = `2001:db8::1/128`).
+> **IPv6 core convention (Task 1.5):** mirror the IPv4 subnet as `2001:db8:1:X::/64` (Emerald), `2001:db8:2:X::/64` (Garnet), `2001:db8:3:X::/64` (Gold), host bits = the router's loopback octet. Loopback0 IPv6 = `2001:db8::<loop>/128` (e.g., E-R1 = `2001:db8::1/128`).
 
 ---
 
@@ -96,11 +96,11 @@ Example — PE1 Loopback0 `1.1.1.1` → `001.001.001.001` → `0010.0100.1001`.
 ## Task 1.1 — Enable IS-IS L2-only on all Emerald routers
 
 ### Question
-Configure IS-IS process **CORE** as **Level-2-only** on all six Emerald routers (PE1, PE2, P1, P2, ASBR1, PCE1). Derive each NET-ID from the router's Loopback0 (`49.0001.xxxx.xxxx.xxxx.00`). Use **metric-style wide**. Run IS-IS on Loopback0 and the core interfaces only (see the per-router table); do **not** enable it on PE-CE or inter-AS interfaces.
+Configure IS-IS process **CORE** as **Level-2-only** on all six Emerald routers (E-R1, E-R2, E-R3, E-R4, E-R6, E-R5). Derive each NET-ID from the router's Loopback0 (`49.0001.xxxx.xxxx.xxxx.00`). Use **metric-style wide**. Run IS-IS on Loopback0 and the core interfaces only (see the per-router table); do **not** enable it on PE-CE or inter-AS interfaces.
 
 ### Solution
 
-**PE1 (1.1.1.1):**
+**E-R1 (1.1.1.1):**
 ```
 router isis CORE
  is-type level-2-only
@@ -123,7 +123,7 @@ router isis CORE
 !
 ```
 
-**PE2 (2.2.2.2):**
+**E-R2 (2.2.2.2):**
 ```
 router isis CORE
  is-type level-2-only
@@ -146,7 +146,7 @@ router isis CORE
 !
 ```
 
-**P1 (3.3.3.3):**
+**E-R3 (3.3.3.3):**
 ```
 router isis CORE
  is-type level-2-only
@@ -173,7 +173,7 @@ router isis CORE
 !
 ```
 
-**P2 (4.4.4.4):**
+**E-R4 (4.4.4.4):**
 ```
 router isis CORE
  is-type level-2-only
@@ -200,7 +200,7 @@ router isis CORE
 !
 ```
 
-**ASBR1 (5.5.5.5)** — only Gi0/0/0/2 is core (Gi1/Gi3 are inter-AS):
+**E-R6 (5.5.5.5)** — only Gi0/0/0/2 is core (Gi1/Gi3 are inter-AS):
 ```
 router isis CORE
  is-type level-2-only
@@ -219,7 +219,7 @@ router isis CORE
 !
 ```
 
-**PCE1 (6.6.6.6):**
+**E-R5 (6.6.6.6):**
 ```
 router isis CORE
  is-type level-2-only
@@ -242,10 +242,10 @@ router isis CORE
 ```
 show isis protocol            ! IS-Type = Level-2-only; NET matches; metric-style wide (level-2)
 show isis interface brief     ! only core + Loopback0 listed; Loopback0 = passive
-show isis neighbors           ! PE1↔P1, PE1↔PE2, P1↔P2, P1↔PE2, P2↔ASBR1, P2↔PCE1 — State Up, type L2
+show isis neighbors           ! E-R1↔E-R3, E-R1↔E-R2, E-R3↔E-R4, E-R3↔E-R2, E-R4↔E-R6, E-R4↔E-R5 — State Up, type L2
 show route isis               ! all 6 Emerald loopbacks (1.1.1.1–6.6.6.6) present as i L2
 show isis database level 2    ! 6 LSPs (one per router), ATT/OL bits clear
-ping 6.6.6.6 source Loopback0 ! from PE1 — end-to-end IGP reachability
+ping 6.6.6.6 source Loopback0 ! from E-R1 — end-to-end IGP reachability
 ```
 - **Look for:** every core link shows an L2 adjacency in `Up`; no adjacency on PE-CE/inter-AS interfaces; loopbacks appear as `i L2` (wide metrics, not the 63 legacy cap).
 
@@ -254,11 +254,11 @@ ping 6.6.6.6 source Loopback0 ! from PE1 — end-to-end IGP reachability
 ## Task 1.2 — Enable IS-IS L2-only on all Garnet routers
 
 ### Question
-Same as 1.1 but for the seven Garnet routers (PE3, PE4, P3, P4, P5, ASBR2, PCE) using area **49.0002**. NET-ID derived from Loopback0, `metric-style wide`, core interfaces only.
+Same as 1.1 but for the seven Garnet routers (Gar-R1, Gar-R2, Gar-R3, Gar-R4, Gar-R5, Gar-R7, Gar-R6) using area **49.0002**. NET-ID derived from Loopback0, `metric-style wide`, core interfaces only.
 
 ### Solution
 
-**PE3 (11.11.11.11):**
+**Gar-R1 (11.11.11.11):**
 ```
 router isis CORE
  is-type level-2-only
@@ -281,7 +281,7 @@ router isis CORE
 !
 ```
 
-**PE4 (12.12.12.12):**
+**Gar-R2 (12.12.12.12):**
 ```
 router isis CORE
  is-type level-2-only
@@ -304,7 +304,7 @@ router isis CORE
 !
 ```
 
-**P3 (13.13.13.13):**
+**Gar-R3 (13.13.13.13):**
 ```
 router isis CORE
  is-type level-2-only
@@ -335,7 +335,7 @@ router isis CORE
 !
 ```
 
-**P4 (14.14.14.14):**
+**Gar-R4 (14.14.14.14):**
 ```
 router isis CORE
  is-type level-2-only
@@ -362,7 +362,7 @@ router isis CORE
 !
 ```
 
-**P5 (15.15.15.15):**
+**Gar-R5 (15.15.15.15):**
 ```
 router isis CORE
  is-type level-2-only
@@ -389,7 +389,7 @@ router isis CORE
 !
 ```
 
-**ASBR2 (16.16.16.16)** — only Gi0/0/0/2 core:
+**Gar-R7 (17.17.17.17)** — only Gi0/0/0/2 core:
 ```
 router isis CORE
  is-type level-2-only
@@ -408,7 +408,7 @@ router isis CORE
 !
 ```
 
-**PCE (17.17.17.17):**
+**Gar-R6 (16.16.16.16):**
 ```
 router isis CORE
  is-type level-2-only
@@ -429,23 +429,23 @@ router isis CORE
 
 ### Verification
 ```
-show isis neighbors            ! P3 has 4 L2 neighbors (P4, P5, ASBR2, PCE); PE3↔P4, PE3↔PE4, PE4↔P5
+show isis neighbors            ! Gar-R3 has 4 L2 neighbors (Gar-R4, Gar-R5, Gar-R7, Gar-R6); Gar-R1↔Gar-R4, Gar-R1↔Gar-R2, Gar-R2↔Gar-R5
 show route isis                ! all 7 Garnet loopbacks (11.x–17.x) as i L2
 show isis database level 2     ! 7 LSPs
-ping 12.12.12.12 source Loopback0   ! from PE3 — PE3↔PE4 reachable through the core
+ping 12.12.12.12 source Loopback0   ! from Gar-R1 — Gar-R1↔Gar-R2 reachable through the core
 ```
-- **Look for:** P3 is the hub (4 adjacencies); no adjacency on ASBR2 Gi1/Gi3 (inter-AS) or PE Gi0/Gi-CE interfaces.
+- **Look for:** Gar-R3 is the hub (4 adjacencies); no adjacency on Gar-R7 Gi1/Gi3 (inter-AS) or PE Gi0/Gi-CE interfaces.
 
 ---
 
 ## Task 1.3 — Enable IS-IS L2-only on all Gold routers
 
 ### Question
-Same pattern for the five Gold routers (ASBR3, ASBR4, P6, PE5, PE6), area **49.0003**.
+Same pattern for the five Gold routers (G-R4, G-R5, G-R3, G-R1, G-R2), area **49.0003**.
 
 ### Solution
 
-**ASBR3 (21.21.21.21)** — Gi1/Gi2 core (Gi3 inter-AS):
+**G-R4 (24.24.24.24)** — Gi1/Gi2 core (Gi3 inter-AS):
 ```
 router isis CORE
  is-type level-2-only
@@ -468,7 +468,7 @@ router isis CORE
 !
 ```
 
-**ASBR4 (22.22.22.22)** — Gi0/Gi2 core (Gi3 inter-AS):
+**G-R5 (25.25.25.25)** — Gi0/Gi2 core (Gi3 inter-AS):
 ```
 router isis CORE
  is-type level-2-only
@@ -491,7 +491,7 @@ router isis CORE
 !
 ```
 
-**P6 (23.23.23.23):**
+**G-R3 (23.23.23.23):**
 ```
 router isis CORE
  is-type level-2-only
@@ -522,7 +522,7 @@ router isis CORE
 !
 ```
 
-**PE5 (24.24.24.24):**
+**G-R1 (21.21.21.21):**
 ```
 router isis CORE
  is-type level-2-only
@@ -541,7 +541,7 @@ router isis CORE
 !
 ```
 
-**PE6 (25.25.25.25):**
+**G-R2 (22.22.22.22):**
 ```
 router isis CORE
  is-type level-2-only
@@ -562,11 +562,11 @@ router isis CORE
 
 ### Verification
 ```
-show isis neighbors           ! P6 has 4 L2 neighbors (ASBR4, ASBR3, PE5, PE6); ASBR3↔ASBR4 direct
+show isis neighbors           ! G-R3 has 4 L2 neighbors (G-R5, G-R4, G-R1, G-R2); G-R4↔G-R5 direct
 show route isis               ! 5 Gold loopbacks (21.x–25.x) as i L2
-ping 25.25.25.25 source Loopback0    ! from PE5 — PE5↔PE6 via P6
+ping 22.22.22.22 source Loopback0    ! from G-R1 — G-R1↔G-R2 via G-R3
 ```
-- **Look for:** no adjacency across ASBR3 Gi3 / ASBR4 Gi3 (inter-AS links stay bare until BGP in a later workbook).
+- **Look for:** no adjacency across G-R4 Gi3 / G-R5 Gi3 (inter-AS links stay bare until BGP in a later workbook).
 
 ---
 
@@ -625,9 +625,9 @@ show isis interface GigabitEthernet0/0/0/2 | i "Metric|padding|point"
 Enable the **IPv6 unicast** address-family in all three `router isis CORE` instances using **single-topology** (IPv6 shares the IPv4 SPF/topology). Add IPv6 addressing on Loopback0 and all core interfaces. Show the config on one router per SP; the pattern repeats.
 
 ### Solution
-Single-topology is signalled with `single-topology` under the **IPv6** address-family, and requires `metric-style wide` (already set). Example on **PE1** (Emerald), **PE3** (Garnet), **PE5** (Gold) — apply the same shape to every node:
+Single-topology is signalled with `single-topology` under the **IPv6** address-family, and requires `metric-style wide` (already set). Example on **E-R1** (Emerald), **Gar-R1** (Garnet), **G-R1** (Gold) — apply the same shape to every node:
 
-**PE1 (Emerald):**
+**E-R1 (Emerald):**
 ```
 interface Loopback0
  ipv6 address 2001:db8::1/128
@@ -655,7 +655,7 @@ router isis CORE
 !
 ```
 
-**PE3 (Garnet):**
+**Gar-R1 (Garnet):**
 ```
 interface Loopback0
  ipv6 address 2001:db8::11/128
@@ -677,7 +677,7 @@ router isis CORE
 !
 ```
 
-**PE5 (Gold):**
+**G-R1 (Gold):**
 ```
 interface Loopback0
  ipv6 address 2001:db8::24/128
@@ -704,7 +704,7 @@ show isis topology                     ! single IS-IS topology; no separate MT-I
 show isis ipv6 route                   ! IPv6 loopbacks reachable
 show route ipv6                        ! 2001:db8::/… loopbacks as i L2
 show isis interface Gi0/0/0/2 | i "Topology|IPv6"   ! Topology: IPv4+IPv6 single
-ping ipv6 2001:db8::6 source Loopback0 ! from PE1
+ping ipv6 2001:db8::6 source Loopback0 ! from E-R1
 ```
 - **Look for:** exactly **one** topology in `show isis topology` (single-topology). If you accidentally left multi-topology on, you'd see `IPv4 Unicast` and `IPv6 Unicast` as separate topologies — that is Task 2.3's contrast.
 
@@ -745,9 +745,9 @@ show isis protocol | i "overload|Overload"                     ! "set-overload-b
 Emerald uses **LDP** for transport (Gold=SRv6, Garnet=SR-MPLS — no LDP there). Enable **LDP IGP auto-config** under the Emerald IS-IS instance so LDP is enabled automatically on every IS-IS core interface. Configure MPLS LDP on the six Emerald routers.
 
 ### Solution
-Auto-config is set under the IS-IS **interface** (or globally) with `mpls ldp auto-config`, plus a base `mpls ldp` stanza. Example on **PE1**; repeat on PE2, P1, P2, ASBR1, PCE1 (each with its own router-id = Loopback0).
+Auto-config is set under the IS-IS **interface** (or globally) with `mpls ldp auto-config`, plus a base `mpls ldp` stanza. Example on **E-R1**; repeat on E-R2, E-R3, E-R4, E-R6, E-R5 (each with its own router-id = Loopback0).
 
-**PE1:**
+**E-R1:**
 ```
 mpls ldp
  router-id 1.1.1.1
@@ -760,9 +760,9 @@ router isis CORE
  !
 !
 ```
-> `mpls ldp auto-config` under the IPv4 AF enables LDP on all interfaces IS-IS is running on. Because ASBR1 only runs IS-IS on Gi0/0/0/2, LDP comes up only there — never on the inter-AS links (correct: no LDP toward Garnet/Gold).
+> `mpls ldp auto-config` under the IPv4 AF enables LDP on all interfaces IS-IS is running on. Because E-R6 only runs IS-IS on Gi0/0/0/2, LDP comes up only there — never on the inter-AS links (correct: no LDP toward Garnet/Gold).
 
-**Router-ids to use:** PE1=1.1.1.1, PE2=2.2.2.2, P1=3.3.3.3, P2=4.4.4.4, ASBR1=5.5.5.5, PCE1=6.6.6.6.
+**Router-ids to use:** E-R1=1.1.1.1, E-R2=2.2.2.2, E-R3=3.3.3.3, E-R4=4.4.4.4, E-R6=5.5.5.5, E-R5=6.6.6.6.
 
 ### Verification
 ```
@@ -770,7 +770,7 @@ show mpls ldp discovery         ! hellos on every Emerald core interface only (a
 show mpls ldp neighbor brief    ! LDP sessions == IS-IS adjacencies (6 links)
 show mpls forwarding            ! labels bound for all 6 Emerald loopbacks
 show mpls interfaces            ! LDP enabled on core Gi; NOT on PE-CE / inter-AS
-traceroute mpls ipv4 6.6.6.6/32 ! from PE1 — PUSH at PE1, SWAP mid, POP (PHP) at PCE1 neighbor
+traceroute mpls ipv4 6.6.6.6/32 ! from E-R1 — PUSH at E-R1, SWAP mid, POP (PHP) at E-R5 neighbor
 ```
 - **Look for:** LDP neighbor count matches IS-IS neighbor count on each router; **no** LDP on Garnet/Gold (confirm `show mpls ldp neighbor` returns nothing there).
 
@@ -844,7 +844,7 @@ router isis CORE
 !
 ```
 
-**Per-interface (hello authentication) — example PE1↔PE2 link (both ends):**
+**Per-interface (hello authentication) — example E-R1↔E-R2 link (both ends):**
 ```
 router isis CORE
  interface GigabitEthernet0/0/0/3
@@ -968,7 +968,7 @@ show isis protocol | i "IS-Type"    ! Level-2-only -> confirms no L1, so no leak
 Enable **BFD** for IS-IS on all core links in all three SPs so link/neighbor failures are detected in milliseconds instead of waiting for IS-IS hold timers. Use 300 ms intervals, multiplier 3 (≈900 ms detection).
 
 ### Solution
-In IOS-XR, BFD-for-IS-IS is enabled per interface under the IS-IS process, with BFD timers set there too. Example on **P1** (Emerald); apply to every core interface on every router:
+In IOS-XR, BFD-for-IS-IS is enabled per interface under the IS-IS process, with BFD timers set there too. Example on **E-R3** (Emerald); apply to every core interface on every router:
 
 ```
 router isis CORE
@@ -1013,12 +1013,12 @@ show isis neighbors           ! adjacency drops in <1s (BFD), not after the 30s 
 ## Task 2.6 — IS-IS mesh-group on fully-meshed segments (reduce flooding)
 
 ### Question
-On a **fully-meshed** set of routers, LSP flooding is redundant (every router floods to every neighbor). Configure an IS-IS **mesh-group** to suppress redundant flooding. Apply it to the Emerald PE1–PE2–P1 near-mesh (PE1↔PE2, PE1↔P1, PE2↔P1 all adjacent).
+On a **fully-meshed** set of routers, LSP flooding is redundant (every router floods to every neighbor). Configure an IS-IS **mesh-group** to suppress redundant flooding. Apply it to the Emerald E-R1–E-R2–E-R3 near-mesh (E-R1↔E-R2, E-R1↔E-R3, E-R2↔E-R3 all adjacent).
 
 ### Solution
 Mesh-group is a per-interface setting; all interfaces in the same mesh-group number belong to one group, and LSPs received on one member are **not** re-flooded to other members of the same group (blocked), cutting redundant copies. Use the same group number on the meshed interfaces.
 
-**PE1** — interfaces facing P1 (Gi0/0/0/2) and PE2 (Gi0/0/0/3):
+**E-R1** — interfaces facing E-R3 (Gi0/0/0/2) and E-R2 (Gi0/0/0/3):
 ```
 router isis CORE
  interface GigabitEthernet0/0/0/2
@@ -1029,7 +1029,7 @@ router isis CORE
  !
 !
 ```
-**PE2** — interfaces facing P1 (Gi0/0/0/0) and PE1 (Gi0/0/0/3):
+**E-R2** — interfaces facing E-R3 (Gi0/0/0/0) and E-R1 (Gi0/0/0/3):
 ```
 router isis CORE
  interface GigabitEthernet0/0/0/0
@@ -1040,7 +1040,7 @@ router isis CORE
  !
 !
 ```
-**P1** — interfaces facing PE2 (Gi0/0/0/0), P2 (Gi0/0/0/1), PE1 (Gi0/0/0/2). Put only the meshed pair (toward PE1/PE2) in the group; keep the P2 uplink OUT of the mesh-group so LSPs still propagate to the rest of the core:
+**E-R3** — interfaces facing E-R2 (Gi0/0/0/0), E-R4 (Gi0/0/0/1), E-R1 (Gi0/0/0/2). Put only the meshed pair (toward E-R1/E-R2) in the group; keep the E-R4 uplink OUT of the mesh-group so LSPs still propagate to the rest of the core:
 ```
 router isis CORE
  interface GigabitEthernet0/0/0/0
@@ -1052,18 +1052,18 @@ router isis CORE
 !
 ```
 
-> **Caution (exam trap):** a mesh-group blocks re-flooding between its members. It is only safe when the members are **fully meshed** (every member reaches every other directly), otherwise an LSP can be blocked from reaching a router that had no other path → LSDB inconsistency. Never put a router's *only* uplink to the rest of the domain into the mesh-group (that's why P1's Gi0/0/0/1 → P2 is excluded).
+> **Caution (exam trap):** a mesh-group blocks re-flooding between its members. It is only safe when the members are **fully meshed** (every member reaches every other directly), otherwise an LSP can be blocked from reaching a router that had no other path → LSDB inconsistency. Never put a router's *only* uplink to the rest of the domain into the mesh-group (that's why E-R3's Gi0/0/0/1 → E-R4 is excluded).
 
 ### Verification
 ```
 show isis interface Gi0/0/0/2 | i "Mesh"      ! Mesh Group: 10
-show isis database level 2                     ! LSDB identical on PE1, PE2, P1 (consistency preserved)
+show isis database level 2                     ! LSDB identical on E-R1, E-R2, E-R3 (consistency preserved)
 show isis lsp-log                              ! fewer flooding events on meshed links
 ```
 Consistency test:
 ```
 ! force an LSP change (e.g., toggle a passive loopback), confirm all three routers' LSDBs still converge identically
-show isis database <changed-system-id> detail  ! same seq number on PE1/PE2/P1
+show isis database <changed-system-id> detail  ! same seq number on E-R1/E-R2/P1
 ```
 - **Look for:** mesh-group shown on the meshed interfaces; LSDB stays consistent across the mesh (no missing LSPs) while redundant flooding drops. If any LSP goes missing on a member, the mesh isn't truly full — remove the group from the offending interface.
 
@@ -1288,8 +1288,8 @@ show route isis              ! path reconverged; measure with timestamps
 ```
 Section 1 — Basic
 [ ] 1.1 Emerald: 6 routers L2-only, NET-IDs from loopback, wide metrics, core+Loopback0 only
-[ ] 1.2 Garnet: 7 routers L2-only (area 49.0002); P3 is 4-adjacency hub
-[ ] 1.3 Gold: 5 routers L2-only (area 49.0003); P6 is hub; no adj on inter-AS links
+[ ] 1.2 Garnet: 7 routers L2-only (area 49.0002); Gar-R3 is 4-adjacency hub
+[ ] 1.3 Gold: 5 routers L2-only (area 49.0003); G-R3 is hub; no adj on inter-AS links
 [ ] 1.4 CCIE-ISIS group: regex GigabitEthernet.* -> metric 200/400, hello-padding disable, p2p; Loopback.* -> passive (inheritance verified)
 [ ] 1.5 IPv6 AF single-topology on all 3 instances; one topology in show isis topology
 [ ] 1.6 set-overload-bit on-startup 180 level 2 on all routers; OL clears after 180s
@@ -1301,7 +1301,7 @@ Section 2 — Advanced
 [ ] 2.3 single-topology confirmed (MT contrast explained)
 [ ] 2.4 route leaking concept documented; N/A because L2-only (no L1)
 [ ] 2.5 BFD 300ms x3 on all core links; sub-second adjacency-down on failure
-[ ] 2.6 mesh-group 10 on fully-meshed PE1/PE2/P1; LSDB stays consistent; flooding reduced
+[ ] 2.6 mesh-group 10 on fully-meshed E-R1/E-R2/P1; LSDB stays consistent; flooding reduced
 Section 3 — Verify/TS
 [ ] 3.1 adjacency/database/route/topology checklist — all green
 [ ] 3.2 INIT fixed: MTU / area-level / auth causes identified and corrected

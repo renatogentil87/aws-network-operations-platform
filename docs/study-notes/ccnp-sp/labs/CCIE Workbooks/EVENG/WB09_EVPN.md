@@ -3,19 +3,19 @@
 **Platform:** EVE-NG — IOS-XRv 9000
 🔴 **CCIE Prep Platform:** EVE-NG — see `../00_EVENG_Topology.md`
 **Topology focus:**
-- **Garnet** — PE3 + PE4 + CE5. CE5 is **dual-homed** to PE3 and PE4 (EVPN, VLAN 100).
-- **Gold** — PE6 + CE7. CE7 is single-homed to PE6 (EVPN, VLAN 100).
-- Inter-AS: **PCE (Garnet RR) ↔ ASBR3** carries BGP EVPN toward Gold, so CE5 (Garnet) can reach CE7 (Gold).
+- **Garnet** — Gar-R1 + Gar-R2 + CE5. CE5 is **dual-homed** to Gar-R1 and Gar-R2 (EVPN, VLAN 100).
+- **Gold** — G-R2 + CE7. CE7 is single-homed to G-R2 (EVPN, VLAN 100).
+- Inter-AS: **Gar-R6 (Garnet RR) ↔ G-R4** carries BGP EVPN toward Gold, so CE5 (Garnet) can reach CE7 (Gold).
 
 **Reference addressing (used throughout):**
 
 | Node | Loopback0 | Role |
 |------|-----------|------|
-| PE3  | 3.3.3.3   | Garnet PE, DF candidate for CE5 ES |
-| PE4  | 4.4.4.4   | Garnet PE, DF candidate for CE5 ES |
-| PE6  | 6.6.6.6   | Gold PE (CE7) |
-| PCE  | 9.9.9.9   | Garnet route-reflector for `l2vpn evpn` |
-| ASBR3| 13.13.13.13 | Inter-AS EVPN border |
+| Gar-R1  | 3.3.3.3   | Garnet PE, DF candidate for CE5 ES |
+| Gar-R2  | 4.4.4.4   | Garnet PE, DF candidate for CE5 ES |
+| G-R2  | 6.6.6.6   | Gold PE (CE7) |
+| Gar-R6  | 9.9.9.9   | Garnet route-reflector for `l2vpn evpn` |
+| G-R4| 13.13.13.13 | Inter-AS EVPN border |
 
 - **CE5 Ethernet Segment ID (ESI):** `0000.0000.0000.0000.0005`
 - **EVI 100** = bridged VLAN 100 (MAC-VRF), **EVI 500** = EVPN-VPWS, **EVI 200** = IRB instance
@@ -24,7 +24,7 @@
 
 **Prerequisites (assumed done in earlier workbooks):**
 - IS-IS + Segment Routing MPLS core (Workbook 09-SR), `/32` loopbacks, SRGB 16000–23999.
-- iBGP to PCE (RR) already up for `vpnv4`; we add the `l2vpn evpn` AF here.
+- iBGP to Gar-R6 (RR) already up for `vpnv4`; we add the `l2vpn evpn` AF here.
 
 > **Convention:** each task is **Question → Solution → Verification**. All syntax is IOS-XR (`evpn`, `l2vpn bridge-domain`, `evi`).
 
@@ -34,10 +34,10 @@
 
 EVPN is a BGP AF (`l2vpn evpn`) that carries five NLRI route types. Each solves a specific problem. Configure the base MAC-VRF first, then observe each route type.
 
-### Base configuration — MAC-VRF (EVI 100) on PE3, PE4, PE6
+### Base configuration — MAC-VRF (EVI 100) on Gar-R1, Gar-R2, G-R2
 
 ```
-! ---- PE3 / PE4 / PE6 : enable EVPN AF in BGP toward RR (PCE) ----
+! ---- Gar-R1 / Gar-R2 / G-R2 : enable EVPN AF in BGP toward RR (Gar-R6) ----
 router bgp 100
  address-family l2vpn evpn
  !
@@ -47,7 +47,7 @@ router bgp 100
   address-family l2vpn evpn
  !
 !
-! ---- PCE (RR) : reflect l2vpn evpn ----
+! ---- Gar-R6 (RR) : reflect l2vpn evpn ----
 router bgp 100
  address-family l2vpn evpn
  neighbor-group RRC
@@ -58,7 +58,7 @@ router bgp 100
 ```
 
 ```
-! ---- Bridge-domain + EVI mapping (PE3, PE4, PE6) ----
+! ---- Bridge-domain + EVI mapping (Gar-R1, Gar-R2, G-R2) ----
 l2vpn
  bridge group GARNET
   bridge-domain VLAN100
@@ -77,7 +77,7 @@ evpn
 ```
 
 ```
-! ---- CE-facing sub-interface (PE3/PE4 -> CE5, PE6 -> CE7) ----
+! ---- CE-facing sub-interface (Gar-R1/Gar-R2 -> CE5, G-R2 -> CE7) ----
 interface GigabitEthernet0/0/0/1.100 l2transport
  encapsulation dot1q 100
  rewrite ingress tag pop 1 symmetric
@@ -87,21 +87,21 @@ interface GigabitEthernet0/0/0/1.100 l2transport
 
 ### Task 1.1 — Type 2 (MAC/IP Advertisement)
 
-**Question:** CE5 sends a frame with source MAC `0050.5600.0005`. Configure PE3 so it advertises this MAC (and its IP, if ARP is snooped) to remote PEs via BGP instead of relying on data-plane flooding. Explain the purpose of Type 2.
+**Question:** CE5 sends a frame with source MAC `0050.5600.0005`. Configure Gar-R1 so it advertises this MAC (and its IP, if ARP is snooped) to remote PEs via BGP instead of relying on data-plane flooding. Explain the purpose of Type 2.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
 ### Task 1.2 — Type 3 (Inclusive Multicast Ethernet Tag)
 
-**Question:** Configure/verify how BUM (Broadcast, Unknown-unicast, Multicast) traffic is delivered in EVI 100 across PE3, PE4, PE6. Explain the purpose of Type 3.
+**Question:** Configure/verify how BUM (Broadcast, Unknown-unicast, Multicast) traffic is delivered in EVI 100 across Gar-R1, Gar-R2, G-R2. Explain the purpose of Type 3.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
 ### Task 1.3 — Type 4 (Ethernet Segment Route → DF election)
 
-**Question:** CE5 is dual-homed to PE3 and PE4 with the same ESI. Configure the Ethernet Segment so PE3 and PE4 discover each other and elect a **Designated Forwarder** (DF). Explain the purpose of Type 4.
+**Question:** CE5 is dual-homed to Gar-R1 and Gar-R2 with the same ESI. Configure the Ethernet Segment so Gar-R1 and Gar-R2 discover each other and elect a **Designated Forwarder** (DF). Explain the purpose of Type 4.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -126,14 +126,14 @@ EVPN-VPWS is point-to-point (E-Line) using EVPN Type-1 A-D routes for signaling 
 
 ### Task 2.1 — Point-to-point EVPN-VPWS (single-homed)
 
-**Question:** Build a single-homed EVPN-VPWS between PE3 (toward CE5's data VLAN) and PE6 (toward CE7). Use EVI 500. Explain how the service is signaled.
+**Question:** Build a single-homed EVPN-VPWS between Gar-R1 (toward CE5's data VLAN) and G-R2 (toward CE7). Use EVI 500. Explain how the service is signaled.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
 ### Task 2.2 — EVPN-VPWS over SR-MPLS transport (Garnet)
 
-**Question:** Ensure the EVI 500 pseudowire from PE3 rides an **SR-MPLS** LSP (prefix-SID transport) rather than LDP. Optionally steer it into an SR-TE policy. Explain the transport-vs-service label stack.
+**Question:** Ensure the EVI 500 pseudowire from Gar-R1 rides an **SR-MPLS** LSP (prefix-SID transport) rather than LDP. Optionally steer it into an SR-TE policy. Explain the transport-vs-service label stack.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -147,9 +147,9 @@ EVPN-VPWS is point-to-point (E-Line) using EVPN Type-1 A-D routes for signaling 
 
 ## Section 3 — EVPN Multi-Homing (5 tasks)
 
-CE5 dual-homed to PE3+PE4. Section 1.3 built the Ethernet Segment; here we exercise the redundancy modes and their control-plane mechanics.
+CE5 dual-homed to Gar-R1+Gar-R2. Section 1.3 built the Ethernet Segment; here we exercise the redundancy modes and their control-plane mechanics.
 
-### Task 3.1 — Ethernet Segment config on PE3 + PE4 for CE5
+### Task 3.1 — Ethernet Segment config on Gar-R1 + Gar-R2 for CE5
 
 **Question:** Finalize a consistent Ethernet Segment for CE5 on both PEs, ensuring the ESI matches and the LACP bundle is shared.
 
@@ -158,7 +158,7 @@ CE5 dual-homed to PE3+PE4. Section 1.3 built the Ethernet Segment; here we exerc
 
 ### Task 3.2 — All-active multi-homing
 
-**Question:** Configure CE5's segment for **all-active** so both PE3 and PE4 forward unicast simultaneously. Explain how remote PEs load-balance to both.
+**Question:** Configure CE5's segment for **all-active** so both Gar-R1 and Gar-R2 forward unicast simultaneously. Explain how remote PEs load-balance to both.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -179,14 +179,14 @@ CE5 dual-homed to PE3+PE4. Section 1.3 built the Ethernet Segment; here we exerc
 
 ### Task 3.5 — Mass withdrawal on PE failure (Type-1 per-ES route)
 
-**Question:** Simulate PE3's link to CE5 failing. Prove that a **single** Type-1 per-ES A-D withdrawal drains all MACs behind CE5 from remote PEs (fast convergence), rather than per-MAC Type-2 withdrawals.
+**Question:** Simulate Gar-R1's link to CE5 failing. Prove that a **single** Type-1 per-ES A-D withdrawal drains all MACs behind CE5 from remote PEs (fast convergence), rather than per-MAC Type-2 withdrawals.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
 ### Task 3.6 — Aliasing (Type-1 per-EVI route)
 
-**Question:** Demonstrate **aliasing**: PE6 load-balances unicast to CE5 across both PE3 and PE4 even for a MAC only PE3 actually learned.
+**Question:** Demonstrate **aliasing**: G-R2 load-balances unicast to CE5 across both Gar-R1 and Gar-R2 even for a MAC only Gar-R1 actually learned.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -197,7 +197,7 @@ Integrated Routing and Bridging: a BVI bridges within a subnet and routes betwee
 
 ### Task 4.1 — IRB with anycast gateway (L2 + L3 in one EVPN instance)
 
-**Question:** Configure IRB on PE3 and PE4 for EVI 100 so hosts behind CE5 use a **distributed anycast gateway** (same GW IP+MAC on both PEs) and can be both bridged (same subnet) and routed (other subnets).
+**Question:** Configure IRB on Gar-R1 and Gar-R2 for EVI 100 so hosts behind CE5 use a **distributed anycast gateway** (same GW IP+MAC on both PEs) and can be both bridged (same subnet) and routed (other subnets).
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -218,18 +218,18 @@ Integrated Routing and Bridging: a BVI bridges within a subnet and routes betwee
 
 ## Section 5 — EVPN Inter-AS (3 tasks)
 
-Extend EVPN from **Garnet** (CE5) to **Gold** (CE7) across the AS boundary. BGP EVPN runs between the Garnet RR (PCE) and the Gold border (ASBR3).
+Extend EVPN from **Garnet** (CE5) to **Gold** (CE7) across the AS boundary. BGP EVPN runs between the Garnet RR (Gar-R6) and the Gold border (G-R4).
 
-### Task 5.1 — BGP EVPN session between RRs / borders (PCE ↔ ASBR3)
+### Task 5.1 — BGP EVPN session between RRs / borders (Gar-R6 ↔ G-R4)
 
-**Question:** Establish an inter-AS `l2vpn evpn` session so EVPN routes cross from Garnet into Gold. Use PCE (Garnet RR) ↔ ASBR3.
+**Question:** Establish an inter-AS `l2vpn evpn` session so EVPN routes cross from Garnet into Gold. Use Gar-R6 (Garnet RR) ↔ G-R4.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
 ### Task 5.2 — Type-2 MAC/IP exchange across domains
 
-**Question:** Ensure CE7's MAC (Gold, PE6) is learned in Garnet and CE5's MAC is learned in Gold, via Type-2 across the AS boundary. Align RTs.
+**Question:** Ensure CE7's MAC (Gold, G-R2) is learned in Garnet and CE5's MAC is learned in Gold, via Type-2 across the AS boundary. Align RTs.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -245,14 +245,14 @@ Extend EVPN from **Garnet** (CE5) to **Gold** (CE7) across the AS boundary. BGP 
 
 ### Task 6.1 — MAC mobility (sequence number) + sticky MAC
 
-**Question:** A host with MAC `0050.5600.00AA` moves from behind CE5 (PE3) to behind PE6. Show how EVPN converges via the MAC Mobility extended community (sequence number), and how to pin a MAC with **sticky/static** MAC.
+**Question:** A host with MAC `0050.5600.00AA` moves from behind CE5 (Gar-R1) to behind G-R2. Show how EVPN converges via the MAC Mobility extended community (sequence number), and how to pin a MAC with **sticky/static** MAC.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
 ### Task 6.2 — Duplicate MAC detection
 
-**Question:** A MAC flaps rapidly between PE3 and PE6 (misconfig / loop). Show EVPN's duplicate-MAC detection and how to tune/clear it.
+**Question:** A MAC flaps rapidly between Gar-R1 and G-R2 (misconfig / loop). Show EVPN's duplicate-MAC detection and how to tune/clear it.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*

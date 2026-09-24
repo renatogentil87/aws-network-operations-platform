@@ -15,24 +15,24 @@ Three service providers, each an autonomous system, interconnected at their ASBR
 
 ```
         EMERALD  AS 65100                    GOLD  AS 65300                    GARNET  AS 65200
-   RR = PCE1 (6.6.6.6)                 RR = ASBR3 (21.21.21.21)           RR = PCE (17.17.17.17)
+   RR = E-R5 (6.6.6.6)                 RR = G-R4 (24.24.24.24)           RR = Gar-R6 (16.16.16.16)
 
-   PE1 1.1.1.1                          ASBR3 21.21.21.21 (RR)             PE3 11.11.11.11
-   PE2 2.2.2.2                          ASBR4 22.22.22.22                  PE4 12.12.12.12
-   P1, P2                               P6                                 P3, P4, P5
-   ASBR1 5.5.5.5                        PE5 24.24.24.24                    ASBR2 16.16.16.16
-   PCE1 6.6.6.6 (RR)                    PE6 25.25.25.25
+   E-R1 1.1.1.1                          G-R4 24.24.24.24 (RR)             Gar-R1 11.11.11.11
+   E-R2 2.2.2.2                          G-R5 25.25.25.25                  Gar-R2 12.12.12.12
+   E-R3, E-R4                               G-R3                                 Gar-R3, Gar-R4, Gar-R5
+   E-R6 5.5.5.5                        G-R1 21.21.21.21                    Gar-R7 17.17.17.17
+   E-R5 6.6.6.6 (RR)                    G-R2 22.22.22.22
 
-                        ASBR1 ══════════════ ASBR3        (Emerald ↔ Gold,   eBGP)
-                        ASBR1 ══════════════ ASBR2        (Emerald ↔ Garnet, eBGP, direct)
-                        ASBR4 ══════════════ ASBR2        (Gold   ↔ Garnet,  eBGP)
+                        E-R6 ══════════════ G-R4        (Emerald ↔ Gold,   eBGP)
+                        E-R6 ══════════════ Gar-R7        (Emerald ↔ Garnet, eBGP, direct)
+                        G-R5 ══════════════ Gar-R7        (Gold   ↔ Garnet,  eBGP)
 ```
 
 | SP | AS | RR | PEs | ASBRs |
 |----|----|----|-----|-------|
-| Emerald | 65100 | PCE1 (6.6.6.6) | PE1 (1.1.1.1), PE2 (2.2.2.2) | ASBR1 (5.5.5.5) |
-| Gold | 65300 | ASBR3 (21.21.21.21) | PE5 (24.24.24.24), PE6 (25.25.25.25) | ASBR3 (21.21.21.21), ASBR4 (22.22.22.22) |
-| Garnet | 65200 | PCE (17.17.17.17) | PE3 (11.11.11.11), PE4 (12.12.12.12) | ASBR2 (16.16.16.16) |
+| Emerald | 65100 | E-R5 (6.6.6.6) | E-R1 (1.1.1.1), E-R2 (2.2.2.2) | E-R6 (5.5.5.5) |
+| Gold | 65300 | G-R4 (24.24.24.24) | G-R1 (21.21.21.21), G-R2 (22.22.22.22) | G-R4 (24.24.24.24), G-R5 (25.25.25.25) |
+| Garnet | 65200 | Gar-R6 (16.16.16.16) | Gar-R1 (11.11.11.11), Gar-R2 (12.12.12.12) | Gar-R7 (17.17.17.17) |
 
 **Customers:** A (AS 65012) = Emerald + Gold; B (AS 65013) = Gold + Garnet; C (EVPN) = Gold + Garnet.
 
@@ -40,23 +40,23 @@ Three service providers, each an autonomous system, interconnected at their ASBR
 
 | Link | Left | Right |
 |------|------|-------|
-| ASBR1 ↔ ASBR2 | 10.0.12.5/30 | 10.0.12.6/30 |
-| ASBR1 ↔ ASBR3 | 10.0.13.5/30 | 10.0.13.21/30 |
-| ASBR4 ↔ ASBR2 | 10.0.42.22/30 | 10.0.42.16/30 |
+| E-R6 ↔ Gar-R7 | 10.0.12.5/30 | 10.0.12.6/30 |
+| E-R6 ↔ G-R4 | 10.0.13.5/30 | 10.0.13.21/30 |
+| G-R5 ↔ Gar-R7 | 10.0.42.22/30 | 10.0.42.16/30 |
 
 ---
 
 ## Section 1 — iBGP + Route Reflectors
 
 ### Task 1.1
-- Design the iBGP mesh for **Emerald** as a route-reflector topology: **PCE1 (6.6.6.6)** is the RR; PE1, PE2, and ASBR1 are RR clients.
+- Design the iBGP mesh for **Emerald** as a route-reflector topology: **E-R5 (6.6.6.6)** is the RR; E-R1, E-R2, and E-R6 are RR clients.
 - All iBGP sessions peer on **Loopback0** with **update-source Loopback0**.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
 ### Task 1.2
-- Repeat the RR design for **Gold** (RR = **ASBR3 21.21.21.21**; clients ASBR4, PE5, PE6, P6) and **Garnet** (RR = **PCE 17.17.17.17**; clients PE3, PE4, ASBR2).
+- Repeat the RR design for **Gold** (RR = **G-R4 24.24.24.24**; clients G-R5, G-R1, G-R2, G-R3) and **Garnet** (RR = **Gar-R6 16.16.16.16**; clients Gar-R1, Gar-R2, Gar-R7).
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -70,7 +70,7 @@ Three service providers, each an autonomous system, interconnected at their ASBR
 
 ### Task 1.4
 - Set a **cluster-id** on each RR so a future second RR in the same cluster shares it (cluster-list loop prevention).
-- Emerald cluster-id `6.6.6.6`; Gold `21.21.21.21`; Garnet `17.17.17.17`.
+- Emerald cluster-id `6.6.6.6`; Gold `24.24.24.24`; Garnet `16.16.16.16`.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -85,19 +85,19 @@ Three service providers, each an autonomous system, interconnected at their ASBR
 ## Section 2 — eBGP Inter-AS
 
 ### Task 2.1
-- Configure **direct eBGP** on the ASBR1 ↔ ASBR2 link (Emerald AS 65100 ↔ Garnet AS 65200) peering on the **directly-connected interface addresses**.
+- Configure **direct eBGP** on the E-R6 ↔ Gar-R7 link (Emerald AS 65100 ↔ Garnet AS 65200) peering on the **directly-connected interface addresses**.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
 ### Task 2.2
-- Configure **eBGP ASBR1 ↔ ASBR3** (Emerald AS 65100 ↔ Gold AS 65300) and **ASBR4 ↔ ASBR2** (Gold AS 65300 ↔ Garnet AS 65200), both directly connected.
+- Configure **eBGP E-R6 ↔ G-R4** (Emerald AS 65100 ↔ Gold AS 65300) and **G-R5 ↔ Gar-R7** (Gold AS 65300 ↔ Garnet AS 65200), both directly connected.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
 ### Task 2.3
-- Build **multihop eBGP for VPNv4 between the RRs** (Inter-AS Option C-style): PCE1 (Emerald RR, 6.6.6.6) ↔ ASBR3 (Gold RR, 21.21.21.21), peering **loopback-to-loopback** across the AS boundary, exchanging **labeled VPNv4** without importing VRFs on the ASBRs.
+- Build **multihop eBGP for VPNv4 between the RRs** (Inter-AS Option C-style): E-R5 (Emerald RR, 6.6.6.6) ↔ G-R4 (Gold RR, 24.24.24.24), peering **loopback-to-loopback** across the AS boundary, exchanging **labeled VPNv4** without importing VRFs on the ASBRs.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -117,13 +117,13 @@ Three service providers, each an autonomous system, interconnected at their ASBR
 ## Section 3 — BGP Path Manipulation
 
 ### Task 3.1
-- Engineer Emerald to **prefer the Gold transit path** (via ASBR3) over the **direct** ASBR1↔ASBR2 path for reaching Garnet's prefixes, using **LOCAL_PREF**.
+- Engineer Emerald to **prefer the Gold transit path** (via G-R4) over the **direct** E-R6↔Gar-R7 path for reaching Garnet's prefixes, using **LOCAL_PREF**.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
 ### Task 3.2
-- Make the **direct** ASBR1↔ASBR2 link *less preferred inbound* (so Garnet reaches Emerald via Gold) using **AS-PATH prepend** outbound on the direct link.
+- Make the **direct** E-R6↔Gar-R7 link *less preferred inbound* (so Garnet reaches Emerald via Gold) using **AS-PATH prepend** outbound on the direct link.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -149,7 +149,7 @@ Three service providers, each an autonomous system, interconnected at their ASBR
 ## Section 4 — BGP Advanced Features
 
 ### Task 4.1
-- Enable **BGP Add-Path** on the Emerald RR (PCE1) so it advertises **best + additional paths** for a multi-homed prefix, restoring path diversity to the clients.
+- Enable **BGP Add-Path** on the Emerald RR (E-R5) so it advertises **best + additional paths** for a multi-homed prefix, restoring path diversity to the clients.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -173,7 +173,7 @@ Three service providers, each an autonomous system, interconnected at their ASBR
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
 ### Task 4.5
-- Configure **conditional route advertisement** on ASBR1: advertise a backup aggregate to Garnet **only if** the primary Gold-transit path is *not* present (advertise-map / non-exist-map behavior).
+- Configure **conditional route advertisement** on E-R6: advertise a backup aggregate to Garnet **only if** the primary Gold-transit path is *not* present (advertise-map / non-exist-map behavior).
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*

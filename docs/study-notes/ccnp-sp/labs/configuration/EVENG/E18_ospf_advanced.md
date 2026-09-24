@@ -7,7 +7,7 @@
 ---
 
 ### Task 1: OSPF PE-CE (VRF)
-1. PE2 Gi0/0/0/2 → CE3 (OSPF Area 0 in VRF CUST_B). PE4 Gi0/0/0/0 → CE6 (OSPF Area 0 in VRF CUST_D).
+1. E-R2 Gi0/0/0/2 → CE3 (OSPF Area 0 in VRF CUST_B). Gar-R2 Gi0/0/0/0 → CE6 (OSPF Area 0 in VRF CUST_D).
 2. Redistribute OSPF↔BGP in VRF. Verify routes propagated via RR.
 
 ### Task 2: DN-bit
@@ -17,7 +17,7 @@
 1. If CE3 and CE6 had a backdoor: OSPF intra-area (backdoor) > inter-area (VPN). Sham-link creates intra-area adjacency across VPN core. Document the config (VRF loopbacks advertised via BGP, `area 0 sham-link`).
 
 ### Task 4: Multi-area OSPF
-1. Split Emerald core OSPF into Area 0 (P1/P2) + Area 1 (PE1/PE2). P1 = ABR.
+1. Split Emerald core OSPF into Area 0 (E-R3/E-R4) + Area 1 (E-R1/E-R2). E-R3 = ABR.
 2. Summarization at ABR. Verify impact on LDP (LDP needs /32 — summarization breaks it).
 
 ### Task 5: Stub/NSSA

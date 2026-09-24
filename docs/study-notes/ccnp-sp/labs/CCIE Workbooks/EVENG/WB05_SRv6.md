@@ -8,13 +8,13 @@
 
 | Node | Router-ID | Role | SRv6 Locator (/48) |
 |------|-----------|------|--------------------|
-| ASBR3 | 21.21.21.21 | ASBR + Route-Reflector + PCE | `fc00:0:21::/48` |
-| ASBR4 | 22.22.22.22 | ASBR (border to Garnet AS via ASBR2) | `fc00:0:22::/48` |
-| P6    | 23.23.23.23 | P (transit) | `fc00:0:23::/48` |
-| PE5   | 24.24.24.24 | PE (CUST_A + CUST_B) | `fc00:0:24::/48` |
-| PE6   | 25.25.25.25 | PE (CUST_A) | `fc00:0:25::/48` |
+| G-R4 | 24.24.24.24 | ASBR + Route-Reflector + Gar-R6 | `fc00:0:24::/48` |
+| G-R5 | 25.25.25.25 | ASBR (border to Garnet AS via Gar-R7) | `fc00:0:25::/48` |
+| G-R3    | 23.23.23.23 | P (transit) | `fc00:0:23::/48` |
+| G-R1   | 21.21.21.21 | PE (CUST_A + CUST_B) | `fc00:0:21::/48` |
+| G-R2   | 22.22.22.22 | PE (CUST_A) | `fc00:0:22::/48` |
 
-**CEs:** CE8 (AS 65012, **dual-homed** to PE5 + PE6, VRF CUST_A) · CE9 (AS 65013, single-homed PE5, VRF CUST_B) · CE7 (EVPN VLAN100).
+**CEs:** CE8 (AS 65012, **dual-homed** to G-R1 + G-R2, VRF CUST_A) · CE9 (AS 65013, single-homed G-R1, VRF CUST_B) · CE7 (EVPN VLAN100).
 
 > **SRv6 in one sentence:** the segment (SID) is a **128-bit IPv6 address**, so the SR data plane *is* the IPv6 data plane — no MPLS, no LDP, no separate label space. A SID = `Locator (routed by IGP) : Function (behavior on the owning node) : Args`. The IGP advertises the `/48` locator; every SID under it is reachable via plain IPv6 longest-prefix match, and the owning node's My-SID table decides the behavior (End, End.X, End.DT4…).
 
@@ -69,7 +69,7 @@
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
 ### Task 2.3 — End.DT4 (per-VRF IPv4 decapsulation)
-**Question:** Explain and configure **End.DT4** for VRF CUST_A on PE5.
+**Question:** Explain and configure **End.DT4** for VRF CUST_A on G-R1.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -82,20 +82,20 @@
 
 ## Section 3 — L3VPN over SRv6
 
-### Task 3.1 — VRF CUST_A on PE5 + PE6 (CE8, AS 65012)
-**Question:** Build VRF CUST_A on both PE5 and PE6, each with an eBGP session to dual-homed CE8 (AS 65012).
+### Task 3.1 — VRF CUST_A on G-R1 + G-R2 (CE8, AS 65012)
+**Question:** Build VRF CUST_A on both G-R1 and G-R2, each with an eBGP session to dual-homed CE8 (AS 65012).
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
-### Task 3.2 — VRF CUST_B on PE5 (CE9, AS 65013)
-**Question:** Build VRF CUST_B on PE5 only, peering eBGP with CE9 (AS 65013).
+### Task 3.2 — VRF CUST_B on G-R1 (CE9, AS 65013)
+**Question:** Build VRF CUST_B on G-R1 only, peering eBGP with CE9 (AS 65013).
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
 ### Task 3.3 — MP-BGP with encapsulation-type SRv6
-**Question:** Configure the VPNv4 MP-BGP overlay (PEs → RR ASBR3) and set **encapsulation-type srv6** so VPN routes carry SRv6 SIDs.
+**Question:** Configure the VPNv4 MP-BGP overlay (PEs → RR G-R3) and set **encapsulation-type srv6** so VPN routes carry SRv6 SIDs.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -115,7 +115,7 @@
 ## Section 4 — SRv6-TE
 
 ### Task 4.1 — Explicit SRv6-TE policy (segment-list of SRv6 SIDs)
-**Question:** On PE5, build an **explicit SRv6-TE policy** to PE6 that traverses P6 (non-shortest / pinned path) using a segment-list of SRv6 SIDs.
+**Question:** On G-R1, build an **explicit SRv6-TE policy** to G-R2 that traverses G-R3 (non-shortest / pinned path) using a segment-list of SRv6 SIDs.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -134,14 +134,14 @@
 
 ## Section 5 — SRv6 Inter-domain (Gold ↔ Garnet)
 
-### Task 5.1 — SRv6 ↔ SR-MPLS boundary at ASBR4 ↔ ASBR2
-**Question:** Gold runs SRv6; the Garnet AS runs SR-MPLS. Describe/configure the interworking boundary at ASBR4 (Gold) ↔ ASBR2 (Garnet).
+### Task 5.1 — SRv6 ↔ SR-MPLS boundary at G-R5 ↔ Gar-R7
+**Question:** Gold runs SRv6; the Garnet AS runs SR-MPLS. Describe/configure the interworking boundary at G-R5 (Gold) ↔ Gar-R7 (Garnet).
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
 ### Task 5.2 — SRv6-to-MPLS interworking concept
-**Question:** Explain the packet-level interworking as a packet crosses ASBR4→ASBR2.
+**Question:** Explain the packet-level interworking as a packet crosses G-R5→Gar-R7.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -166,7 +166,7 @@ router isis GOLD
    locator GOLD
 ```
 
-**Verify fix:** `show isis database verbose | include SRv6` shows the Locator/End SID TLVs; `show segment-routing srv6 sid` now lists End + End.X; remote `show route ipv6 fc00:0:24::/48` resolves.
+**Verify fix:** `show isis database verbose | include SRv6` shows the Locator/End SID TLVs; `show segment-routing srv6 sid` now lists End + End.X; remote `show route ipv6 fc00:0:21::/48` resolves.
 
 ### Task 6.2 — VPN route shows MPLS label instead of SRv6 SID
 **Symptom:** `show bgp vpnv4 unicast vrf CUST_A <prefix> detail` shows a real MPLS **label** and no SRv6 SID; data plane tries to impose MPLS on an IPv6-only core → drops.
@@ -175,7 +175,7 @@ router isis GOLD
 
 ```
 router bgp 65300
- neighbor 21.21.21.21
+ neighbor 24.24.24.24
   address-family vpnv4 unicast
    encapsulation-type srv6
 !

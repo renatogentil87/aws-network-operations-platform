@@ -5,16 +5,16 @@
 > **NIC Mapping:** NIC2=Gi0/0/0/0, NIC3=Gi0/0/0/1, NIC4=Gi0/0/0/2, NIC5=Gi0/0/0/3
 **Prerequisite:** E02 complete (L3VPN VPNv4 in both ASes).
 
-**End Goal:** Inter-AS L3VPN Options A, B, and C between ASBR1 (Gi0/0/0/0) ↔ ASBR2 (Gi0/0/0/1), joining Customer A (CE1/CE2 in Emerald ↔ CE4 in Garnet). Plus SoO, extranet/shared-services, and sham-link concept.
+**End Goal:** Inter-AS L3VPN Options A, B, and C between E-R6 (Gi0/0/0/0) ↔ Gar-R7 (Gi0/0/0/1), joining Customer A (CE1/CE2 in Emerald ↔ CE4 in Garnet). Plus SoO, extranet/shared-services, and sham-link concept.
 
-> Configure and verify one option at a time, then roll back before the next (snapshot between options). Interface: ASBR1 Gi0/0/0/0 ↔ ASBR2 Gi0/0/0/1.
+> Configure and verify one option at a time, then roll back before the next (snapshot between options). Interface: E-R6 Gi0/0/0/0 ↔ Gar-R7 Gi0/0/0/1.
 
 ---
 
 ## Section 1: Option A (back-to-back VRF)
 
 ### Task 1: VRF-to-VRF over the inter-AS link
-1. On ASBR1: sub-interface(s)/VRF CUST_A toward ASBR2 with PE-CE-style eBGP per VRF. Mirror on ASBR2.
+1. On E-R6: sub-interface(s)/VRF CUST_A toward Gar-R7 with PE-CE-style eBGP per VRF. Mirror on Gar-R7.
 2. Each ASBR treats the other as a CE; RT import/export local to each AS.
 3. Verify: `show bgp vrf CUST_A` on both ASBRs — customer prefixes exchanged.
 4. Verify: CE1 ↔ CE4 ping succeeds. Note scaling cost (per-VRF interface).
@@ -24,7 +24,7 @@
 
 ## Section 2: Option B (VPNv4 eBGP between ASBRs)
 
-### Task 2: eBGP VPNv4 ASBR1↔ASBR2
+### Task 2: eBGP VPNv4 E-R6↔Gar-R7
 1. `router bgp` → `address-family vpnv4 unicast`, eBGP neighbor across Gi0/0/0/0↔Gi0/0/0/1 (loopback or link peering with `next-hop-self`/label rewrite).
 2. `retain route-target all` (or route-policy) on ASBRs so VPNv4 routes aren't dropped for absent local RTs.
 3. ASBR rewrites VPN label at the AS boundary (no per-VRF interfaces).
@@ -37,10 +37,10 @@
 ## Section 3: Option C (multi-hop VPNv4 + labeled IPv4)
 
 ### Task 3: Exchange PE loopbacks with labels between ASes
-1. ASBR1↔ASBR2 eBGP `address-family ipv4 labeled-unicast` — advertise PE loopbacks (1.1.1.1/2.2.2.2 ↔ 11.11.11.11/12.12.12.12) with labels.
+1. E-R6↔Gar-R7 eBGP `address-family ipv4 labeled-unicast` — advertise PE loopbacks (1.1.1.1/2.2.2.2 ↔ 11.11.11.11/12.12.12.12) with labels.
 2. Multi-hop eBGP VPNv4 directly between PEs (or via RRs) — ASBRs carry only labeled transport, not VPNv4.
 3. Verify: `show bgp ipv4 labeled-unicast` — remote PE loopbacks + labels present.
-4. Verify: end-to-end LSP PE1→PE3; CE1 ↔ CE4 ping succeeds.
+4. Verify: end-to-end LSP E-R1→Gar-R1; CE1 ↔ CE4 ping succeeds.
 5. Snapshot **"E06-optionC"**.
 
 ---
@@ -56,7 +56,7 @@
 ## Section 5: Additional Advanced Topics
 
 ### Task 5: Site-of-Origin (SoO)
-1. Apply `soo 65100:902` on CE2 dual-homed ACs (PE1 + PE2) inbound.
+1. Apply `soo 65100:902` on CE2 dual-homed ACs (E-R1 + E-R2) inbound.
 2. Verify: prefix learned from one PE is not re-advertised back to the dual-homed site (loop prevention).
 
 ### Task 6: Extranet / Shared Services
@@ -77,7 +77,7 @@
 ## Verification Checklist
 ```
 [ ] Option A: back-to-back VRF; CE1↔CE4 works; per-VRF interface noted
-[ ] Option B: VPNv4 eBGP ASBR1↔ASBR2 with RT retain + label rewrite; CE1↔CE4 works
+[ ] Option B: VPNv4 eBGP E-R6↔Gar-R7 with RT retain + label rewrite; CE1↔CE4 works
 [ ] Option C: labeled-unicast PE loopbacks + multi-hop VPNv4; CE1↔CE4 works
 [ ] Customer A joined: CE1/CE2 ↔ CE4 end-to-end
 [ ] SoO prevents re-advertisement to CE2 dual-homed site
@@ -89,16 +89,16 @@
 
 ## Section 3: Gold as Transit Provider (3-way Inter-AS)
 
-### Task 6: Emerald↔Gold inter-AS (ASBR1 Gi3 ↔ ASBR3 Gi3)
+### Task 6: Emerald↔Gold inter-AS (E-R6 Gi3 ↔ G-R4 Gi3)
 1. Options A/B/C between Emerald and Gold. Customer A: CE1/CE2 (Emerald) ↔ CE8 (Gold).
 2. Test: CE1 `ping` CE8 across the Emerald↔Gold boundary.
 
-### Task 7: Gold↔Garnet inter-AS (ASBR4 Gi3 ↔ ASBR2 Gi3)
+### Task 7: Gold↔Garnet inter-AS (G-R5 Gi3 ↔ Gar-R7 Gi3)
 1. Options A/B/C between Gold and Garnet. Customer B: CE9 (Gold) ↔ CE4 (Garnet).
 2. Test: CE9 `ping` CE4 across the Gold↔Garnet boundary.
 
 ### Task 8: Transit via Gold (Emerald↔Gold↔Garnet)
-1. Traffic from Emerald to Garnet can go DIRECT (ASBR1 Gi1 ↔ ASBR2 Gi1) or via Gold transit.
+1. Traffic from Emerald to Garnet can go DIRECT (E-R6 Gi1 ↔ Gar-R7 Gi1) or via Gold transit.
 2. Use BGP LOCAL_PREF or AS-PATH to prefer Gold transit over direct path (or vice versa).
 3. Test: traceroute from CE1 to CE4 — which path does it take?
 
@@ -108,9 +108,9 @@
 
 ### Updated Checklist
 ```
-[ ] Emerald↔Garnet direct (ASBR1 Gi1 ↔ ASBR2 Gi1) — Options A/B/C
-[ ] Emerald↔Gold (ASBR1 Gi3 ↔ ASBR3 Gi3) — Customer A inter-AS
-[ ] Gold↔Garnet (ASBR4 Gi3 ↔ ASBR2 Gi3) — Customer B inter-AS
+[ ] Emerald↔Garnet direct (E-R6 Gi1 ↔ Gar-R7 Gi1) — Options A/B/C
+[ ] Emerald↔Gold (E-R6 Gi3 ↔ G-R4 Gi3) — Customer A inter-AS
+[ ] Gold↔Garnet (G-R5 Gi3 ↔ Gar-R7 Gi3) — Customer B inter-AS
 [ ] Gold as transit: Emerald↔Gold↔Garnet path exists
 [ ] BGP path selection between direct and transit paths
 [ ] Multi-hop inter-AS (3 AS boundaries) concept

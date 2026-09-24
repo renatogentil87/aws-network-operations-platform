@@ -12,28 +12,28 @@
 
 | Node | Role | Loopback0 | Prefix-SID index (last octet) | Prefix-SID label (SRGB 16000) |
 |------|------|-----------|-------------------------------|-------------------------------|
-| PE3 | PE | 11.11.11.11 | 11 | 16011 |
-| PE4 | PE | 12.12.12.12 | 12 | 16012 |
-| P3 | P | 13.13.13.13 | 13 | 16013 |
-| P4 | P | 14.14.14.14 | 14 | 16014 |
-| P5 | P | 15.15.15.15 | 15 | 16015 |
-| ASBR2 | ASBR | 16.16.16.16 | 16 | 16016 |
-| PCE | RR + PCE | 17.17.17.17 | 17 | 16017 |
+| Gar-R1 | PE | 11.11.11.11 | 11 | 16011 |
+| Gar-R2 | PE | 12.12.12.12 | 12 | 16012 |
+| Gar-R3 | P | 13.13.13.13 | 13 | 16013 |
+| Gar-R4 | P | 14.14.14.14 | 14 | 16014 |
+| Gar-R5 | P | 15.15.15.15 | 15 | 16015 |
+| Gar-R7 | ASBR | 17.17.17.17 | 16 | 16016 |
+| Gar-R6 | RR + Gar-R6 | 16.16.16.16 | 17 | 16017 |
 
 **Garnet core links (from topology reference):**
 
 ```
-PCE   Gi0/0/0/3 --- 10.2.1.0/24 --- Gi0/0/0/3  P3
-ASBR2 Gi0/0/0/2 --- 10.2.2.0/24 --- Gi0/0/0/2  P3
-P3    Gi0/0/0/0 --- 10.2.3.0/24 --- Gi0/0/0/0  P4
-P3    Gi0/0/0/1 --- 10.2.4.0/24 --- Gi0/0/0/1  P5
-P4    Gi0/0/0/3 --- 10.2.5.0/24 --- Gi0/0/0/3  P5
-P4    Gi0/0/0/1 --- 10.2.6.0/24 --- Gi0/0/0/1  PE3
-P5    Gi0/0/0/2 --- 10.2.7.0/24 --- Gi0/0/0/2  PE4
-PE3   Gi0/0/0/3 --- 10.2.8.0/24 --- Gi0/0/0/3  PE4
+Gar-R6   Gi0/0/0/3 --- 10.2.1.0/24 --- Gi0/0/0/3  Gar-R3
+Gar-R7 Gi0/0/0/2 --- 10.2.2.0/24 --- Gi0/0/0/2  Gar-R3
+Gar-R3    Gi0/0/0/0 --- 10.2.3.0/24 --- Gi0/0/0/0  Gar-R4
+Gar-R3    Gi0/0/0/1 --- 10.2.4.0/24 --- Gi0/0/0/1  Gar-R5
+Gar-R4    Gi0/0/0/3 --- 10.2.5.0/24 --- Gi0/0/0/3  Gar-R5
+Gar-R4    Gi0/0/0/1 --- 10.2.6.0/24 --- Gi0/0/0/1  Gar-R1
+Gar-R5    Gi0/0/0/2 --- 10.2.7.0/24 --- Gi0/0/0/2  Gar-R2
+Gar-R1   Gi0/0/0/3 --- 10.2.8.0/24 --- Gi0/0/0/3  Gar-R2
 ```
 
-**Emerald AS 65100 (LDP → SR migration section):** PE1 (1.1.1.1), PE2 (2.2.2.2), P1 (3.3.3.3), P2 (4.4.4.4), ASBR1 (5.5.5.5), PCE1 (6.6.6.6 RR+PCE). Prefix-SID index = last octet of loopback.
+**Emerald AS 65100 (LDP → SR migration section):** E-R1 (1.1.1.1), E-R2 (2.2.2.2), E-R3 (3.3.3.3), E-R4 (4.4.4.4), E-R6 (5.5.5.5), E-R5 (6.6.6.6 RR+Gar-R6). Prefix-SID index = last octet of loopback.
 
 > **Prerequisites:** IS-IS Level-2 backbone with **wide metrics** (mandatory for SR sub-TLVs) and /32 loopbacks already configured (Workbook 01). Wide metrics carry the SR Prefix-SID/Adjacency-SID sub-TLVs; narrow metrics cannot.
 
@@ -50,7 +50,7 @@ PE3   Gi0/0/0/3 --- 10.2.8.0/24 --- Gi0/0/0/3  PE4
 SR reuses the MPLS data plane but distributes labels *through the IGP* — there is no separate label-distribution protocol. Enabling `segment-routing mpls` under the IS-IS address-family turns on the SR sub-TLVs so IS-IS floods Prefix-SIDs and Adjacency-SIDs.
 
 ```
-! ==== All Garnet nodes (example P3 = 13.13.13.13) ====
+! ==== All Garnet nodes (example Gar-R3 = 13.13.13.13) ====
 router isis 1
  is-type level-2-only
  net 49.0002.0000.0000.0013.00
@@ -115,14 +115,14 @@ Expect `SRGB: 16000 - 23999` identical on all nodes.
 
 ## Task 1.3 — Prefix-SID index per loopback (match last octet)
 
-**Question:** Assign each node's Loopback0 a **prefix-SID index equal to the last octet** of its loopback (P3=13 → label 16013, PCE=17 → 16017, etc.). Achieve end-to-end SR reachability with **no LDP**.
+**Question:** Assign each node's Loopback0 a **prefix-SID index equal to the last octet** of its loopback (Gar-R3=13 → label 16013, Gar-R6=17 → 16017, etc.). Achieve end-to-end SR reachability with **no LDP**.
 
 **Solution**
 
-The prefix-SID is advertised as an **index** (not an absolute label). Each receiving node computes `label = SRGB_base + index`. Using `absolute` would advertise the label directly; `index` is preferred because it survives differing SRGBs. Below, P3 gets index 13, PE3 gets index 11, etc.
+The prefix-SID is advertised as an **index** (not an absolute label). Each receiving node computes `label = SRGB_base + index`. Using `absolute` would advertise the label directly; `index` is preferred because it survives differing SRGBs. Below, Gar-R3 gets index 13, Gar-R1 gets index 11, etc.
 
 ```
-! ==== P3 (13.13.13.13) ====
+! ==== Gar-R3 (13.13.13.13) ====
 router isis 1
  interface Loopback0
   address-family ipv4 unicast
@@ -131,14 +131,14 @@ router isis 1
  !
 !
 
-! ==== PE3 (11.11.11.11) ====
+! ==== Gar-R1 (11.11.11.11) ====
 router isis 1
  interface Loopback0
   address-family ipv4 unicast
    prefix-sid index 11
 !
 
-! ==== PCE (17.17.17.17) ====
+! ==== Gar-R6 (16.16.16.16) ====
 router isis 1
  interface Loopback0
   address-family ipv4 unicast
@@ -146,7 +146,7 @@ router isis 1
 !
 ```
 
-Apply the matching index on P4 (14), P5 (15), ASBR2 (16), PE4 (12).
+Apply the matching index on Gar-R4 (14), Gar-R5 (15), Gar-R7 (16), Gar-R2 (12).
 
 **Verification**
 
@@ -154,7 +154,7 @@ Apply the matching index on P4 (14), P5 (15), ASBR2 (16), PE4 (12).
 show isis segment-routing label table
 show cef 11.11.11.11/32 detail     ! label 16011 imposed
 show mpls forwarding
-traceroute 12.12.12.12 source Loopback0   ! from PE3 to PE4 over SR labels
+traceroute 12.12.12.12 source Loopback0   ! from Gar-R1 to Gar-R2 over SR labels
 ```
 
 The label for `11.11.11.11/32` is `16011` on **every** node in Garnet (global significance).
@@ -242,7 +242,7 @@ show segment-routing local-block inout    ! SRLB range for adj-SIDs
 TI-LFA (Topology-Independent Loop-Free Alternate) pre-computes a **post-convergence backup path** for every destination, expressed as a repair **segment list**, and pre-installs it in the FIB. Because the repair is a label stack, it is loop-free in *any* topology (unlike classic LFA/rLFA). Enable it under the IS-IS interface address-family.
 
 ```
-! ==== All Garnet core interfaces (example P4) ====
+! ==== All Garnet core interfaces (example Gar-R4) ====
 router isis 1
  interface GigabitEthernet0/0/0/0
   point-to-point
@@ -302,11 +302,11 @@ Look for `Repair:` / `backup` next-hop and a pushed repair label (the TI-LFA seg
 With the FIB repair pre-installed, a link-down event triggers an immediate local switchover to the backup segment list before IS-IS reconverges.
 
 ```
-! ==== From PE3, generate continuous traffic to PE4 ====
+! ==== From Gar-R1, generate continuous traffic to Gar-R2 ====
 ping 12.12.12.12 source Loopback0 count 100000 size 100
 
-! ==== Fail the primary link (e.g., shut P4<->P5) ====
-! On P4:
+! ==== Fail the primary link (e.g., shut Gar-R4<->Gar-R5) ====
+! On Gar-R4:
 interface GigabitEthernet0/0/0/3
  shutdown
 ```
@@ -332,7 +332,7 @@ Compare against disabling TI-LFA (multi-second loss during full IGP reconvergenc
 Default TI-LFA gives **link protection** (repair assumes only the link failed). **Node protection** computes a backup that avoids the *entire next-hop node*, protecting against router failure — important where a P router is a single point through which many paths pass. Add `node-protection`; `tiebreaker` can prioritize it.
 
 ```
-! ==== Enable node protection on a core interface (P3) ====
+! ==== Enable node protection on a core interface (Gar-R3) ====
 router isis 1
  interface GigabitEthernet0/0/0/0
   point-to-point
@@ -363,22 +363,22 @@ show isis fast-reroute summary
 
 ## Task 3.1 — Explicit SR-TE policy (segment-list of prefix-SIDs)
 
-**Question:** On PE3, build an **explicit SR-TE policy** to PE4 (12.12.12.12) that forces a non-shortest path — e.g. PE3 → P4 → P5 → PE4 — using a segment-list of prefix-SIDs.
+**Question:** On Gar-R1, build an **explicit SR-TE policy** to Gar-R2 (12.12.12.12) that forces a non-shortest path — e.g. Gar-R1 → Gar-R4 → Gar-R5 → Gar-R2 — using a segment-list of prefix-SIDs.
 
 **Solution**
 
 An explicit policy pins the path as an operator-defined segment-list (here, prefix-SIDs of the transit nodes). The head-end imposes the stack; transit routers are stateless. Steering is by **color + endpoint**.
 
 ```
-! ==== PE3 (11.11.11.11) ====
+! ==== Gar-R1 (11.11.11.11) ====
 segment-routing
  traffic-eng
   segment-list SL-VIA-P4-P5
-   index 10 mpls label 16014     ! P4
-   index 20 mpls label 16015     ! P5
-   index 30 mpls label 16012     ! PE4 (endpoint)
+   index 10 mpls label 16014     ! Gar-R4
+   index 20 mpls label 16015     ! Gar-R5
+   index 30 mpls label 16012     ! Gar-R2 (endpoint)
   !
-  policy PE4-EXPLICIT
+  policy Gar-R2-EXPLICIT
    color 100 end-point ipv4 12.12.12.12
    candidate-paths
     preference 100
@@ -395,7 +395,7 @@ segment-routing
 ```
 show segment-routing traffic-eng policy
 show segment-routing traffic-eng policy color 100
-traceroute 12.12.12.12 source Loopback0     ! follows P4->P5, not shortest path
+traceroute 12.12.12.12 source Loopback0     ! follows Gar-R4->Gar-R5, not shortest path
 ```
 
 Policy state should be `Admin: up  Operational: up` with the segment-list installed.
@@ -404,17 +404,17 @@ Policy state should be `Admin: up  Operational: up` with the segment-list instal
 
 ## Task 3.2 — Dynamic SR-TE policy (metric IGP/TE/latency)
 
-**Question:** Create a **dynamic** SR-TE policy on PE3 to PE4 optimized by a chosen **metric type (igp / te / latency)**; observe recomputation when a metric changes.
+**Question:** Create a **dynamic** SR-TE policy on Gar-R1 to Gar-R2 optimized by a chosen **metric type (igp / te / latency)**; observe recomputation when a metric changes.
 
 **Solution**
 
-A dynamic policy runs constrained SPF (locally or via PCE) and installs the resulting segment list automatically. `metric type latency` optimizes for the accumulated link-delay metric (from performance-measurement or configured delay).
+A dynamic policy runs constrained SPF (locally or via Gar-R6) and installs the resulting segment list automatically. `metric type latency` optimizes for the accumulated link-delay metric (from performance-measurement or configured delay).
 
 ```
-! ==== PE3 ====
+! ==== Gar-R1 ====
 segment-routing
  traffic-eng
-  policy PE4-DYNAMIC
+  policy Gar-R2-DYNAMIC
    color 200 end-point ipv4 12.12.12.12
    candidate-paths
     preference 100
@@ -441,16 +441,16 @@ show segment-routing traffic-eng policy color 200 detail   ! recomputed segment 
 
 ---
 
-## Task 3.3 — PCE-initiated policy (PCE = 17.17.17.17 as SR-PCE)
+## Task 3.3 — Gar-R6-initiated policy (Gar-R6 = 16.16.16.16 as SR-PCE)
 
-**Question:** Configure the Garnet **PCE (17.17.17.17)** as an **SR-PCE**, have PE3 connect as a PCC, and have the PCE **initiate/delegate** an SR-TE policy.
+**Question:** Configure the Garnet **Gar-R6 (16.16.16.16)** as an **SR-PCE**, have Gar-R1 connect as a PCC, and have the Gar-R6 **initiate/delegate** an SR-TE policy.
 
 **Solution**
 
-The SR-PCE has a full topology view via **BGP-LS** and computes paths centrally over **PCEP**. On the PCE node run `pce address` + `pce segment-routing`; each head-end (PCC) points at the PCE. PCE-initiated policies are pushed from the controller.
+The SR-PCE has a full topology view via **BGP-LS** and computes paths centrally over **PCEP**. On the Gar-R6 node run `pce address` + `pce segment-routing`; each head-end (PCC) points at the Gar-R6. Gar-R6-initiated policies are pushed from the controller.
 
 ```
-! ==== PCE node (17.17.17.17) — SR-PCE + BGP-LS ====
+! ==== Gar-R6 node (16.16.16.16) — SR-PCE + BGP-LS ====
 router isis 1
  address-family ipv4 unicast
   distribute link-state                 ! feed topology to BGP-LS
@@ -466,19 +466,19 @@ router bgp 65200
  !
 !
 pce
- address ipv4 17.17.17.17
+ address ipv4 16.16.16.16
  segment-routing
   traffic-eng
   !
  !
 !
 
-! ==== PE3 (PCC) — connect to the SR-PCE ====
+! ==== Gar-R1 (PCC) — connect to the SR-PCE ====
 segment-routing
  traffic-eng
   pcc
    source-address ipv4 11.11.11.11
-   pce address ipv4 17.17.17.17
+   pce address ipv4 16.16.16.16
     precedence 10
    !
    report-all
@@ -490,12 +490,12 @@ segment-routing
 **Verification**
 
 ```
-! On PCE:
+! On Gar-R6:
 show pce ipv4 topology summary        ! BGP-LS topology learned
 show pce lsp                          ! delegated/initiated LSPs
 show pce ipv4 peer                    ! PCEP sessions up
 
-! On PCC (PE3):
+! On PCC (Gar-R1):
 show segment-routing traffic-eng pcc ipv4 peer
 show segment-routing traffic-eng policy
 ```
@@ -504,14 +504,14 @@ show segment-routing traffic-eng policy
 
 ## Task 3.4 — On-Demand Next-hop (ODN) with BGP color
 
-**Question:** Configure **ODN** on PE3 so an SR-TE policy is auto-created toward the BGP next-hop when a VPN route arrives carrying a matching **color** community.
+**Question:** Configure **ODN** on Gar-R1 so an SR-TE policy is auto-created toward the BGP next-hop when a VPN route arrives carrying a matching **color** community.
 
 **Solution**
 
 ODN uses an **on-demand color template**: when a BGP route with color X is received, XR auto-creates an SR-TE policy `(color X, endpoint = BGP next-hop)` using the template's constraints — no per-prefix tunnel config. Scales to thousands of prefixes.
 
 ```
-! ==== PE3 — ODN template for color 100 ====
+! ==== Gar-R1 — ODN template for color 100 ====
 segment-routing
  traffic-eng
   on-demand color 100
@@ -539,14 +539,14 @@ show cef vrf CUST-A <prefix>                   ! resolves via SR-TE policy
 
 ## Task 3.5 — Steer L3VPN traffic into an SR-TE policy
 
-**Question:** Steer **L3VPN (VPNv4)** traffic from PE4 → PE3 into the color-100 SR-TE policy by coloring the VPN routes.
+**Question:** Steer **L3VPN (VPNv4)** traffic from Gar-R2 → Gar-R1 into the color-100 SR-TE policy by coloring the VPN routes.
 
 **Solution**
 
 Set the **color extended community** on the egress PE's VPN routes with a route-policy applied outbound to VPNv4. The ingress PE (with the ODN template or explicit policy for that color) then resolves the VPN next-hop through the SR-TE policy — this is automated steering (`route-policy` + color), replacing RSVP-TE autoroute.
 
 ```
-! ==== PE4 (egress) — color the exported VPN routes ====
+! ==== Gar-R2 (egress) — color the exported VPN routes ====
 extcommunity-set opaque COLOR-100
   100
 end-set
@@ -557,14 +557,14 @@ route-policy SET-COLOR-100
 end-policy
 !
 router bgp 65200
- neighbor 17.17.17.17            ! RR (PCE) is also route-reflector
+ neighbor 16.16.16.16            ! RR (Gar-R6) is also route-reflector
   address-family vpnv4 unicast
    route-policy SET-COLOR-100 out
   !
  !
 !
 
-! ==== PE3 (ingress) — auto-steer via 'steering' (default per-flow on) ====
+! ==== Gar-R1 (ingress) — auto-steer via 'steering' (default per-flow on) ====
 segment-routing
  traffic-eng
   on-demand color 100
@@ -640,7 +640,7 @@ show performance-measurement summary
 Each node advertises an additional prefix-SID *for algorithm 128* on its loopback (offset from the base index so it does not collide with Algo-0 SIDs). Pushing the Algo-128 SID steers a packet onto the low-delay plane.
 
 ```
-! ==== P3 (13.13.13.13) — algo-0 index 13, algo-128 index 213 ====
+! ==== Gar-R3 (13.13.13.13) — algo-0 index 13, algo-128 index 213 ====
 router isis 1
  interface Loopback0
   address-family ipv4 unicast
@@ -650,7 +650,7 @@ router isis 1
  !
 !
 
-! ==== PE3 (11.11.11.11) — algo-128 index 211 ====
+! ==== Gar-R1 (11.11.11.11) — algo-128 index 211 ====
 router isis 1
  interface Loopback0
   address-family ipv4 unicast
@@ -659,14 +659,14 @@ router isis 1
 !
 ```
 
-Apply matching per-algo indexes (loopback-last-octet + 200) on P4, P5, ASBR2, PE4, PCE.
+Apply matching per-algo indexes (loopback-last-octet + 200) on Gar-R4, Gar-R5, Gar-R7, Gar-R2, Gar-R6.
 
 **Verification**
 
 ```
 show isis segment-routing label table
 show isis segment-routing prefix-sid-map active-policy
-show mpls forwarding labels 16211            ! algo-128 SID for PE3 (16000+211)
+show mpls forwarding labels 16211            ! algo-128 SID for Gar-R1 (16000+211)
 ```
 
 ---
@@ -680,10 +680,10 @@ show mpls forwarding labels 16211            ! algo-128 SID for PE3 (16000+211)
 Algo 0 (IGP cost) and Algo 128 (delay) produce potentially different next-hops for the same destination. Steer traffic either by pushing the Algo-128 prefix-SID directly, or via an SR-TE / ODN policy referencing `constraints segments algorithm 128`.
 
 ```
-! ==== PE3 — SR-TE policy that uses Flex-Algo 128 path to PE4 ====
+! ==== Gar-R1 — SR-TE policy that uses Flex-Algo 128 path to Gar-R2 ====
 segment-routing
  traffic-eng
-  policy PE4-LOWLATENCY
+  policy Gar-R2-LOWLATENCY
    color 128 end-point ipv4 12.12.12.12
    candidate-paths
     preference 100
@@ -728,7 +728,7 @@ The Algo-128 SPF next-hop differs from Algo 0 where the min-delay path diverges 
 SR and LDP coexist: LDP keeps distributing its local labels while IS-IS begins advertising prefix-SIDs. By default, when both a prefix-SID and an LDP label exist for a FEC, XR uses **LDP** as the outgoing label (SR is the backup) until you flip preference. Enable SR without removing LDP.
 
 ```
-! ==== All Emerald nodes (example P1 = 3.3.3.3) ====
+! ==== All Emerald nodes (example E-R3 = 3.3.3.3) ====
 router isis 1
  address-family ipv4 unicast
   metric-style wide
@@ -746,7 +746,7 @@ mpls ldp
 !
 ```
 
-Assign prefix-SIDs matching last octet: PE1=1, PE2=2, P1=3, P2=4, ASBR1=5, PCE1=6.
+Assign prefix-SIDs matching last octet: E-R1=1, E-R2=2, E-R3=3, E-R4=4, E-R6=5, E-R5=6.
 
 **Verification**
 
@@ -817,7 +817,7 @@ Outgoing label for `1.1.1.1/32` should now be `16001` (SR), not the LDP local la
 Because forwarding already uses SR labels (Task 5.3), removing LDP is non-disruptive — the SR data plane is already carrying traffic. Start continuous traffic, remove LDP, confirm zero loss, then verify LDP is fully gone.
 
 ```
-! ==== Before removal — continuous traffic PE1 -> PE2 ====
+! ==== Before removal — continuous traffic E-R1 -> E-R2 ====
 ping 2.2.2.2 source Loopback0 count 100000
 
 ! ==== Remove LDP (all Emerald nodes) ====
@@ -849,7 +849,7 @@ traceroute 2.2.2.2 source Loopback0
 
 ## Task 6.1 — Prefix-SID conflict (two routers, same index)
 
-**Question:** Two Garnet routers advertise the **same prefix-SID index** (e.g. P4 and P5 both use index 14). Diagnose and fix.
+**Question:** Two Garnet routers advertise the **same prefix-SID index** (e.g. Gar-R4 and Gar-R5 both use index 14). Diagnose and fix.
 
 **Solution**
 
@@ -869,7 +869,7 @@ Look for a `Conflict`/`Prefix-SID conflict` log and two loopbacks bound to the s
 **Fix**
 
 ```
-! ==== P5 — correct its index back to 15 ====
+! ==== Gar-R5 — correct its index back to 15 ====
 router isis 1
  interface Loopback0
   address-family ipv4 unicast
@@ -880,7 +880,7 @@ router isis 1
 **Verify fix**
 
 ```
-show isis segment-routing label table   ! 16014=P4, 16015=P5, unique again
+show isis segment-routing label table   ! 16014=Gar-R4, 16015=Gar-R5, unique again
 show cef 15.15.15.15/32 detail
 ```
 
@@ -888,7 +888,7 @@ show cef 15.15.15.15/32 detail
 
 ## Task 6.2 — SRGB mismatch
 
-**Question:** One Garnet node has a **different SRGB** (e.g. P3 = 18000–25999 while everyone else is 16000–23999). Diagnose the impact and fix.
+**Question:** One Garnet node has a **different SRGB** (e.g. Gar-R3 = 18000–25999 while everyone else is 16000–23999). Diagnose the impact and fix.
 
 **Solution**
 
@@ -899,17 +899,17 @@ Because prefix-SIDs are advertised as *indexes*, each node computes `label = its
 ```
 show mpls label range                    ! compare SRGB on each node
 show segment-routing local-block inout
-show isis segment-routing label table    ! P3 derives different labels
+show isis segment-routing label table    ! Gar-R3 derives different labels
 show mpls forwarding labels 16013        ! label programming inconsistent
 traceroute 13.13.13.13                   ! fails / wrong labels
 ```
 
-The tell-tale: `show mpls label range` shows `SRGB 18000-25999` on P3 vs `16000-23999` elsewhere.
+The tell-tale: `show mpls label range` shows `SRGB 18000-25999` on Gar-R3 vs `16000-23999` elsewhere.
 
 **Fix**
 
 ```
-! ==== P3 — restore the common SRGB ====
+! ==== Gar-R3 — restore the common SRGB ====
 segment-routing
  global-block 16000 23999
 !
@@ -921,7 +921,7 @@ segment-routing
 
 ```
 show mpls label range                    ! 16000-23999 everywhere
-show isis segment-routing label table    ! 16013 = P3 consistently
+show isis segment-routing label table    ! 16013 = Gar-R3 consistently
 traceroute 13.13.13.13 source Loopback0
 ```
 
@@ -929,7 +929,7 @@ traceroute 13.13.13.13 source Loopback0
 
 ## Task 6.3 — SR-TE policy down (SID not reachable)
 
-**Question:** An explicit SR-TE policy on PE3 is **Operational: down**. The segment-list references a prefix-SID label that is not reachable/valid. Diagnose and fix.
+**Question:** An explicit SR-TE policy on Gar-R1 is **Operational: down**. The segment-list references a prefix-SID label that is not reachable/valid. Diagnose and fix.
 
 **Solution**
 
@@ -951,13 +951,13 @@ Typical cause shown: segment-list points at `16099` (no such prefix-SID) or a tr
 **Fix**
 
 ```
-! ==== PE3 — correct the segment-list to valid, reachable prefix-SIDs ====
+! ==== Gar-R1 — correct the segment-list to valid, reachable prefix-SIDs ====
 segment-routing
  traffic-eng
   segment-list SL-VIA-P4-P5
-   index 10 mpls label 16014     ! P4  (was 16099 - invalid)
-   index 20 mpls label 16015     ! P5
-   index 30 mpls label 16012     ! PE4 endpoint
+   index 10 mpls label 16014     ! Gar-R4  (was 16099 - invalid)
+   index 20 mpls label 16015     ! Gar-R5
+   index 30 mpls label 16012     ! Gar-R2 endpoint
   !
  !
 !
@@ -986,9 +986,9 @@ traceroute 12.12.12.12 source Loopback0                ! follows the segment-lis
 | FIB primary+backup | `show cef <prefix> detail` |
 | MPLS forwarding | `show mpls forwarding` |
 | SR-TE policies | `show segment-routing traffic-eng policy` |
-| PCC → PCE session | `show segment-routing traffic-eng pcc ipv4 peer` |
-| PCE topology (BGP-LS) | `show pce ipv4 topology summary` |
-| PCE LSPs / peers | `show pce lsp` / `show pce ipv4 peer` |
+| PCC → Gar-R6 session | `show segment-routing traffic-eng pcc ipv4 peer` |
+| Gar-R6 topology (BGP-LS) | `show pce ipv4 topology summary` |
+| Gar-R6 LSPs / peers | `show pce lsp` / `show pce ipv4 peer` |
 | Flex-Algo | `show isis flex-algo` / `show isis flex-algo 128 detail` |
 | Prefix-SID conflicts | `show isis segment-routing prefix-sid-map active-policy` |
 | LDP neighbors (migration) | `show mpls ldp neighbor` |

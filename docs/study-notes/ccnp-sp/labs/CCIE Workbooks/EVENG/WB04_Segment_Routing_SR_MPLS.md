@@ -12,28 +12,28 @@
 
 | Node | Role | Loopback0 | Prefix-SID index (last octet) | Prefix-SID label (SRGB 16000) |
 |------|------|-----------|-------------------------------|-------------------------------|
-| PE3 | PE | 11.11.11.11 | 11 | 16011 |
-| PE4 | PE | 12.12.12.12 | 12 | 16012 |
-| P3 | P | 13.13.13.13 | 13 | 16013 |
-| P4 | P | 14.14.14.14 | 14 | 16014 |
-| P5 | P | 15.15.15.15 | 15 | 16015 |
-| ASBR2 | ASBR | 16.16.16.16 | 16 | 16016 |
-| PCE | RR + PCE | 17.17.17.17 | 17 | 16017 |
+| Gar-R1 | PE | 11.11.11.11 | 11 | 16011 |
+| Gar-R2 | PE | 12.12.12.12 | 12 | 16012 |
+| Gar-R3 | P | 13.13.13.13 | 13 | 16013 |
+| Gar-R4 | P | 14.14.14.14 | 14 | 16014 |
+| Gar-R5 | P | 15.15.15.15 | 15 | 16015 |
+| Gar-R7 | ASBR | 17.17.17.17 | 16 | 16016 |
+| Gar-R6 | RR + Gar-R6 | 16.16.16.16 | 17 | 16017 |
 
 **Garnet core links (from topology reference):**
 
 ```
-PCE   Gi0/0/0/3 --- 10.2.1.0/24 --- Gi0/0/0/3  P3
-ASBR2 Gi0/0/0/2 --- 10.2.2.0/24 --- Gi0/0/0/2  P3
-P3    Gi0/0/0/0 --- 10.2.3.0/24 --- Gi0/0/0/0  P4
-P3    Gi0/0/0/1 --- 10.2.4.0/24 --- Gi0/0/0/1  P5
-P4    Gi0/0/0/3 --- 10.2.5.0/24 --- Gi0/0/0/3  P5
-P4    Gi0/0/0/1 --- 10.2.6.0/24 --- Gi0/0/0/1  PE3
-P5    Gi0/0/0/2 --- 10.2.7.0/24 --- Gi0/0/0/2  PE4
-PE3   Gi0/0/0/3 --- 10.2.8.0/24 --- Gi0/0/0/3  PE4
+Gar-R6   Gi0/0/0/3 --- 10.2.1.0/24 --- Gi0/0/0/3  Gar-R3
+Gar-R7 Gi0/0/0/2 --- 10.2.2.0/24 --- Gi0/0/0/2  Gar-R3
+Gar-R3    Gi0/0/0/0 --- 10.2.3.0/24 --- Gi0/0/0/0  Gar-R4
+Gar-R3    Gi0/0/0/1 --- 10.2.4.0/24 --- Gi0/0/0/1  Gar-R5
+Gar-R4    Gi0/0/0/3 --- 10.2.5.0/24 --- Gi0/0/0/3  Gar-R5
+Gar-R4    Gi0/0/0/1 --- 10.2.6.0/24 --- Gi0/0/0/1  Gar-R1
+Gar-R5    Gi0/0/0/2 --- 10.2.7.0/24 --- Gi0/0/0/2  Gar-R2
+Gar-R1   Gi0/0/0/3 --- 10.2.8.0/24 --- Gi0/0/0/3  Gar-R2
 ```
 
-**Emerald AS 65100 (LDP → SR migration section):** PE1 (1.1.1.1), PE2 (2.2.2.2), P1 (3.3.3.3), P2 (4.4.4.4), ASBR1 (5.5.5.5), PCE1 (6.6.6.6 RR+PCE). Prefix-SID index = last octet of loopback.
+**Emerald AS 65100 (LDP → SR migration section):** E-R1 (1.1.1.1), E-R2 (2.2.2.2), E-R3 (3.3.3.3), E-R4 (4.4.4.4), E-R6 (5.5.5.5), E-R5 (6.6.6.6 RR+Gar-R6). Prefix-SID index = last octet of loopback.
 
 > **Prerequisites:** IS-IS Level-2 backbone with **wide metrics** (mandatory for SR sub-TLVs) and /32 loopbacks already configured (Workbook 01). Wide metrics carry the SR Prefix-SID/Adjacency-SID sub-TLVs; narrow metrics cannot.
 
@@ -57,7 +57,7 @@ PE3   Gi0/0/0/3 --- 10.2.8.0/24 --- Gi0/0/0/3  PE4
 
 ## Task 1.3 — Prefix-SID index per loopback (match last octet)
 
-**Question:** Assign each node's Loopback0 a **prefix-SID index equal to the last octet** of its loopback (P3=13 → label 16013, PCE=17 → 16017, etc.). Achieve end-to-end SR reachability with **no LDP**.
+**Question:** Assign each node's Loopback0 a **prefix-SID index equal to the last octet** of its loopback (Gar-R3=13 → label 16013, Gar-R6=17 → 16017, etc.). Achieve end-to-end SR reachability with **no LDP**.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -106,35 +106,35 @@ PE3   Gi0/0/0/3 --- 10.2.8.0/24 --- Gi0/0/0/3  PE4
 
 ## Task 3.1 — Explicit SR-TE policy (segment-list of prefix-SIDs)
 
-**Question:** On PE3, build an **explicit SR-TE policy** to PE4 (12.12.12.12) that forces a non-shortest path — e.g. PE3 → P4 → P5 → PE4 — using a segment-list of prefix-SIDs.
+**Question:** On Gar-R1, build an **explicit SR-TE policy** to Gar-R2 (12.12.12.12) that forces a non-shortest path — e.g. Gar-R1 → Gar-R4 → Gar-R5 → Gar-R2 — using a segment-list of prefix-SIDs.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
 ## Task 3.2 — Dynamic SR-TE policy (metric IGP/TE/latency)
 
-**Question:** Create a **dynamic** SR-TE policy on PE3 to PE4 optimized by a chosen **metric type (igp / te / latency)**; observe recomputation when a metric changes.
+**Question:** Create a **dynamic** SR-TE policy on Gar-R1 to Gar-R2 optimized by a chosen **metric type (igp / te / latency)**; observe recomputation when a metric changes.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
-## Task 3.3 — PCE-initiated policy (PCE = 17.17.17.17 as SR-PCE)
+## Task 3.3 — Gar-R6-initiated policy (Gar-R6 = 16.16.16.16 as SR-PCE)
 
-**Question:** Configure the Garnet **PCE (17.17.17.17)** as an **SR-PCE**, have PE3 connect as a PCC, and have the PCE **initiate/delegate** an SR-TE policy.
+**Question:** Configure the Garnet **Gar-R6 (16.16.16.16)** as an **SR-PCE**, have Gar-R1 connect as a PCC, and have the Gar-R6 **initiate/delegate** an SR-TE policy.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
 ## Task 3.4 — On-Demand Next-hop (ODN) with BGP color
 
-**Question:** Configure **ODN** on PE3 so an SR-TE policy is auto-created toward the BGP next-hop when a VPN route arrives carrying a matching **color** community.
+**Question:** Configure **ODN** on Gar-R1 so an SR-TE policy is auto-created toward the BGP next-hop when a VPN route arrives carrying a matching **color** community.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
 ## Task 3.5 — Steer L3VPN traffic into an SR-TE policy
 
-**Question:** Steer **L3VPN (VPNv4)** traffic from PE4 → PE3 into the color-100 SR-TE policy by coloring the VPN routes.
+**Question:** Steer **L3VPN (VPNv4)** traffic from Gar-R2 → Gar-R1 into the color-100 SR-TE policy by coloring the VPN routes.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -190,21 +190,21 @@ PE3   Gi0/0/0/3 --- 10.2.8.0/24 --- Gi0/0/0/3  PE4
 
 ## Task 6.1 — Prefix-SID conflict (two routers, same index)
 
-**Question:** Two Garnet routers advertise the **same prefix-SID index** (e.g. P4 and P5 both use index 14). Diagnose and fix.
+**Question:** Two Garnet routers advertise the **same prefix-SID index** (e.g. Gar-R4 and Gar-R5 both use index 14). Diagnose and fix.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
 ## Task 6.2 — SRGB mismatch
 
-**Question:** One Garnet node has a **different SRGB** (e.g. P3 = 18000–25999 while everyone else is 16000–23999). Diagnose the impact and fix.
+**Question:** One Garnet node has a **different SRGB** (e.g. Gar-R3 = 18000–25999 while everyone else is 16000–23999). Diagnose the impact and fix.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
 ## Task 6.3 — SR-TE policy down (SID not reachable)
 
-**Question:** An explicit SR-TE policy on PE3 is **Operational: down**. The segment-list references a prefix-SID label that is not reachable/valid. Diagnose and fix.
+**Question:** An explicit SR-TE policy on Gar-R1 is **Operational: down**. The segment-list references a prefix-SID label that is not reachable/valid. Diagnose and fix.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*

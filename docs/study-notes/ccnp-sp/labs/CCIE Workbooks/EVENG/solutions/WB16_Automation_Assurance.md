@@ -33,9 +33,9 @@ Roll this out to all 20 routers with a loop (see Section 4) or an NSO template. 
 
 **Verification:**
 ```
-RP/0/RP0/CPU0:PE1# show netconf-yang statistics
-RP/0/RP0/CPU0:PE1# show ssh session-details
-RP/0/RP0/CPU0:PE1# show netconf-yang clients
+RP/0/RP0/CPU0:E-R1# show netconf-yang statistics
+RP/0/RP0/CPU0:E-R1# show ssh session-details
+RP/0/RP0/CPU0:E-R1# show netconf-yang clients
 ```
 From the NSO/workstation, prove the hello handshake:
 ```bash
@@ -66,7 +66,7 @@ pyang -f tree openconfig-network-instance.yang
 
 **Verification:**
 ```
-RP/0/RP0/CPU0:PE1# show netconf-yang trace           ! shows model access during a session
+RP/0/RP0/CPU0:E-R1# show netconf-yang trace           ! shows model access during a session
 ```
 ```python
 # ncclient — dump the capability list
@@ -83,7 +83,7 @@ with manager.connect(host="10.1.1.1", port=830, username="cisco",
 
 ### Task 1.3 — Retrieve running config with ncclient
 
-**Question:** Use the Python `ncclient` library to pull PE1's IS-IS configuration via NETCONF and print the XML.
+**Question:** Use the Python `ncclient` library to pull E-R1's IS-IS configuration via NETCONF and print the XML.
 
 **Solution:**
 ```python
@@ -113,14 +113,14 @@ if __name__ == "__main__":
 - The XML returned should contain `<instance><instance-name>1</instance-name>` and the interface/metric leaves.
 - Cross-check on the box:
 ```
-RP/0/RP0/CPU0:PE1# show running-config router isis
+RP/0/RP0/CPU0:E-R1# show running-config router isis
 ```
 
 ---
 
 ### Task 1.4 — Push an IS-IS metric change with edit-config (candidate → commit)
 
-**Question:** Change the IS-IS metric on PE1's `GigabitEthernet0/0/0/0` from 10 to 100 using NETCONF `edit-config` against the **candidate** datastore, then commit. Demonstrate you understand the XR candidate→commit model.
+**Question:** Change the IS-IS metric on E-R1's `GigabitEthernet0/0/0/0` from 10 to 100 using NETCONF `edit-config` against the **candidate** datastore, then commit. Demonstrate you understand the XR candidate→commit model.
 
 **Solution:**
 XR NETCONF is transactional: `edit-config target=candidate` stages the change; `commit` applies it atomically (identical to CLI `commit`). If you never commit, the candidate is discarded on disconnect.
@@ -178,13 +178,13 @@ router isis 1
 
 **Verification:**
 ```
-RP/0/RP0/CPU0:PE1# show running-config router isis 1 interface GigabitEthernet0/0/0/0
-RP/0/RP0/CPU0:PE1# show isis interface GigabitEthernet0/0/0/0 | include Metric
-RP/0/RP0/CPU0:PE1# show configuration commit list          ! candidate→commit history
+RP/0/RP0/CPU0:E-R1# show running-config router isis 1 interface GigabitEthernet0/0/0/0
+RP/0/RP0/CPU0:E-R1# show isis interface GigabitEthernet0/0/0/0 | include Metric
+RP/0/RP0/CPU0:E-R1# show configuration commit list          ! candidate→commit history
 ```
 Confirm neighbors recomputed the path (metric now 100):
 ```
-RP/0/RP0/CPU0:PE1# show isis route
+RP/0/RP0/CPU0:E-R1# show isis route
 ```
 
 ---
@@ -207,8 +207,8 @@ commit
 
 **Verification:**
 ```
-RP/0/RP0/CPU0:PE1# show grpc status
-RP/0/RP0/CPU0:PE1# show grpc statistics
+RP/0/RP0/CPU0:E-R1# show grpc status
+RP/0/RP0/CPU0:E-R1# show grpc statistics
 ```
 From the collector: `netstat -an | grep 57400`, or a gNMI capabilities probe:
 ```bash
@@ -238,7 +238,7 @@ gnmic -a 10.1.1.1:57400 -u cisco -p cisco123 --insecure capabilities
 
 ### Task 2.3 — Configure dial-out telemetry (sensor-path, subscription, destination)
 
-**Question:** On PE1 configure a dial-out subscription that streams **interface stats**, **BGP neighbor state**, and **IS-IS adjacency** to the collector `10.0.0.100:57500` every 10 seconds.
+**Question:** On E-R1 configure a dial-out subscription that streams **interface stats**, **BGP neighbor state**, and **IS-IS adjacency** to the collector `10.0.0.100:57500` every 10 seconds.
 
 **Solution:**
 ```
@@ -268,10 +268,10 @@ Notes:
 
 **Verification:**
 ```
-RP/0/RP0/CPU0:PE1# show telemetry model-driven subscription SUB-CORE
-RP/0/RP0/CPU0:PE1# show telemetry model-driven subscription SUB-CORE internal
-RP/0/RP0/CPU0:PE1# show telemetry model-driven sensor-group SG-CORE
-RP/0/RP0/CPU0:PE1# show telemetry model-driven destination DG-COLLECTOR
+RP/0/RP0/CPU0:E-R1# show telemetry model-driven subscription SUB-CORE
+RP/0/RP0/CPU0:E-R1# show telemetry model-driven subscription SUB-CORE internal
+RP/0/RP0/CPU0:E-R1# show telemetry model-driven sensor-group SG-CORE
+RP/0/RP0/CPU0:E-R1# show telemetry model-driven destination DG-COLLECTOR
 ```
 Look for subscription state `Active` and destination state `Active`. On the collector, confirm data every ~10s:
 ```bash
@@ -283,7 +283,7 @@ gnmic --config gnmic.yaml subscribe   # or watch pipeline logs
 
 ### Task 2.4 — Dial-in gNMI subscribe
 
-**Question:** From the workstation, use gNMI SUBSCRIBE (dial-in) to watch BGP neighbor state on PE1 at a 5s sample interval, then trigger a change.
+**Question:** From the workstation, use gNMI SUBSCRIBE (dial-in) to watch BGP neighbor state on E-R1 at a 5s sample interval, then trigger a change.
 
 **Solution:**
 ```bash
@@ -293,15 +293,15 @@ gnmic -a 10.1.1.1:57400 -u cisco -p cisco123 --insecure subscribe \
 ```
 Then bounce a session to observe the state transition in the stream:
 ```
-RP/0/RP0/CPU0:PE1(config)# router bgp 65001
-RP/0/RP0/CPU0:PE1(config-bgp)# neighbor 10.1.1.2 shutdown
+RP/0/RP0/CPU0:E-R1(config)# router bgp 65001
+RP/0/RP0/CPU0:E-R1(config-bgp)# neighbor 10.1.1.2 shutdown
 ! ... observe Idle in the gNMI stream, then:
-RP/0/RP0/CPU0:PE1(config-bgp)# no neighbor 10.1.1.2 shutdown
+RP/0/RP0/CPU0:E-R1(config-bgp)# no neighbor 10.1.1.2 shutdown
 ```
 
 **Verification:** The gNMI stream shows `session-state` transition `ESTABLISHED → IDLE → ESTABLISHED`. Cross-check:
 ```
-RP/0/RP0/CPU0:PE1# show bgp neighbor 10.1.1.2 | include BGP state
+RP/0/RP0/CPU0:E-R1# show bgp neighbor 10.1.1.2 | include BGP state
 ```
 
 ---
@@ -328,7 +328,7 @@ admin@ncs# show ncs-state
 
 ### Task 3.2 — Add XRv devices and authgroups
 
-**Question:** Add PE1 and PE5 to NSO inventory with the correct NED-id and an authgroup.
+**Question:** Add E-R1 and G-R1 to NSO inventory with the correct NED-id and an authgroup.
 
 **Solution:**
 ```
@@ -340,21 +340,21 @@ admin@ncs(config)# devices authgroups group XRAUTH
 admin@ncs(config-group-XRAUTH)# default-map remote-name cisco remote-password cisco123
 admin@ncs(config-group-XRAUTH)# exit
 
-admin@ncs(config)# devices device PE1
-admin@ncs(config-device-PE1)# address 10.1.1.1
-admin@ncs(config-device-PE1)# port 830
-admin@ncs(config-device-PE1)# authgroup XRAUTH
-admin@ncs(config-device-PE1)# device-type netconf ned-id cisco-iosxr-nc-1.0
-admin@ncs(config-device-PE1)# state admin-state unlocked
-admin@ncs(config-device-PE1)# exit
+admin@ncs(config)# devices device E-R1
+admin@ncs(config-device-E-R1)# address 10.1.1.1
+admin@ncs(config-device-E-R1)# port 830
+admin@ncs(config-device-E-R1)# authgroup XRAUTH
+admin@ncs(config-device-E-R1)# device-type netconf ned-id cisco-iosxr-nc-1.0
+admin@ncs(config-device-E-R1)# state admin-state unlocked
+admin@ncs(config-device-E-R1)# exit
 
-admin@ncs(config)# devices device PE5
-admin@ncs(config-device-PE5)# address 10.1.1.5
-admin@ncs(config-device-PE5)# port 830
-admin@ncs(config-device-PE5)# authgroup XRAUTH
-admin@ncs(config-device-PE5)# device-type netconf ned-id cisco-iosxr-nc-1.0
-admin@ncs(config-device-PE5)# state admin-state unlocked
-admin@ncs(config-device-PE5)# commit
+admin@ncs(config)# devices device G-R1
+admin@ncs(config-device-G-R1)# address 10.1.1.5
+admin@ncs(config-device-G-R1)# port 830
+admin@ncs(config-device-G-R1)# authgroup XRAUTH
+admin@ncs(config-device-G-R1)# device-type netconf ned-id cisco-iosxr-nc-1.0
+admin@ncs(config-device-G-R1)# state admin-state unlocked
+admin@ncs(config-device-G-R1)# commit
 
 ! fetch host keys
 admin@ncs# devices fetch-ssh-host-keys
@@ -363,8 +363,8 @@ admin@ncs# devices fetch-ssh-host-keys
 **Verification:**
 ```
 admin@ncs# show devices list
-admin@ncs# devices device PE1 connect
-admin@ncs# devices device PE1 check-sync         ! expect in-sync (after sync-from)
+admin@ncs# devices device E-R1 connect
+admin@ncs# devices device E-R1 check-sync         ! expect in-sync (after sync-from)
 ```
 
 ---
@@ -377,20 +377,20 @@ admin@ncs# devices device PE1 check-sync         ! expect in-sync (after sync-fr
 ```
 admin@ncs# devices sync-from
 ! or per device:
-admin@ncs# devices device PE1 sync-from
+admin@ncs# devices device E-R1 sync-from
 ```
 
 **Verification:**
 ```
-admin@ncs# show devices device PE1 config router isis
+admin@ncs# show devices device E-R1 config router isis
 admin@ncs# devices check-sync           ! all should report in-sync
 ```
 
 ---
 
-### Task 3.4 — L3VPN service package: VRF across PE1 + PE5 in one transaction
+### Task 3.4 — L3VPN service package: VRF across E-R1 + G-R1 in one transaction
 
-**Question:** Using an L3VPN service package, provision VRF **CUST-A** on both PE1 and PE5 in a single NSO transaction. Preview before committing.
+**Question:** Using an L3VPN service package, provision VRF **CUST-A** on both E-R1 and G-R1 in a single NSO transaction. Preview before committing.
 
 **Solution:**
 ```
@@ -398,16 +398,16 @@ admin@ncs# config
 admin@ncs(config)# l3vpn CUST-A
 admin@ncs(config-l3vpn-CUST-A)# customer "Customer A"
 admin@ncs(config-l3vpn-CUST-A)# route-distinguisher 65000
-admin@ncs(config-l3vpn-CUST-A)# endpoint PE1
-admin@ncs(config-endpoint-PE1)#  device PE1
-admin@ncs(config-endpoint-PE1)#  interface GigabitEthernet0/0/0/2
-admin@ncs(config-endpoint-PE1)#  ip-address 172.16.1.1 prefix-length 30
-admin@ncs(config-endpoint-PE1)#  exit
-admin@ncs(config-l3vpn-CUST-A)# endpoint PE5
-admin@ncs(config-endpoint-PE5)#  device PE5
-admin@ncs(config-endpoint-PE5)#  interface GigabitEthernet0/0/0/2
-admin@ncs(config-endpoint-PE5)#  ip-address 172.16.2.1 prefix-length 30
-admin@ncs(config-endpoint-PE5)#  exit
+admin@ncs(config-l3vpn-CUST-A)# endpoint E-R1
+admin@ncs(config-endpoint-E-R1)#  device E-R1
+admin@ncs(config-endpoint-E-R1)#  interface GigabitEthernet0/0/0/2
+admin@ncs(config-endpoint-E-R1)#  ip-address 172.16.1.1 prefix-length 30
+admin@ncs(config-endpoint-E-R1)#  exit
+admin@ncs(config-l3vpn-CUST-A)# endpoint G-R1
+admin@ncs(config-endpoint-G-R1)#  device G-R1
+admin@ncs(config-endpoint-G-R1)#  interface GigabitEthernet0/0/0/2
+admin@ncs(config-endpoint-G-R1)#  ip-address 172.16.2.1 prefix-length 30
+admin@ncs(config-endpoint-G-R1)#  exit
 
 ! preview the native config NSO WOULD push (no change yet):
 admin@ncs(config-l3vpn-CUST-A)# commit dry-run outformat native
@@ -420,13 +420,13 @@ admin@ncs(config-l3vpn-CUST-A)# commit
 **Verification:**
 ```
 admin@ncs# show l3vpn CUST-A
-admin@ncs# devices device PE1 live-status exec show vrf CUST-A
-admin@ncs# devices device PE5 live-status exec show vrf CUST-A
+admin@ncs# devices device E-R1 live-status exec show vrf CUST-A
+admin@ncs# devices device G-R1 live-status exec show vrf CUST-A
 ```
 On the routers directly:
 ```
-RP/0/RP0/CPU0:PE1# show vrf CUST-A
-RP/0/RP0/CPU0:PE5# show vrf CUST-A
+RP/0/RP0/CPU0:E-R1# show vrf CUST-A
+RP/0/RP0/CPU0:G-R1# show vrf CUST-A
 ```
 
 ---
@@ -447,7 +447,7 @@ admin@ncs# rollback configuration 10001
 **Verification:**
 ```
 admin@ncs# show l3vpn CUST-A                     ! should be gone
-admin@ncs# devices device PE1 live-status exec show vrf CUST-A   ! % No VRF
+admin@ncs# devices device E-R1 live-status exec show vrf CUST-A   ! % No VRF
 admin@ncs# devices check-sync
 ```
 
@@ -540,7 +540,7 @@ if __name__ == "__main__":
 ```python
 import re, glob
 
-# Example line:  PE2  Gi0/0/0/0  *PtoP*  Up  23  L2
+# Example line:  E-R2  Gi0/0/0/0  *PtoP*  Up  23  L2
 LINE = re.compile(
     r"^(?P<sys>\S+)\s+(?P<intf>\S+)\s+\S+\s+(?P<state>Up|Init|Down)\s+\d+\s+(?P<level>L1|L2|L1L2)"
 )
@@ -568,7 +568,7 @@ with ConnectHandler(**params) as conn:
     # use_textfsm returns a list of dicts keyed by template fields
     data = conn.send_command("show isis neighbors", use_textfsm=True)
     for row in data:
-        print(row)   # {'system_id': 'PE2', 'interface': 'Gi0/0/0/0', 'state': 'Up', ...}
+        print(row)   # {'system_id': 'E-R2', 'interface': 'Gi0/0/0/0', 'state': 'Up', ...}
 ```
 
 **Verification:** The printed adjacency table matches `show isis neighbors` counts on each router; every expected core link appears as `Up`.
@@ -586,7 +586,7 @@ from netmiko import ConnectHandler
 
 # expected neighbor count per router (from topology design)
 EXPECTED = {f"10.1.1.{i}": 2 for i in range(1, 21)}
-EXPECTED["10.1.1.1"] = 3   # PE1 is a hub example
+EXPECTED["10.1.1.1"] = 3   # E-R1 is a hub example
 
 def check(host, expected):
     params = {"device_type": "cisco_xr", "host": host,
@@ -806,10 +806,10 @@ Echo mode loops packets back through the neighbor's data plane for sub-second fa
 
 **Verification:**
 ```
-RP/0/RP0/CPU0:PE1# show flow monitor FMM-INGRESS cache
-RP/0/RP0/CPU0:PE1# show flow exporter EXP-IPFIX
-RP/0/RP0/CPU0:PE1# show bfd session interface GigabitEthernet0/0/0/0 detail
-RP/0/RP0/CPU0:PE1# show bfd session                 ! echo-enabled, state Up
+RP/0/RP0/CPU0:E-R1# show flow monitor FMM-INGRESS cache
+RP/0/RP0/CPU0:E-R1# show flow exporter EXP-IPFIX
+RP/0/RP0/CPU0:E-R1# show bfd session interface GigabitEthernet0/0/0/0 detail
+RP/0/RP0/CPU0:E-R1# show bfd session                 ! echo-enabled, state Up
 ```
 Collector: IPFIX flows arrive on UDP/4739. Fail the core link → BFD detects in <150ms and IS-IS reconverges.
 
@@ -860,17 +860,17 @@ ssh -p 830 -s cisco@10.1.1.7 netconf   # returns <hello> with capabilities + ses
 
 ### Task 7.2 — Telemetry data not arriving
 
-**Question:** The dial-out subscription `SUB-CORE` on PE1 is configured but the collector receives nothing. Diagnose and fix.
+**Question:** The dial-out subscription `SUB-CORE` on E-R1 is configured but the collector receives nothing. Diagnose and fix.
 
 **Solution — root causes & fixes:**
 1. **Subscription not Active / sensor-group empty.**
    ```
-   RP/0/RP0/CPU0:PE1# show telemetry model-driven subscription SUB-CORE
+   RP/0/RP0/CPU0:E-R1# show telemetry model-driven subscription SUB-CORE
    ! State "NA"/"Paused" → check sensor-group binding and destination-id.
    ```
 2. **Wrong / invalid sensor-path** → subscription shows the path in error/`Resolved NO`.
    ```
-   RP/0/RP0/CPU0:PE1# show telemetry model-driven subscription SUB-CORE internal
+   RP/0/RP0/CPU0:E-R1# show telemetry model-driven subscription SUB-CORE internal
    ! Look for "sensor path ... State: Resolved" vs "NotResolved".
    ! Fix: correct the model path (oper vs cfg, exact container names).
    configure
@@ -882,20 +882,20 @@ ssh -p 830 -s cisco@10.1.1.7 netconf   # returns <hello> with capabilities + ses
    ```
 3. **Destination unreachable / wrong port / TLS mismatch.**
    ```
-   RP/0/RP0/CPU0:PE1# show telemetry model-driven destination DG-COLLECTOR
+   RP/0/RP0/CPU0:E-R1# show telemetry model-driven destination DG-COLLECTOR
    ! State "Active" expected; "Connection Retries" climbing = network/port/TLS issue.
    ! Verify: ping 10.0.0.100 ; collector listening on 57500 ; protocol grpc no-tls matches collector.
    ```
 4. **gRPC not enabled** (for grpc transport) → destination never connects.
    ```
-   RP/0/RP0/CPU0:PE1# show grpc status
+   RP/0/RP0/CPU0:E-R1# show grpc status
    ```
 5. **ACL/firewall on mgmt path** dropping the export.
 
 **Verification:**
 ```
-RP/0/RP0/CPU0:PE1# show telemetry model-driven subscription SUB-CORE   ! State Active
-RP/0/RP0/CPU0:PE1# show telemetry model-driven destination DG-COLLECTOR ! State Active, rows sent increasing
+RP/0/RP0/CPU0:E-R1# show telemetry model-driven subscription SUB-CORE   ! State Active
+RP/0/RP0/CPU0:E-R1# show telemetry model-driven destination DG-COLLECTOR ! State Active, rows sent increasing
 ```
 Collector now receives self-describing-gpb every 10s.
 
@@ -911,7 +911,7 @@ Collector now receives self-describing-gpb every 10s.
 [ ] gNMI dial-in SUBSCRIBE shows BGP state transitions
 [ ] NSO: architecture (CDB/NED/service/FASTMAP) explained
 [ ] NSO: devices added, sync-from, all in-sync
-[ ] NSO: L3VPN CUST-A on PE1+PE5 in one transaction (dry-run native reviewed)
+[ ] NSO: L3VPN CUST-A on E-R1+G-R1 in one transaction (dry-run native reviewed)
 [ ] NSO: rollback removes VRF atomically
 [ ] NSO: compliance report confirms consistent IS-IS across PEs
 [ ] Python: netmiko collection (20 routers), TextFSM/regex parse, adjacency health-check exits 0
@@ -919,3 +919,231 @@ Collector now receives self-describing-gpb every 10s.
 [ ] Assurance: syslog server, SNMPv3 authPriv, IPFIX export, BFD echo mode
 [ ] Troubleshooting: NETCONF reject (SSH/agent/hostkey) fixed; telemetry silence (path/dest/grpc) fixed
 ```
+
+---
+
+## Section 8: NSO Service Package Development (CCIE Exam Critical)
+
+### Task 8.1 — NSO dry-run (commit dry-run outformat native)
+
+**Question:** You are about to push a VRF change via NSO to 3 PEs. Before committing, preview exactly what CLI NSO will send to each device. What command do you use, and what's the difference between `outformat native` and `outformat xml`?
+
+**Solution:**
+
+```
+admin@ncs# services l3vpn CUST_A pe [ E-R1 G-R1 Gar-R1 ]
+admin@ncs# commit dry-run outformat native
+```
+
+Output shows the exact IOS-XR CLI that would be pushed to each device — VRF config, BGP neighbor, interface assignment. `outformat native` = device CLI (what you'd type manually). `outformat xml` = YANG XML (what NETCONF sends). Use `native` to verify correctness, `xml` to debug YANG mapping issues.
+
+**Verification:**
+
+Review the dry-run output. If correct, `commit`. If wrong, `revert` and fix the service template.
+
+### Task 8.2 — Write a custom L3VPN service package
+
+**Question:** Create an NSO service package that provisions L3VPN across any set of PEs with a single command. The service takes: customer-name, VRF-name, RD, RT, list of PEs with their CE-facing interfaces and CE ASNs.
+
+**Solution:**
+
+1. Skeleton: `ncs-make-package --service-skeleton python-and-template l3vpn-service`
+2. YANG model (`src/yang/l3vpn-service.yang`):
+```yang
+list l3vpn {
+  key customer-name;
+  leaf customer-name { type string; }
+  leaf vrf-name { type string; }
+  leaf rd { type string; }
+  leaf rt { type string; }
+  list pe {
+    key name;
+    leaf name { type leafref { path "/ncs:devices/ncs:device/ncs:name"; } }
+    leaf ce-interface { type string; }
+    leaf ce-asn { type uint32; }
+  }
+}
+```
+3. XML template (`templates/l3vpn-service-template.xml`) maps to IOS-XR VRF + BGP config.
+4. Deploy: copy to `packages/`, `packages reload`, then:
+```
+services l3vpn CUST_A vrf-name CUST_A rd 65012:100 rt 65012:100 pe E-R1 ce-interface GigabitEthernet0/0/0/0 ce-asn 65012
+commit dry-run outformat native
+commit
+```
+
+**Verification:**
+
+`show running-config vrf CUST_A` on E-R1 — config pushed by NSO matches expected VRF setup.
+
+### Task 8.3 — Multi-device atomic rollback
+
+**Question:** You pushed a wrong RT (65012:999 instead of 65012:100) to E-R1, G-R1, and Gar-R1 via NSO. All 3 PEs now have broken VPN connectivity. Roll back all 3 in one atomic operation.
+
+**Solution:**
+
+```
+admin@ncs# rollback configuration
+admin@ncs# commit dry-run outformat native
+```
+
+Review — confirms it will revert the RT on all 3 PEs. Then:
+
+```
+admin@ncs# commit
+```
+
+**Verification:**
+
+`show running-config vrf CUST_A` on all 3 PEs — RT back to 65012:100. Customer A traffic restored.
+
+---
+
+## Section 9: Advanced Python Workflows
+
+### Task 9.1 — Python VRF consistency audit
+
+**Question:** Write a Python script that connects to all PEs via NETCONF, pulls VRF CUST_A config, and reports any RT mismatches across PEs.
+
+**Solution:**
+
+```python
+from ncclient import manager
+import xml.etree.ElementTree as ET
+
+PES = {
+    'E-R1': '1.1.1.1', 'E-R2': '2.2.2.2',
+    'G-R1': '21.21.21.21', 'G-R2': '22.22.22.22',
+    'Gar-R1': '11.11.11.11', 'Gar-R2': '12.12.12.12'
+}
+
+VRF_FILTER = '''
+<vrfs xmlns="http://cisco.com/ns/yang/Cisco-IOS-XR-infra-rsi-cfg">
+  <vrf>
+    <vrf-name>CUST_A</vrf-name>
+  </vrf>
+</vrfs>
+'''
+
+results = {}
+for name, ip in PES.items():
+    try:
+        with manager.connect(host=ip, port=830, username='admin',
+                             password='admin', hostkey_verify=False) as m:
+            reply = m.get_config(source='running', filter=('subtree', VRF_FILTER))
+            root = ET.fromstring(reply.xml)
+            # Parse RT values from XML
+            rts = [elem.text for elem in root.iter() if 'route-target' in elem.tag.lower()]
+            results[name] = rts if rts else ['VRF NOT FOUND']
+    except Exception as e:
+        results[name] = [f'CONNECTION FAILED: {e}']
+
+# Compare
+baseline = results.get('E-R1', [])
+for pe, rts in results.items():
+    status = 'MATCH' if rts == baseline else 'MISMATCH'
+    print(f'{pe:6s} RTs: {rts}  [{status}]')
+```
+
+**Verification:**
+
+Run the script. Output should show MATCH for all PEs with CUST_A, or flag which PE has wrong/missing RTs.
+
+### Task 9.2 — Python SR prefix-SID uniqueness check
+
+**Question:** Write a script that validates no two Garnet routers share the same prefix-SID index.
+
+**Solution:**
+
+```python
+from ncclient import manager
+import xml.etree.ElementTree as ET
+
+GARNET = {
+    'Gar-R1': '11.11.11.11', 'Gar-R2': '12.12.12.12', 'Gar-R3': '13.13.13.13',
+    'Gar-R4': '14.14.14.14', 'Gar-R5': '15.15.15.15', 'Gar-R7': '17.17.17.17',
+    'Gar-R6': '16.16.16.16'
+}
+
+sid_map = {}
+for name, ip in GARNET.items():
+    with manager.connect(host=ip, port=830, username='admin',
+                         password='admin', hostkey_verify=False) as m:
+        reply = m.get_config(source='running')
+        root = ET.fromstring(reply.xml)
+        for elem in root.iter():
+            if 'prefix-sid' in elem.tag.lower() and 'index' in elem.tag.lower():
+                idx = elem.text
+                if idx in sid_map:
+                    print(f'CONFLICT: {name} and {sid_map[idx]} both use index {idx}')
+                else:
+                    sid_map[idx] = name
+                    print(f'{name:8s} prefix-sid index {idx} — OK')
+
+print(f'\nTotal: {len(sid_map)} unique SIDs, 0 conflicts' if len(sid_map) == len(GARNET) else 'CONFLICTS DETECTED')
+```
+
+**Verification:**
+
+Script reports all 7 Garnet routers with unique prefix-SID indexes. If you intentionally set two routers to the same index, the script catches it.
+
+---
+
+## Section 10: MDT Advanced (XPATH + Event-Driven)
+
+### Task 10.1 — XPATH-filtered telemetry subscription
+
+**Question:** Configure a telemetry subscription that streams ONLY BGP neighbor connection state changes — not the entire BGP operational tree.
+
+**Solution:**
+
+```
+telemetry model-driven
+ sensor-group BGP-STATE
+  sensor-path Cisco-IOS-XR-ipv4-bgp-oper:bgp/instances/instance/instance-active/default-vrf/neighbors/neighbor/connection-state
+ !
+ subscription BGP-NEIGHBOR-WATCH
+  sensor-group-id BGP-STATE sample-interval 10000
+  destination-id COLLECTOR
+ !
+!
+```
+
+Explanation: Without XPATH filtering, streaming all of `Cisco-IOS-XR-ipv4-bgp-oper` sends thousands of counters per neighbor (prefixes, timers, message stats). The specific path narrows to just `connection-state` — one field per neighbor, every 10 seconds.
+
+**Verification:**
+
+On the collector, verify only `connection-state` updates arrive (Established/Idle), not full BGP table dumps. Shut a BGP neighbor — collector shows state change within 10 seconds.
+
+### Task 10.2 — Event-driven vs cadence-based telemetry
+
+**Question:** Configure an event-driven (on-change) subscription for IS-IS adjacency state, and a cadence-based (sample-interval) subscription for interface counters. Explain when to use each.
+
+**Solution:**
+
+```
+telemetry model-driven
+ sensor-group ISIS-ADJ
+  sensor-path Cisco-IOS-XR-clns-isis-oper:isis/instances/instance/neighbors/neighbor
+ !
+ sensor-group INTF-COUNTERS
+  sensor-path Cisco-IOS-XR-infra-statsd-oper:infra-statistics/interfaces/interface/latest/generic-counters
+ !
+ subscription ISIS-ONCHANGE
+  sensor-group-id ISIS-ADJ sample-interval 0    ← 0 = on-change (event-driven)
+  destination-id COLLECTOR
+ !
+ subscription INTF-POLL
+  sensor-group-id INTF-COUNTERS sample-interval 30000  ← every 30 seconds
+  destination-id COLLECTOR
+ !
+!
+```
+
+`sample-interval 0` = event-driven. The router only sends data when the IS-IS adjacency state changes (Up→Down or Down→Up). No periodic updates. Use for state-change events.
+
+`sample-interval 30000` = cadence-based (30 sec). Counters update continuously — you need periodic snapshots to track trends. Use for metrics/counters.
+
+**Verification:**
+
+Shut an IS-IS interface — collector gets an immediate adjacency-down notification (not waiting for the next poll). Interface counters keep streaming every 30 seconds regardless.

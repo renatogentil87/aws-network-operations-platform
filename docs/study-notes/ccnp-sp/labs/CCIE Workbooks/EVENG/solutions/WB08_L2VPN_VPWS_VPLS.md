@@ -6,10 +6,10 @@
 
 | SP | PEs | Loopbacks | Core Transport |
 |----|-----|-----------|----------------|
-| Emerald (AS 65100) | PE1, PE2 | 1.1.1.1, 2.2.2.2 | LDP (targeted LDP signals PWs) |
-| Garnet (AS 65200) | PE3, PE4 | 11.11.11.11, 12.12.12.12 | SR-MPLS (LSP is the SR prefix-SID path) |
+| Emerald (AS 65100) | E-R1, E-R2 | 1.1.1.1, 2.2.2.2 | LDP (targeted LDP signals PWs) |
+| Garnet (AS 65200) | Gar-R1, Gar-R2 | 11.11.11.11, 12.12.12.12 | SR-MPLS (LSP is the SR prefix-SID path) |
 
-> **Scope note:** These loopbacks are the workbook-local L2VPN addressing. The base `00_EVENG_Topology.md` uses different Garnet loopbacks (PE3=21.21.21.21, PE4=22.22.22.22) — if you run this on the full topology, substitute the base loopbacks. All configuration in this workbook uses **IOS-XR `l2vpn` syntax** (there is no `xconnect`-under-interface as in IOS classic; XR uses `l2vpn xconnect group` and `bridge-domain`).
+> **Scope note:** These loopbacks are the workbook-local L2VPN addressing. The base `00_EVENG_Topology.md` uses different Garnet loopbacks (Gar-R1=24.24.24.24, Gar-R2=25.25.25.25) — if you run this on the full topology, substitute the base loopbacks. All configuration in this workbook uses **IOS-XR `l2vpn` syntax** (there is no `xconnect`-under-interface as in IOS classic; XR uses `l2vpn xconnect group` and `bridge-domain`).
 
 > **Transport-agnostic principle:** VPWS and VPLS are indifferent to how the transport LSP is built. Emerald reaches remote PE loopbacks via **LDP**; Garnet reaches them via **SR-MPLS prefix-SIDs**. The pseudowire's inner **VC label** and the service config are identical either way — only the outer transport label differs. This is the whole point of the MPLS separation of *transport* from *service*.
 
@@ -17,35 +17,35 @@
 
 ## Section 1 — VPWS / AToM (Point-to-Point Pseudowire)
 
-Point-to-point Ethernet-over-MPLS (E-Line / VPWS) between **PE1 ↔ PE2** across the Emerald LDP core. A pseudowire uses a **two-label stack**: outer transport label (LDP/SR) tunnels the frame to the remote PE loopback; inner **VC label** identifies the specific PW at egress. The VC label is signaled by **targeted (directed) LDP** between the two PE loopbacks.
+Point-to-point Ethernet-over-MPLS (E-Line / VPWS) between **E-R1 ↔ E-R2** across the Emerald LDP core. A pseudowire uses a **two-label stack**: outer transport label (LDP/SR) tunnels the frame to the remote PE loopback; inner **VC label** identifies the specific PW at egress. The VC label is signaled by **targeted (directed) LDP** between the two PE loopbacks.
 
 ### Task 1.1 — Build the point-to-point pseudowire (VC-ID 100)
 
 **Question**
-Configure an AToM pseudowire carrying Customer A's Layer 2 between CE (via PE1) and CE (via PE2) using **VC-ID / pw-id 100**, port mode. CEs must reach each other at Layer 2 across the LDP core.
+Configure an AToM pseudowire carrying Customer A's Layer 2 between CE (via E-R1) and CE (via E-R2) using **VC-ID / pw-id 100**, port mode. CEs must reach each other at Layer 2 across the LDP core.
 
 **Solution**
 ```
-! ===== PE1 (1.1.1.1) =====
+! ===== E-R1 (1.1.1.1) =====
 interface GigabitEthernet0/0/0/2
  l2transport
 !
 l2vpn
  xconnect group CUST_A
-  p2p PE1-PE2-VC100
+  p2p E-R1-E-R2-VC100
    interface GigabitEthernet0/0/0/2
    neighbor ipv4 2.2.2.2 pw-id 100
   !
  !
 !
 
-! ===== PE2 (2.2.2.2) =====
+! ===== E-R2 (2.2.2.2) =====
 interface GigabitEthernet0/0/0/2
  l2transport
 !
 l2vpn
  xconnect group CUST_A
-  p2p PE1-PE2-VC100
+  p2p E-R1-E-R2-VC100
    interface GigabitEthernet0/0/0/2
    neighbor ipv4 1.1.1.1 pw-id 100
   !
@@ -56,11 +56,11 @@ The `pw-id 100` **must match on both ends** — it is the VC-ID that maps the in
 
 **Verification**
 ```
-RP/0/RP0/CPU0:PE1# show l2vpn xconnect
+RP/0/RP0/CPU0:E-R1# show l2vpn xconnect
 Legend: ST = State, UP = Up, DN = Down, ...
 XConnect                   Segment 1              Segment 2
 Group      Name       ST   Description       ST   Description            ST
-CUST_A  PE1-PE2-VC100 UP   Gi0/0/0/2         UP   2.2.2.2   100          UP
+CUST_A  E-R1-E-R2-VC100 UP   Gi0/0/0/2         UP   2.2.2.2   100          UP
 ```
 - `show l2vpn xconnect detail` — both segments `UP`, PW type `Ethernet`, imposed label stack {transport, VC}.
 - `show mpls ldp neighbor 2.2.2.2` — a **targeted** LDP adjacency exists in addition to link-local sessions.
@@ -73,7 +73,7 @@ Explain the role of the VC-ID, then convert VC-100 to **VLAN mode** so a single 
 
 **Solution**
 ```
-! ===== PE1 =====
+! ===== E-R1 =====
 interface GigabitEthernet0/0/0/2.100 l2transport
  encapsulation dot1q 100
  rewrite ingress tag pop 1 symmetric
@@ -123,7 +123,7 @@ l2vpn
   !
  !
 !
-! (identical pw-class CW-ON applied on PE2)
+! (identical pw-class CW-ON applied on E-R2)
 ```
 The **control word** is a 4-byte shim inserted between the VC label and the L2 payload. It (1) preserves frame **sequencing** and prevents mis-ordering, and (2) stops core LSRs from mistaking the customer payload for an IP/MPLS packet during **ECMP load-balancing** — a customer frame whose first nibble is `0x4`/`0x6` could otherwise be hashed as IPv4/IPv6, breaking a flow. The control word **must match on both PEs**; a mismatch brings the PW down (see Section 6). It is mandatory when the PW type requires it (e.g., some VLAN modes) and strongly recommended for Ethernet.
 
@@ -156,11 +156,11 @@ With **PW status signaling** (RFC 4447 status TLV), a PE that loses its **attach
 ### Task 2.1 — Pseudowire redundancy (backup PW)
 
 **Question**
-Protect the PE1 service with a **backup pseudowire** to PE4 (12.12.12.12) so that if the primary PW to PE2 fails, traffic fails over automatically. Configure immediate switchover and restore.
+Protect the E-R1 service with a **backup pseudowire** to Gar-R2 (12.12.12.12) so that if the primary PW to E-R2 fails, traffic fails over automatically. Configure immediate switchover and restore.
 
 **Solution**
 ```
-! ===== PE1 =====
+! ===== E-R1 =====
 l2vpn
  xconnect group CUST_A
   p2p VC100-REDUNDANT
@@ -174,11 +174,11 @@ l2vpn
  !
 !
 ```
-XR VPWS redundancy uses a **primary + backup** PW: only one is active (forwarding) at a time. The backup PW is signaled and held in **standby** (label exchanged but not forwarding). When the primary's PW-status goes down (AC or transport failure), PE1 activates the backup toward PE4 — driven by the **PW status signaling** from Section 1. `backup-disable-delay 0` reverts to the primary the instant it recovers (set non-zero to dampen flaps).
+XR VPWS redundancy uses a **primary + backup** PW: only one is active (forwarding) at a time. The backup PW is signaled and held in **standby** (label exchanged but not forwarding). When the primary's PW-status goes down (AC or transport failure), E-R1 activates the backup toward Gar-R2 — driven by the **PW status signaling** from Section 1. `backup-disable-delay 0` reverts to the primary the instant it recovers (set non-zero to dampen flaps).
 
 **Verification**
 - `show l2vpn xconnect detail` — primary segment `UP (Active)`, backup `UP (Standby)`.
-- Fail the primary (`shut` the core path to PE2): backup transitions to `Active`; measure packet loss.
+- Fail the primary (`shut` the core path to E-R2): backup transitions to `Active`; measure packet loss.
 - `show l2vpn xconnect summary` — one active, one standby PW for the group.
 
 ### Task 2.2 — Preferred-path over a TE tunnel
@@ -188,7 +188,7 @@ Pin VC-100's transport to a specific **MPLS-TE tunnel** (or SR-TE policy) instea
 
 **Solution**
 ```
-! ===== PE1 (Emerald, TE tunnel to PE2) =====
+! ===== E-R1 (Emerald, TE tunnel to E-R2) =====
 l2vpn
  pw-class TE-STEERED
   encapsulation mpls
@@ -215,11 +215,11 @@ l2vpn
 ### Task 2.3 — Static pseudowire
 
 **Question**
-Build a **static (manually-labeled) pseudowire** PE1↔PE2 with no targeted-LDP signaling — you assign the VC labels by hand. State when this is used.
+Build a **static (manually-labeled) pseudowire** E-R1↔E-R2 with no targeted-LDP signaling — you assign the VC labels by hand. State when this is used.
 
 **Solution**
 ```
-! ===== PE1 =====
+! ===== E-R1 =====
 l2vpn
  pw-class STATIC-PW
   encapsulation mpls
@@ -237,7 +237,7 @@ l2vpn
  !
 !
 
-! ===== PE2 (labels mirrored) =====
+! ===== E-R2 (labels mirrored) =====
 l2vpn
  xconnect group CUST_A
   p2p VC100-STATIC
@@ -250,7 +250,7 @@ l2vpn
  !
 !
 ```
-A **static PW** skips targeted LDP entirely — you configure the **local** (in) and **remote** (out) VC labels manually, and they must be **mirror images** across the two PEs (PE1 local = PE2 remote). Used where the transport core does not run LDP end-to-end (e.g., static-label islands, inter-provider hand-offs, or SR cores without T-LDP), or where you want deterministic labels for troubleshooting. There is no status TLV signaling, so PW-status/OAM (e.g., VCCV BFD) must carry fault detection instead.
+A **static PW** skips targeted LDP entirely — you configure the **local** (in) and **remote** (out) VC labels manually, and they must be **mirror images** across the two PEs (E-R1 local = E-R2 remote). Used where the transport core does not run LDP end-to-end (e.g., static-label islands, inter-provider hand-offs, or SR cores without T-LDP), or where you want deterministic labels for troubleshooting. There is no status TLV signaling, so PW-status/OAM (e.g., VCCV BFD) must carry fault detection instead.
 
 **Verification**
 - `show l2vpn xconnect detail` — `Signaling: static`, local/remote VC labels 6100/6200; **no targeted LDP** session created.
@@ -261,16 +261,16 @@ A **static PW** skips targeted LDP entirely — you configure the **local** (in)
 
 ## Section 3 — VPLS Full-Mesh (LDP-signaled, RFC 4762)
 
-Multipoint L2 (E-LAN) across the **Emerald PEs (PE1, PE2)** using **LDP-signaled VPLS (RFC 4762)**. VPLS makes the SP core behave as one big learning bridge: each PE has a **bridge-domain** containing local ACs plus a **VFI** whose PW neighbors form a full mesh of pseudowires to every other PE.
+Multipoint L2 (E-LAN) across the **Emerald PEs (E-R1, E-R2)** using **LDP-signaled VPLS (RFC 4762)**. VPLS makes the SP core behave as one big learning bridge: each PE has a **bridge-domain** containing local ACs plus a **VFI** whose PW neighbors form a full mesh of pseudowires to every other PE.
 
 ### Task 3.1 — LDP-signaled VPLS bridge-domain + VFI
 
 **Question**
-Build a full-mesh VPLS instance (VPN-ID 500) across PE1 and PE2 so all customer sites share one broadcast domain. Use LDP (Martini) signaling.
+Build a full-mesh VPLS instance (VPN-ID 500) across E-R1 and E-R2 so all customer sites share one broadcast domain. Use LDP (Martini) signaling.
 
 **Solution**
 ```
-! ===== PE1 (1.1.1.1) =====
+! ===== E-R1 (1.1.1.1) =====
 interface GigabitEthernet0/0/0/3
  l2transport
 !
@@ -280,13 +280,13 @@ l2vpn
    interface GigabitEthernet0/0/0/3          ! local AC
    vfi VFI500
     vpn-id 500
-    neighbor 2.2.2.2 pw-id 500               ! PW to PE2 (full mesh)
+    neighbor 2.2.2.2 pw-id 500               ! PW to E-R2 (full mesh)
    !
   !
  !
 !
 
-! ===== PE2 (2.2.2.2) =====
+! ===== E-R2 (2.2.2.2) =====
 interface GigabitEthernet0/0/0/3
  l2transport
 !
@@ -296,7 +296,7 @@ l2vpn
    interface GigabitEthernet0/0/0/3
    vfi VFI500
     vpn-id 500
-    neighbor 1.1.1.1 pw-id 500               ! PW to PE1
+    neighbor 1.1.1.1 pw-id 500               ! PW to E-R1
    !
   !
  !
@@ -306,7 +306,7 @@ The **bridge-domain** is the emulated LAN: it contains local **attachment circui
 
 **Verification**
 ```
-RP/0/RP0/CPU0:PE1# show l2vpn bridge-domain
+RP/0/RP0/CPU0:E-R1# show l2vpn bridge-domain
 Bridge group: CUST_VPLS, bridge-domain: VLAN500, id: 0, state: up
   ACs: 1 (1 up), VFIs: 1, PWs: 1 (1 up)
   List of ACs:
@@ -341,7 +341,7 @@ VPLS mandates a **full mesh** of PWs and enforces the **split-horizon rule**: a 
 
 **Verification**
 - `show l2vpn bridge-domain detail` — mesh PWs share **Split Horizon Group** 0; PW-to-PW forwarding is blocked.
-- Inject a frame on the PE1↔PE2 PW → it is delivered only to PE2's local ACs, never re-flooded onto another mesh PW.
+- Inject a frame on the E-R1↔E-R2 PW → it is delivered only to E-R2's local ACs, never re-flooded onto another mesh PW.
 
 ### Task 3.3 — MAC learning and MAC limits
 
@@ -405,11 +405,11 @@ H-VPLS reduces the **full-mesh scaling problem** (n PEs need n·(n-1)/2 PWs and 
 ### Task 4.1 — N-PE / U-PE tiers with a spoke PW
 
 **Question**
-Make **PE1 an N-PE** (in the core VPLS mesh) and attach a **U-PE (PE2 acting as edge)** to it via a single **spoke pseudowire**, so the U-PE needs no full mesh.
+Make **E-R1 an N-PE** (in the core VPLS mesh) and attach a **U-PE (E-R2 acting as edge)** to it via a single **spoke pseudowire**, so the U-PE needs no full mesh.
 
 **Solution**
 ```
-! ===== N-PE (PE1, 1.1.1.1) — mesh VFI + spoke toward U-PE =====
+! ===== N-PE (E-R1, 1.1.1.1) — mesh VFI + spoke toward U-PE =====
 l2vpn
  bridge group CUST_VPLS
   bridge-domain VLAN500
@@ -423,7 +423,7 @@ l2vpn
  !
 !
 
-! ===== U-PE (PE2, 2.2.2.2) — only a spoke PW upward, no mesh =====
+! ===== U-PE (E-R2, 2.2.2.2) — only a spoke PW upward, no mesh =====
 l2vpn
  bridge group CUST_VPLS
   bridge-domain VLAN500
@@ -465,12 +465,12 @@ Quantify the scaling reduction H-VPLS delivers and describe the redundancy optio
 **Solution**
 ```
 ! Redundant spoke (U-PE dual-homed to two N-PEs, active/standby):
-! ===== U-PE (PE2) =====
+! ===== U-PE (E-R2) =====
 l2vpn
  bridge group CUST_VPLS
   bridge-domain VLAN500
    interface GigabitEthernet0/0/0/3
-   neighbor 1.1.1.1 pw-id 600                 ! primary spoke to N-PE (PE1)
+   neighbor 1.1.1.1 pw-id 600                 ! primary spoke to N-PE (E-R1)
     backup neighbor 12.12.12.12 pw-id 600     ! backup spoke to a second N-PE
    !
   !
@@ -492,11 +492,11 @@ LDP-VPLS (Section 3, RFC 4762) requires **manual full-mesh** neighbor configurat
 ### Task 5.1 — BGP auto-discovery + signaling VPLS (Kompella)
 
 **Question**
-Configure **BGP-VPLS (RFC 4761)** on the Garnet PEs (PE3, PE4) so PWs are auto-discovered and signaled by BGP, using a **label block**. Compare with LDP-VPLS.
+Configure **BGP-VPLS (RFC 4761)** on the Garnet PEs (Gar-R1, Gar-R2) so PWs are auto-discovered and signaled by BGP, using a **label block**. Compare with LDP-VPLS.
 
 **Solution**
 ```
-! ===== PE3 (11.11.11.11) =====
+! ===== Gar-R1 (11.11.11.11) =====
 router bgp 65200
  address-family l2vpn vpls
  !
@@ -525,7 +525,7 @@ l2vpn
  !
 !
 
-! ===== PE4 (12.12.12.12) — same, with ve-id 4 =====
+! ===== Gar-R2 (12.12.12.12) — same, with ve-id 4 =====
 l2vpn
  bridge group KOMPELLA
   bridge-domain VPLS700
@@ -549,12 +549,12 @@ l2vpn
 
 **Verification**
 ```
-RP/0/RP0/CPU0:PE3# show bgp l2vpn vpls
+RP/0/RP0/CPU0:Gar-R1# show bgp l2vpn vpls
    Network            Next Hop     ... (VE-ID / label-block entries per PE)
-RP/0/RP0/CPU0:PE3# show l2vpn bridge-domain
+RP/0/RP0/CPU0:Gar-R1# show l2vpn bridge-domain
    ... VFI VFI700 (up), autodiscovery BGP, PWs auto-created to VE-id 4 ...
 ```
-- `show bgp l2vpn vpls summary` — BGP L2VPN-VPLS session up between PE3/PE4.
+- `show bgp l2vpn vpls summary` — BGP L2VPN-VPLS session up between Gar-R1/Gar-R2.
 - `show l2vpn bridge-domain detail` — VFI with **BGP autodiscovery**, PWs auto-provisioned (no manual `neighbor`).
 - `show l2vpn discovery` — VE-IDs and label blocks exchanged.
 
@@ -565,7 +565,7 @@ Deliver the same multipoint L2 service using **EVPN** (BGP EVPN) instead of LDP/
 
 **Solution**
 ```
-! ===== PE3 (11.11.11.11) =====
+! ===== Gar-R1 (11.11.11.11) =====
 router bgp 65200
  address-family l2vpn evpn
  !
@@ -628,19 +628,19 @@ LDP-VPLS is simplest for a few PEs but does not auto-discover. BGP-VPLS solves d
 ### Task 6.1 — PW down: VC-ID / pw-id mismatch
 
 **Question**
-A VPWS PW PE1↔PE2 is **down**. Diagnose and fix.
+A VPWS PW E-R1↔E-R2 is **down**. Diagnose and fix.
 
 **Solution**
 ```
-RP/0/RP0/CPU0:PE1# show l2vpn xconnect
+RP/0/RP0/CPU0:E-R1# show l2vpn xconnect
 CUST_A  VC100  DN   Gi0/0/0/2  UP   2.2.2.2  100  DN
-RP/0/RP0/CPU0:PE1# show l2vpn xconnect detail
+RP/0/RP0/CPU0:E-R1# show l2vpn xconnect detail
   ... PW: neighbor 2.2.2.2, PW ID 100 ...
   ... Status: mismatched pw-id / no remote binding ...
 ```
-Root cause: the two PEs use **different `pw-id`** (e.g., PE1 pw-id 100, PE2 pw-id 101). Targeted LDP advertises the VC label keyed by VC-ID, so the far end never finds a matching binding and the PW stays **down** with the AC up. Fix: make **pw-id identical on both ends**.
+Root cause: the two PEs use **different `pw-id`** (e.g., E-R1 pw-id 100, E-R2 pw-id 101). Targeted LDP advertises the VC label keyed by VC-ID, so the far end never finds a matching binding and the PW stays **down** with the AC up. Fix: make **pw-id identical on both ends**.
 ```
-! ===== PE2 — correct the pw-id =====
+! ===== E-R2 — correct the pw-id =====
 l2vpn xconnect group CUST_A p2p VC100
  no neighbor ipv4 1.1.1.1 pw-id 101
  neighbor ipv4 1.1.1.1 pw-id 100
@@ -657,12 +657,12 @@ The PW shows **UP** on both ends but the CEs cannot pass traffic (or only small 
 
 **Solution**
 ```
-RP/0/RP0/CPU0:PE1# show l2vpn xconnect detail
+RP/0/RP0/CPU0:E-R1# show l2vpn xconnect detail
   MTU: 1500 (local) / 1500 (remote)          <-- if these differ, PW won't come up or drops
   Control word: enabled (local) / disabled (remote)   <-- mismatch
 ```
 Two classic causes:
-1. **MTU mismatch** — the L2VPN advertises an interface MTU in the LDP/BGP binding; if PE1=1500 and PE2=1400 the PW may stay down or silently drop oversized frames. Fix by aligning `mtu` on the l2transport interfaces (and ensure core MTU accounts for label stack + control word).
+1. **MTU mismatch** — the L2VPN advertises an interface MTU in the LDP/BGP binding; if E-R1=1500 and E-R2=1400 the PW may stay down or silently drop oversized frames. Fix by aligning `mtu` on the l2transport interfaces (and ensure core MTU accounts for label stack + control word).
 2. **Control-word mismatch** — one PE has `control-word`, the other does not. XR requires **agreement**; a mismatch either keeps the PW down or corrupts framing so payload is discarded.
 ```
 ! Align both:
@@ -677,14 +677,14 @@ l2vpn pw-class CW-ON encapsulation mpls control-word    ! apply on BOTH ends
 ### Task 6.3 — VPLS MAC not learned: split-horizon block or AC down
 
 **Question**
-In the VPLS instance, a remote site's MAC never appears in PE1's MAC table and its traffic is missing. Diagnose.
+In the VPLS instance, a remote site's MAC never appears in E-R1's MAC table and its traffic is missing. Diagnose.
 
 **Solution**
 ```
-RP/0/RP0/CPU0:PE1# show l2vpn bridge-domain detail
+RP/0/RP0/CPU0:E-R1# show l2vpn bridge-domain detail
   AC Gi0/0/0/3, state: DOWN            <-- (a) attachment circuit down
   VFI VFI500: PW 2.2.2.2 up
-RP/0/RP0/CPU0:PE1# show l2vpn forwarding bridge-domain CUST_VPLS:VLAN500 mac-address location 0/RP0/CPU0
+RP/0/RP0/CPU0:E-R1# show l2vpn forwarding bridge-domain CUST_VPLS:VLAN500 mac-address location 0/RP0/CPU0
   (remote MAC absent)
 ```
 Two common root causes:
@@ -709,6 +709,6 @@ l2vpn bridge group CUST_VPLS bridge-domain VLAN500 vfi VFI500
 
 - **Challenge A — Flow-aware transport (FAT-PW):** add a **flow label** (`load-balancing flow-label both`) to a VPWS PW so the SR/LDP core can ECMP-hash per-flow without deep inspection; verify improved core load-balancing.
 - **Challenge B — VCCV BFD on a static PW:** enable **VCCV BFD** fault detection on the Section 2.3 static pseudowire (no LDP status TLV available) and prove sub-second failure detection.
-- **Challenge C — Inter-AS VPLS:** stitch a VPLS instance across the ASBR1↔ASBR2 hand-off (Emerald LDP ↔ Garnet SR), demonstrating multi-segment PW or EVPN inter-AS, and contrast with single-AS behaviour.
+- **Challenge C — Inter-AS VPLS:** stitch a VPLS instance across the E-R6↔Gar-R7 hand-off (Emerald LDP ↔ Garnet SR), demonstrating multi-segment PW or EVPN inter-AS, and contrast with single-AS behaviour.
 - **Challenge D — Migrate LDP-VPLS → EVPN:** convert the Section 3 LDP-VPLS bridge-domain to EVPN-VPLS (Section 5.2) with minimal outage; confirm MACs move from flood-and-learn to Type-2 control-plane learning.
 ```

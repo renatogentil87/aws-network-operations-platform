@@ -17,7 +17,7 @@
 ### Task 1.1 — NSF, NSR, and Graceful Restart: configure and distinguish
 
 **Question**
-On PE1 (dual-RP), enable **NSR** for IS-IS, OSPF, LDP, and BGP so that an RP switchover is invisible to neighbors *without* relying on them. Then, for the case where NSR is not available on a protocol/peer, enable **Graceful Restart (NSF)**. Explain precisely how NSF, NSR, GR, and SSO relate.
+On E-R1 (dual-RP), enable **NSR** for IS-IS, OSPF, LDP, and BGP so that an RP switchover is invisible to neighbors *without* relying on them. Then, for the case where NSR is not available on a protocol/peer, enable **Graceful Restart (NSF)**. Explain precisely how NSF, NSR, GR, and SSO relate.
 
 **Solution**
 
@@ -58,17 +58,17 @@ Rule of thumb for the lab: **prefer NSR** (self-contained, no neighbor requireme
 ### Task 1.2 — Trigger an RP switchover and prove data-plane continuity
 
 **Question**
-Start continuous CE-to-CE traffic through PE1. Force an RP switchover (`redundancy switchover`). Prove there is **zero (or near-zero) traffic loss** and that neighbors did **not** reset the adjacency.
+Start continuous CE-to-CE traffic through E-R1. Force an RP switchover (`redundancy switchover`). Prove there is **zero (or near-zero) traffic loss** and that neighbors did **not** reset the adjacency.
 
 **Solution**
 
 Because SSO keeps the FIB alive in the line cards and NSR keeps the routing sessions on the standby RP, the switchover is a control-plane event with **no data-plane impact**: the line cards forward from the already-synced CEF entries the entire time, and NSR continues the IS-IS/OSPF/LDP/BGP sessions from the standby without any neighbor-visible flap.
 
 ```
-RP/0/RP0/CPU0:PE1# redundancy switchover
+RP/0/RP0/CPU0:E-R1# redundancy switchover
 ```
 
-If only GR (not NSR) were configured, neighbors would enter *helper* mode and hold the routes for the grace period while PE1 relearns — still no data loss, but it depends on the neighbors behaving as helpers.
+If only GR (not NSR) were configured, neighbors would enter *helper* mode and hold the routes for the grace period while E-R1 relearns — still no data loss, but it depends on the neighbors behaving as helpers.
 
 **Verification**
 - Traffic generator: 0–1 packet lost across the switchover.
@@ -265,7 +265,7 @@ mpls ldp
 ### Task 4.1 — BGP PIC Edge (prefix-independent convergence)
 
 **Question**
-On PE3 (Garnet), a VPNv4/eBGP prefix has a primary and a backup path. Configure **BGP PIC Edge** so that on primary-path failure, convergence is a **single FIB pointer swap** independent of the number of prefixes.
+On Gar-R1 (Garnet), a VPNv4/eBGP prefix has a primary and a backup path. Configure **BGP PIC Edge** so that on primary-path failure, convergence is a **single FIB pointer swap** independent of the number of prefixes.
 
 **Solution**
 
@@ -364,21 +364,21 @@ router bgp 65200
 ### Task 5.1 — RSVP-TE Fast Reroute (link/node protection)
 
 **Question**
-On the Emerald core between P1 and P2, build a primary RSVP-TE tunnel and a **pre-signaled backup tunnel**; enable **FRR** so a protected link failure switches to the backup in <50 ms.
+On the Emerald core between E-R3 and E-R4, build a primary RSVP-TE tunnel and a **pre-signaled backup tunnel**; enable **FRR** so a protected link failure switches to the backup in <50 ms.
 
 **Solution**
 
 RSVP-TE FRR pre-signals a **backup LSP** around the protected link (link protection) or node (node protection). The PLR (point of local repair) pre-installs the backup label stack; on failure it locally splices traffic onto the backup in <50 ms while the head-end re-optimizes. The cost: **per-tunnel RSVP state on every transit router** (Path/Resv soft-state refreshed periodically), and you must explicitly signal a backup for each protected facility — this **does not scale** to large meshes and is operationally heavy.
 
 ```
-! Primary tunnel (head-end P1)
+! Primary tunnel (head-end E-R3)
 interface tunnel-te1
  ipv4 unnumbered Loopback0
  destination 10.0.0.2
  path-option 1 dynamic
  fast-reroute                      ! request FRR protection
 !
-! Backup tunnel on the PLR protecting the P1-P2 link
+! Backup tunnel on the PLR protecting the E-R3-P2 link
 interface tunnel-te10
  ipv4 unnumbered Loopback0
  destination 10.0.0.2
@@ -397,7 +397,7 @@ mpls traffic-eng
 - `show mpls traffic-eng tunnels` — primary UP, `FRR: Ready`, backup bound.
 - `show mpls traffic-eng fast-reroute database` — protected LSP → backup mapping installed.
 - `show rsvp session` — **per-tunnel RSVP state** on each transit hop (the scaling cost to note).
-- Fail the P1-P2 link: 0–1 packet lost; `FRR: Active` briefly, then head-end re-optimizes.
+- Fail the E-R3-P2 link: 0–1 packet lost; `FRR: Active` briefly, then head-end re-optimizes.
 
 ### Task 5.2 — TI-LFA (per-prefix, zero transit state)
 
@@ -431,7 +431,7 @@ router isis CORE
 ### Task 5.3 — Same failure, measure and compare
 
 **Question**
-Run **identical** continuous CE-to-CE traffic through the protected P1-P2 link. Fail the link once under RSVP-FRR and once under TI-LFA. Compare **convergence (packet loss)** and **state/operational cost**.
+Run **identical** continuous CE-to-CE traffic through the protected E-R3-P2 link. Fail the link once under RSVP-FRR and once under TI-LFA. Compare **convergence (packet loss)** and **state/operational cost**.
 
 **Solution**
 

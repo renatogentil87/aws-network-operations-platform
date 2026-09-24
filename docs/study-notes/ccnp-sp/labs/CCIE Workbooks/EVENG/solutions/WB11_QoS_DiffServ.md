@@ -2,7 +2,7 @@
 
 **Platform:** IOS-XRv 9000 — EVE-NG
 🔴 **CCIE Prep Platform:** EVE-NG (IOS-XRv 9000) — see `00_EVENG_Topology.md` for the Emerald+Gold topology
-**Topology (path under test):** `PE1(Emerald) → P1 → P2 → ASBR1 → ASBR3 → P6 → PE5(Gold)`
+**Topology (path under test):** `E-R1(Emerald) → E-R3 → E-R4 → E-R6 → G-R4 → G-R3 → G-R1(Gold)`
 **Focus:** ingress classification & marking at the PE trust boundary, DSCP→Traffic-Class (MPLS EXP) in the core, per-hop behaviors, and egress queuing/shaping toward the customer.
 **Initial configs:** IGP + MPLS/LDP (or SR) + at least one L3VPN so there is real per-VRF customer traffic to classify (Workbooks 01/03/04).
 
@@ -18,7 +18,7 @@
 ## Section 1 — IOS-XR QoS Model (MQC)
 
 ### Task 1.1 — class-map: match DSCP / ACL / protocol
-**Question:** On PE1, define classification for the SP class model. Match EF and AF classes by **DSCP**, match a management flow by **ACL**, and match a control protocol by **protocol**. Show `match-any` vs `match-all` semantics.
+**Question:** On E-R1, define classification for the SP class model. Match EF and AF classes by **DSCP**, match a management flow by **ACL**, and match a control protocol by **protocol**. Show `match-any` vs `match-all` semantics.
 
 **Solution**
 ```
@@ -114,11 +114,11 @@ show qos interface <GigE> output            ! hardware programmed queues/policer
 ---
 
 ### Task 1.3 — service-policy: apply ingress/egress + understand the 2-level hierarchy
-**Question:** Apply `PM-INGRESS-EDGE` inbound on the PE1→CE link and `PM-EGRESS-QUEUE` outbound. Then explain the **XR 2-level hierarchy** (parent shaper + child queuing) and why queuing lives only in the child.
+**Question:** Apply `PM-INGRESS-EDGE` inbound on the E-R1→CE link and `PM-EGRESS-QUEUE` outbound. Then explain the **XR 2-level hierarchy** (parent shaper + child queuing) and why queuing lives only in the child.
 
 **Solution**
 ```
-interface GigabitEthernet0/0/0/1              ! PE1 -> CE (customer facing)
+interface GigabitEthernet0/0/0/1              ! E-R1 -> CE (customer facing)
  service-policy input  PM-INGRESS-EDGE
  service-policy output PM-EGRESS-QUEUE
 !
@@ -158,8 +158,8 @@ show policy-map interface <subif> output     ! shows parent shape stats + child 
 
 ## Section 2 — Classification & Marking
 
-### Task 2.1 — Ingress classification at PE1 (match VRF customer traffic by DSCP)
-**Question:** Customer "Emerald" is in VRF `EMERALD` on PE1. Classify inbound customer traffic **by the DSCP the CE sends**, into the SP model, on the VRF-attached sub-interface.
+### Task 2.1 — Ingress classification at E-R1 (match VRF customer traffic by DSCP)
+**Question:** Customer "Emerald" is in VRF `EMERALD` on E-R1. Classify inbound customer traffic **by the DSCP the CE sends**, into the SP model, on the VRF-attached sub-interface.
 
 **Solution**
 ```
@@ -242,7 +242,7 @@ show policy-map interface GigabitEthernet0/0/0/1.100 input   ! "transmit" counte
 ---
 
 ### Task 2.3 — DSCP→Traffic-Class → MPLS EXP mapping for the core
-**Question:** At **label imposition** on PE1, map the classified traffic into the **MPLS EXP** bits so the P routers (P1/P2/P6) apply PHBs on EXP alone. Do the DSCP→EXP mapping.
+**Question:** At **label imposition** on E-R1, map the classified traffic into the **MPLS EXP** bits so the P routers (P1/P2/P6) apply PHBs on EXP alone. Do the DSCP→EXP mapping.
 
 **Solution**
 ```
@@ -284,7 +284,7 @@ interface GigabitEthernet0/0/0/1.100
 ```
 show mpls forwarding-table detail             ! confirm labels + EXP handling
 show policy-map interface GigabitEthernet0/0/0/1.100 input
-! packet capture PE1->P1: outer label EXP = 5 for voice, 4 video, 2 data, 0 BE
+! packet capture E-R1->E-R3: outer label EXP = 5 for voice, 4 video, 2 data, 0 BE
 ```
 
 ---
@@ -317,7 +317,7 @@ policy-map PM-EMER-TRUST-IN
 **Verification**
 ```
 show policy-map interface GigabitEthernet0/0/0/1.100 input
-! Trust variant: capture egress-to-CE at PE5 -> customer DSCP unchanged (still what CE sent).
+! Trust variant: capture egress-to-CE at G-R1 -> customer DSCP unchanged (still what CE sent).
 ! Re-mark variant: capture -> SP canonical DSCP.
 ```
 
@@ -326,7 +326,7 @@ show policy-map interface GigabitEthernet0/0/0/1.100 input
 ## Section 3 — Policing
 
 ### Task 3.1 — Single-rate policer (conform / exceed / violate)
-**Question:** On PE1 ingress, enforce a **single-rate three-color** policer (srTCM) on the voice class: CIR 2 Mbps, Bc 8000 bytes, Be 8000 bytes. Conform→transmit, exceed→re-mark, violate→drop.
+**Question:** On E-R1 ingress, enforce a **single-rate three-color** policer (srTCM) on the voice class: CIR 2 Mbps, Bc 8000 bytes, Be 8000 bytes. Conform→transmit, exceed→re-mark, violate→drop.
 
 **Solution**
 ```
@@ -412,7 +412,7 @@ show policy-map interface GigabitEthernet0/0/0/1.100 input
 ## Section 4 — Queuing & Scheduling
 
 ### Task 4.1 — Egress queuing (PQ for EF, bandwidth for AF, default for BE)
-**Question:** On PE1's core-facing egress (toward P1), classify on **EXP** and build the queuing policy: strict-priority for EF (policed), bandwidth guarantees for AF, and BE takes the remainder.
+**Question:** On E-R1's core-facing egress (toward E-R3), classify on **EXP** and build the queuing policy: strict-priority for EF (policed), bandwidth guarantees for AF, and BE takes the remainder.
 
 **Solution**
 ```
@@ -444,7 +444,7 @@ policy-map PM-CORE-QUEUE-OUT
  !
  end-policy-map
 !
-interface GigabitEthernet0/0/0/0                 ! PE1 -> P1 (core)
+interface GigabitEthernet0/0/0/0                 ! E-R1 -> E-R3 (core)
  service-policy output PM-CORE-QUEUE-OUT
 ```
 - `priority level 1` = strict-priority LLQ (lowest latency, served first); it MUST be policed.
@@ -549,7 +549,7 @@ show policy-map interface <egress> output
 ## Section 5 — Shaping
 
 ### Task 5.1 — Shape at PE egress (sub-line-rate for customer SLA)
-**Question:** PE1's physical port is 1 Gbps but customer Emerald bought **200 Mbps**. Shape the egress toward the CE to 200 Mbps so the customer never sees more than their SLA (and downstream CE buffers don't overrun).
+**Question:** E-R1's physical port is 1 Gbps but customer Emerald bought **200 Mbps**. Shape the egress toward the CE to 200 Mbps so the customer never sees more than their SLA (and downstream CE buffers don't overrun).
 
 **Solution**
 ```
@@ -615,40 +615,40 @@ show policy-map interface GigabitEthernet0/0/0/1.100 output
 
 ---
 
-## Section 6 — End-to-End QoS (PE1 Emerald → PE5 Gold)
+## Section 6 — End-to-End QoS (E-R1 Emerald → G-R1 Gold)
 
 ### Task 6.1 — Full-path policy placement
-**Question:** Assemble the complete DiffServ chain across `PE1 → P1 → P2 → ASBR1 → ASBR3 → P6 → PE5` and state **which policy goes on which node/direction**.
+**Question:** Assemble the complete DiffServ chain across `E-R1 → E-R3 → E-R4 → E-R6 → G-R4 → G-R3 → G-R1` and state **which policy goes on which node/direction**.
 
 **Solution**
 ```
-! ===== PE1 (ingress PE, Emerald) =====
-interface GigabitEthernet0/0/0/1.100            ! PE1 -> CE
+! ===== E-R1 (ingress PE, Emerald) =====
+interface GigabitEthernet0/0/0/1.100            ! E-R1 -> CE
  service-policy input  PM-EMER-CLASSIFY-REMARK-POLICE-IN   ! classify + re-mark + per-VRF police + set EXP imposition
 !
-interface GigabitEthernet0/0/0/0                ! PE1 -> P1 (core)
+interface GigabitEthernet0/0/0/0                ! E-R1 -> E-R3 (core)
  service-policy output PM-CORE-QUEUE-OUT                   ! queue on EXP (LLQ + BW + WRED)
 !
-! ===== P1 / P2 / P6 (core P routers) =====
+! ===== E-R3 / E-R4 / G-R3 (core P routers) =====
 interface <core-link>
  service-policy input  PM-CORE-EXP-CLASSIFY-IN            ! (optional) re-color: set mpls experimental topmost
  service-policy output PM-CORE-QUEUE-OUT                  ! queue on EXP each hop
 !
-! ===== ASBR1 / ASBR3 (inter-AS boundary) =====
+! ===== E-R6 / G-R4 (inter-AS boundary) =====
 interface <ASBR-link>
  service-policy input  PM-ASBR-EXP-TRUST-IN               ! trust/re-color EXP at the AS edge
  service-policy output PM-CORE-QUEUE-OUT
 !
-! ===== PE5 (egress PE, Gold) =====
-interface <PE5 core-facing>                     ! disposition: EXP -> DSCP per tunneling mode
- service-policy input  PM-PE5-DISPOSITION-IN
+! ===== G-R1 (egress PE, Gold) =====
+interface <G-R1 core-facing>                     ! disposition: EXP -> DSCP per tunneling mode
+ service-policy input  PM-G-R1-DISPOSITION-IN
 !
-interface GigabitEthernet0/0/0/1.200            ! PE5 -> Gold CE
+interface GigabitEthernet0/0/0/1.200            ! G-R1 -> Gold CE
  service-policy output PM-GOLD-PARENT-OUT                 ! HQoS shape + child queue toward customer
 ```
-- **Ingress PE (PE1):** classify → re-mark DSCP → police per-VRF → `set mpls experimental imposition` (color the core). Queue on the core egress.
+- **Ingress PE (E-R1):** classify → re-mark DSCP → police per-VRF → `set mpls experimental imposition` (color the core). Queue on the core egress.
 - **Core (P1/P2/P6) & ASBRs:** classify on **EXP only** (`match mpls experimental topmost`), queue with LLQ/CBWFQ/WRED; optionally `set mpls experimental topmost` to re-color under policy.
-- **Egress PE (PE5):** disposition — map EXP (or preserved DSCP) back to the customer per tunneling mode, then HQoS shape+queue toward the Gold CE.
+- **Egress PE (G-R1):** disposition — map EXP (or preserved DSCP) back to the customer per tunneling mode, then HQoS shape+queue toward the Gold CE.
 
 **Verification**
 ```
@@ -662,15 +662,15 @@ show policy-map interface <iface> {input|output}    ! on EVERY hop, walk the cha
 
 **Solution**
 ```
-! Core re-color example (P2 under a policy decision):
+! Core re-color example (E-R4 under a policy decision):
 policy-map PM-CORE-RECOLOR-IN
  class CM-EXP-EF
   set mpls experimental topmost 5         ! topmost = rewrite the OUTER label's EXP in transit
  !
  end-policy-map
 !
-! PE5 disposition (Uniform mode): copy final EXP back into customer DSCP
-policy-map PM-PE5-DISPOSITION-IN
+! G-R1 disposition (Uniform mode): copy final EXP back into customer DSCP
+policy-map PM-G-R1-DISPOSITION-IN
  class CM-EXP-EF
   set dscp ef
  !
@@ -682,7 +682,7 @@ policy-map PM-PE5-DISPOSITION-IN
  !
  end-policy-map
 ```
-- **`imposition`** (PE1) writes EXP on labels being pushed; **`topmost`** (P/ASBR) rewrites the outer label EXP already on the wire. Do not confuse them.
+- **`imposition`** (E-R1) writes EXP on labels being pushed; **`topmost`** (P/ASBR) rewrites the outer label EXP already on the wire. Do not confuse them.
 - Uniform-mode disposition copies the (possibly core-changed) EXP back into DSCP; Pipe/Short-Pipe would preserve the original customer DSCP instead.
 
 **Verification**
@@ -695,24 +695,24 @@ show policy-map interface <core-link> output      ! EXP5 hits LLQ, EXP4/2 hit CB
 ---
 
 ### Task 6.3 — End-to-end validation (`show policy-map interface`)
-**Question:** Validate the whole design under load: confirm classification at PE1, marking, per-VRF policing, EXP coloring, per-hop queuing, and egress shaping at PE5 — using `show policy-map interface` at each node.
+**Question:** Validate the whole design under load: confirm classification at E-R1, marking, per-VRF policing, EXP coloring, per-hop queuing, and egress shaping at G-R1 — using `show policy-map interface` at each node.
 
 **Solution**
 ```
-! Run at each node along PE1 -> P1 -> P2 -> ASBR1 -> ASBR3 -> P6 -> PE5:
-show policy-map interface GigabitEthernet0/0/0/1.100 input     ! PE1: class hits + police conform/exceed + remark
-show policy-map interface GigabitEthernet0/0/0/0   output      ! PE1 core: EXP queues, LLQ/CBWFQ/WRED
+! Run at each node along E-R1 -> E-R3 -> E-R4 -> E-R6 -> G-R4 -> G-R3 -> G-R1:
+show policy-map interface GigabitEthernet0/0/0/1.100 input     ! E-R1: class hits + police conform/exceed + remark
+show policy-map interface GigabitEthernet0/0/0/0   output      ! E-R1 core: EXP queues, LLQ/CBWFQ/WRED
 show policy-map interface <link> output                        ! P1/P2/P6/ASBR: EXP PHB per hop
-show policy-map interface GigabitEthernet0/0/0/1.200 output    ! PE5: parent shape + child queue toward Gold CE
+show policy-map interface GigabitEthernet0/0/0/1.200 output    ! G-R1: parent shape + child queue toward Gold CE
 !
 show qos interface <iface> {input|output}                      ! HW-programmed policers/queues
 show mpls forwarding-table detail                              ! label + EXP path
 ```
-- Walk the whole chain: **PE1 in** (classify/mark/police) → **PE1 out** (EXP queue) → **core hops** (EXP PHB) → **PE5 out** (shape+queue). Every stage's counters should move under a mixed EF/AF/BE load test.
+- Walk the whole chain: **E-R1 in** (classify/mark/police) → **E-R1 out** (EXP queue) → **core hops** (EXP PHB) → **G-R1 out** (shape+queue). Every stage's counters should move under a mixed EF/AF/BE load test.
 
 **Verification**
 ```
-! End-to-end SLA sanity: run IP SLA / synthetic probes for EF across PE1->PE5.
+! End-to-end SLA sanity: run IP SLA / synthetic probes for EF across E-R1->G-R1.
 ! Expect: voice <150 ms one-way, low jitter, near-zero loss even while BE is congested.
 ```
 
@@ -721,7 +721,7 @@ show mpls forwarding-table detail                              ! label + EXP pat
 ## Section 7 — Troubleshooting
 
 ### Task 7.1 — Drops on egress (queue full — check WRED thresholds / queue-limit)
-**Question:** Users report loss on the BE/AF4 traffic on PE1's core egress under load. `show policy-map interface` shows rising drop counters. Diagnose and fix.
+**Question:** Users report loss on the BE/AF4 traffic on E-R1's core egress under load. `show policy-map interface` shows rising drop counters. Diagnose and fix.
 
 **Solution**
 ```
@@ -757,27 +757,27 @@ show qos interface GigabitEthernet0/0/0/0 output      ! confirm programmed thres
 ---
 
 ### Task 7.2 — Wrong DSCP at destination (re-marking / service-policy direction)
-**Question:** The Gold CE behind PE5 receives packets with the **wrong DSCP** (e.g., voice arriving as BE, or SP-internal marks leaking to the customer). Diagnose and fix.
+**Question:** The Gold CE behind G-R1 receives packets with the **wrong DSCP** (e.g., voice arriving as BE, or SP-internal marks leaking to the customer). Diagnose and fix.
 
 **Solution**
 ```
 ! Check every stage's policy AND its direction:
-show policy-map interface GigabitEthernet0/0/0/1.100 input    ! PE1 ingress: is re-mark/EXP set applied?
-show policy-map interface GigabitEthernet0/0/0/1.200 output   ! PE5 egress: is disposition applied here?
+show policy-map interface GigabitEthernet0/0/0/1.100 input    ! E-R1 ingress: is re-mark/EXP set applied?
+show policy-map interface GigabitEthernet0/0/0/1.200 output   ! G-R1 egress: is disposition applied here?
 show running-config interface GigabitEthernet0/0/0/1.200      ! confirm 'service-policy OUTPUT' present
 ```
 **Root causes & fixes:**
-1. **Service-policy on the wrong direction** — disposition/queuing policy applied `input` instead of `output` (or vice-versa). Queuing is egress; DSCP disposition toward the CE is on the **PE5 egress**. Fix the direction.
-2. **Missing disposition policy at PE5** — EXP was never mapped back to DSCP (Uniform) so the customer sees the core's marks. Fix: apply `PM-PE5-DISPOSITION-IN`.
+1. **Service-policy on the wrong direction** — disposition/queuing policy applied `input` instead of `output` (or vice-versa). Queuing is egress; DSCP disposition toward the CE is on the **G-R1 egress**. Fix the direction.
+2. **Missing disposition policy at G-R1** — EXP was never mapped back to DSCP (Uniform) so the customer sees the core's marks. Fix: apply `PM-G-R1-DISPOSITION-IN`.
 3. **Wrong tunneling-mode expectation** — Short-Pipe should hand back the **customer's original DSCP**, but a Uniform-style `set dscp` overwrote it from EXP. Match the disposition policy to the intended mode.
 4. **`set traffic-class`/`set qos-group` treated as on-wire** — these are node-internal only; a downstream node won't see them. Use `set dscp` / `set mpls experimental` for anything that must survive the hop.
 ```
 interface GigabitEthernet0/0/0/1.200
- no service-policy input  PM-PE5-DISPOSITION-IN     ! remove wrong-direction application
+ no service-policy input  PM-G-R1-DISPOSITION-IN     ! remove wrong-direction application
  service-policy output PM-GOLD-PARENT-OUT           ! queuing/shaping toward CE = OUTPUT
 !
-interface <PE5 core-facing>
- service-policy input PM-PE5-DISPOSITION-IN          ! EXP->DSCP disposition on the core-facing INGRESS
+interface <G-R1 core-facing>
+ service-policy input PM-G-R1-DISPOSITION-IN          ! EXP->DSCP disposition on the core-facing INGRESS
 ```
 
 **Verification**
@@ -792,10 +792,10 @@ show policy-map interface GigabitEthernet0/0/0/1.200 output
 ## CCIE Challenge Tasks
 
 ### Challenge A — Trust-boundary attack simulation
-- From the Emerald CE, mark **all** traffic EF. Prove PE1's ingress police + `class-default → set dscp default` re-mark protects the core LLQ (EXP 5). Then remove the re-mark and show the failure mode (BE flooding the priority queue end-to-end to PE5).
+- From the Emerald CE, mark **all** traffic EF. Prove E-R1's ingress police + `class-default → set dscp default` re-mark protects the core LLQ (EXP 5). Then remove the re-mark and show the failure mode (BE flooding the priority queue end-to-end to G-R1).
 
 ### Challenge B — Tunneling-mode behavior across the path
-- Configure **Short-Pipe** end-to-end. Force a core P router to re-color EXP (WRED/policer). Confirm at PE5 that the **customer DSCP is untouched** while the **egress PHB is chosen from the customer DSCP** (not the tunnel EXP). Repeat in **Uniform** and show the DSCP now reflects the core change.
+- Configure **Short-Pipe** end-to-end. Force a core P router to re-color EXP (WRED/policer). Confirm at G-R1 that the **customer DSCP is untouched** while the **egress PHB is chosen from the customer DSCP** (not the tunnel EXP). Repeat in **Uniform** and show the DSCP now reflects the core change.
 
 ### Challenge C — End-to-end SLA validation
-- Instrument EF with IP SLA / synthetic probes across `PE1→PE5`. Under a saturating BE load, confirm the voice class meets **<150 ms one-way latency, low jitter, ~0 loss**. Tie the measured result back to each hop's `show policy-map interface` counters (LLQ served, AF weighted, BE/WRED absorbing the congestion).
+- Instrument EF with IP SLA / synthetic probes across `E-R1→G-R1`. Under a saturating BE load, confirm the voice class meets **<150 ms one-way latency, low jitter, ~0 loss**. Tie the measured result back to each hop's `show policy-map interface` counters (LLQ served, AF weighted, BE/WRED absorbing the congestion).

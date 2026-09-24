@@ -8,13 +8,13 @@
 
 | Node | Router-ID | Role | SRv6 Locator (/48) |
 |------|-----------|------|--------------------|
-| ASBR3 | 21.21.21.21 | ASBR + Route-Reflector + PCE | `fc00:0:21::/48` |
-| ASBR4 | 22.22.22.22 | ASBR (border to Garnet AS via ASBR2) | `fc00:0:22::/48` |
-| P6    | 23.23.23.23 | P (transit) | `fc00:0:23::/48` |
-| PE5   | 24.24.24.24 | PE (CUST_A + CUST_B) | `fc00:0:24::/48` |
-| PE6   | 25.25.25.25 | PE (CUST_A) | `fc00:0:25::/48` |
+| G-R4 | 24.24.24.24 | ASBR + Route-Reflector + Gar-R6 | `fc00:0:24::/48` |
+| G-R5 | 25.25.25.25 | ASBR (border to Garnet AS via Gar-R7) | `fc00:0:25::/48` |
+| G-R3    | 23.23.23.23 | P (transit) | `fc00:0:23::/48` |
+| G-R1   | 21.21.21.21 | PE (CUST_A + CUST_B) | `fc00:0:21::/48` |
+| G-R2   | 22.22.22.22 | PE (CUST_A) | `fc00:0:22::/48` |
 
-**CEs:** CE8 (AS 65012, **dual-homed** to PE5 + PE6, VRF CUST_A) · CE9 (AS 65013, single-homed PE5, VRF CUST_B) · CE7 (EVPN VLAN100).
+**CEs:** CE8 (AS 65012, **dual-homed** to G-R1 + G-R2, VRF CUST_A) · CE9 (AS 65013, single-homed G-R1, VRF CUST_B) · CE7 (EVPN VLAN100).
 
 > **SRv6 in one sentence:** the segment (SID) is a **128-bit IPv6 address**, so the SR data plane *is* the IPv6 data plane — no MPLS, no LDP, no separate label space. A SID = `Locator (routed by IGP) : Function (behavior on the owning node) : Args`. The IGP advertises the `/48` locator; every SID under it is reachable via plain IPv6 longest-prefix match, and the owning node's My-SID table decides the behavior (End, End.X, End.DT4…).
 
@@ -30,22 +30,22 @@
 SRv6 forwards on IPv6 destination address alone, so **every core link must have IPv6 unicast enabled and an IS-IS IPv6 address-family** — otherwise the locator `/48` cannot be flooded and SIDs are black-holed. Unlike SR-MPLS (which only needed `mpls` on the interface implicitly via SR), SRv6 needs genuine end-to-end IPv6 routing. There is no `mpls ip`, no label imposition on the wire; the SID sits in the IPv6 header's destination field (and, for multi-segment paths, in an **SRH** — Segment Routing Header, IPv6 extension header type 43, routing-type 4).
 
 ```
-! ---- P6 <-> PE5 link example (fc00:0:2324::/64) ----
+! ---- G-R3 <-> G-R1 link example (fc00:0:2324::/64) ----
 interface GigabitEthernet0/0/0/0
- description P6---PE5
+ description G-R3---G-R1
  ipv6 address fc00:0:2324::23/64
  no shutdown
 !
-! ---- PE5 side ----
+! ---- G-R1 side ----
 interface GigabitEthernet0/0/0/0
- description PE5---P6
+ description G-R1---P6
  ipv6 address fc00:0:2324::24/64
  no shutdown
 ```
 
 **Verification**
 - `show ipv6 interface brief` — all core links `Up/Up` with global IPv6.
-- `ping ipv6 fc00:0:2324::23` from PE5 across the directly-connected link.
+- `ping ipv6 fc00:0:2324::23` from G-R1 across the directly-connected link.
 
 ### Task 1.2 — SRv6 locator per router
 **Question:** Configure the SRv6 locator block and a per-node locator so each router owns a `/48` from which its SIDs are carved.
@@ -58,18 +58,18 @@ The **locator** is the routable prefix that identifies a node in the SRv6 domain
 segment-routing
  srv6
   encapsulation
-   source-address fc00:0:24::24        ! PE5 outer IPv6 SA for encapsulated (T.Encaps) traffic
+   source-address fc00:0:21::24        ! G-R1 outer IPv6 SA for encapsulated (T.Encaps) traffic
   !
   locators
    locator GOLD
-    prefix fc00:0:24::/48              ! PE5's locator; ASBR3 uses fc00:0:21::/48, etc.
+    prefix fc00:0:21::/48              ! G-R1's locator; G-R4 uses fc00:0:24::/48, etc.
    !
   !
  !
 !
 ```
 
-> Repeat per node with its own `/48`: ASBR3 `fc00:0:21::/48`, ASBR4 `fc00:0:22::/48`, P6 `fc00:0:23::/48`, PE5 `fc00:0:24::/48`, PE6 `fc00:0:25::/48`.
+> Repeat per node with its own `/48`: G-R4 `fc00:0:24::/48`, G-R5 `fc00:0:25::/48`, G-R3 `fc00:0:23::/48`, G-R1 `fc00:0:21::/48`, G-R2 `fc00:0:22::/48`.
 
 **Verification**
 - `show segment-routing srv6 locator GOLD detail` — locator `Up`, prefix correct.
@@ -85,7 +85,7 @@ Under SR-MPLS you wrote `segment-routing mpls` under IS-IS; under SRv6 you bind 
 ```
 router isis GOLD
  is-type level-2-only
- net 49.0000.0000.0024.00                ! PE5
+ net 49.0000.0000.0024.00                ! G-R1
  address-family ipv6 unicast              ! MANDATORY for SRv6 locator flooding
   metric-style wide                       ! wide metrics required (SR sub-TLVs)
   segment-routing srv6
@@ -103,7 +103,7 @@ router isis GOLD
 
 **Verification**
 - `show isis database verbose <node>` — SRv6 Locator TLV and SRv6 End SID sub-TLV present.
-- `show route ipv6 fc00:0:24::/48` on a remote node — locator reachable via IS-IS.
+- `show route ipv6 fc00:0:21::/48` on a remote node — locator reachable via IS-IS.
 
 ### Task 1.4 — Verify auto-allocated SIDs (End, End.X)
 **Question:** Confirm the node auto-allocated an **End** SID and per-adjacency **End.X** SIDs, and read the My-SID table.
@@ -127,7 +127,7 @@ When a PE performs **H.Encaps** (headend encapsulation) — pushing an outer IPv
 segment-routing
  srv6
   encapsulation
-   source-address fc00:0:24::24     ! PE5
+   source-address fc00:0:21::24     ! G-R1
 ```
 
 **Verification**
@@ -163,7 +163,7 @@ segment-routing
 - `show isis segment-routing srv6 adjacency-sid` — per-neighbor End.X SIDs.
 
 ### Task 2.3 — End.DT4 (per-VRF IPv4 decapsulation)
-**Question:** Explain and configure **End.DT4** for VRF CUST_A on PE5.
+**Question:** Explain and configure **End.DT4** for VRF CUST_A on G-R1.
 
 **Solution**
 
@@ -222,15 +222,15 @@ router bgp 65300
 
 ## Section 3 — L3VPN over SRv6
 
-### Task 3.1 — VRF CUST_A on PE5 + PE6 (CE8, AS 65012)
-**Question:** Build VRF CUST_A on both PE5 and PE6, each with an eBGP session to dual-homed CE8 (AS 65012).
+### Task 3.1 — VRF CUST_A on G-R1 + G-R2 (CE8, AS 65012)
+**Question:** Build VRF CUST_A on both G-R1 and G-R2, each with an eBGP session to dual-homed CE8 (AS 65012).
 
 **Solution**
 
 CUST_A is dual-homed, so both PEs run the VRF and peer with CE8; MP-BGP (Section 3.2) carries CE8's prefixes between PEs as VPN routes tagged with an SRv6 End.DT4 SID. Because CE8 attaches to two PEs, standard L3VPN multihoming applies (allocate distinct RDs so both paths are advertised to the RR and best-path/add-path can expose both). RD `auto` derives a unique RD per PE from the router-id, giving that path diversity for free.
 
 ```
-! ---- PE5 and PE6 (identical pattern) ----
+! ---- G-R1 and G-R2 (identical pattern) ----
 vrf CUST_A
  address-family ipv4 unicast
   import route-target 65300:100
@@ -243,7 +243,7 @@ router bgp 65300
   address-family ipv4 unicast
    redistribute connected
   !
-  neighbor 10.8.5.8               ! CE8 (use 10.8.6.8 on PE6)
+  neighbor 10.8.5.8               ! CE8 (use 10.8.6.8 on G-R2)
    remote-as 65012
    address-family ipv4 unicast
     route-policy PASS in
@@ -255,15 +255,15 @@ router bgp 65300
 ```
 
 **Verification**
-- `show bgp vrf CUST_A summary` — CE8 eBGP session `Established` on both PE5 and PE6.
+- `show bgp vrf CUST_A summary` — CE8 eBGP session `Established` on both G-R1 and G-R2.
 - `show route vrf CUST_A` — CE8 prefixes learned.
 
-### Task 3.2 — VRF CUST_B on PE5 (CE9, AS 65013)
-**Question:** Build VRF CUST_B on PE5 only, peering eBGP with CE9 (AS 65013).
+### Task 3.2 — VRF CUST_B on G-R1 (CE9, AS 65013)
+**Question:** Build VRF CUST_B on G-R1 only, peering eBGP with CE9 (AS 65013).
 
 **Solution**
 
-CUST_B is single-homed to PE5. Same construction as CUST_A but a distinct route-target (`65300:200`) so the two VPNs stay isolated. Later (Task 3.5) we deliberately leak/route between CUST_A and CUST_B within Gold to prove CE8↔CE9 reachability, which requires importing each other's RTs.
+CUST_B is single-homed to G-R1. Same construction as CUST_A but a distinct route-target (`65300:200`) so the two VPNs stay isolated. Later (Task 3.5) we deliberately leak/route between CUST_A and CUST_B within Gold to prove CE8↔CE9 reachability, which requires importing each other's RTs.
 
 ```
 vrf CUST_B
@@ -291,14 +291,14 @@ router bgp 65300
 
 **Verification**
 - `show bgp vrf CUST_B summary` — CE9 session `Established`.
-- `show route vrf CUST_B` — CE9 prefixes present on PE5.
+- `show route vrf CUST_B` — CE9 prefixes present on G-R1.
 
 ### Task 3.3 — MP-BGP with encapsulation-type SRv6
-**Question:** Configure the VPNv4 MP-BGP overlay (PEs → RR ASBR3) and set **encapsulation-type srv6** so VPN routes carry SRv6 SIDs.
+**Question:** Configure the VPNv4 MP-BGP overlay (PEs → RR G-R3) and set **encapsulation-type srv6** so VPN routes carry SRv6 SIDs.
 
 **Solution**
 
-The overlay is ordinary VPNv4/VPNv6 MP-BGP; what makes it SRv6 is two things on each PE: (1) the per-VRF `segment-routing srv6 / alloc mode per-vrf` from Task 2.3 (which allocates the End.DT4/DT6 SID), and (2) advertising the VPN NLRI with the **SRv6 SID attribute** rather than an MPLS VPN label. On IOS-XR the SID is attached automatically once the VRF has an SRv6 locator + alloc mode; the **encapsulation-type srv6** knob (per-neighbor / per-AF) ensures the SID is signaled and that the egress PE encapsulates in IPv6 (H.Encaps) instead of imposing MPLS. ASBR3 is the Route-Reflector, so PE5/PE6 peer only to it.
+The overlay is ordinary VPNv4/VPNv6 MP-BGP; what makes it SRv6 is two things on each PE: (1) the per-VRF `segment-routing srv6 / alloc mode per-vrf` from Task 2.3 (which allocates the End.DT4/DT6 SID), and (2) advertising the VPN NLRI with the **SRv6 SID attribute** rather than an MPLS VPN label. On IOS-XR the SID is attached automatically once the VRF has an SRv6 locator + alloc mode; the **encapsulation-type srv6** knob (per-neighbor / per-AF) ensures the SID is signaled and that the egress PE encapsulates in IPv6 (H.Encaps) instead of imposing MPLS. G-R4 is the Route-Reflector, so G-R1/G-R2 peer only to it.
 
 ```
 router bgp 65300
@@ -306,7 +306,7 @@ router bgp 65300
  !
  address-family vpnv6 unicast
  !
- neighbor 21.21.21.21              ! ASBR3 = RR (+PCE)
+ neighbor 24.24.24.24              ! G-R4 = RR (+Gar-R6)
   remote-as 65300
   update-source Loopback0
   address-family vpnv4 unicast
@@ -319,7 +319,7 @@ router bgp 65300
 !
 ```
 
-> On ASBR3 (RR): reflect the client sessions with `route-reflector-client` under each AF; the RR does not need a VRF or its own DT SID.
+> On G-R4 (RR): reflect the client sessions with `route-reflector-client` under each AF; the RR does not need a VRF or its own DT SID.
 
 **Verification**
 - `show bgp vpnv4 unicast summary` — PE↔RR sessions `Established`.
@@ -342,10 +342,10 @@ router bgp 65300
 
 **Solution**
 
-To reach across two different VRFs you must interconnect them — either route-leak by cross-importing RTs on PE5 (which holds both VRFs) or model it as an extranet. Once leaked, CE8's route to CE9 resolves to CUST_B's End.DT SID on PE5, and CE9→CE8 resolves to CUST_A's End.DT SID (on PE5 or PE6 depending on best-path). The forwarding path is: CE8 → (H.Encaps at ingress PE, outer IPv6 DA = egress PE's DT4 SID) → SRv6 core routes on the locator `/48` → egress PE matches DT4, decaps, VRF lookup → CE. This is a pure IPv6 data plane end to end.
+To reach across two different VRFs you must interconnect them — either route-leak by cross-importing RTs on G-R1 (which holds both VRFs) or model it as an extranet. Once leaked, CE8's route to CE9 resolves to CUST_B's End.DT SID on G-R1, and CE9→CE8 resolves to CUST_A's End.DT SID (on G-R1 or G-R2 depending on best-path). The forwarding path is: CE8 → (H.Encaps at ingress PE, outer IPv6 DA = egress PE's DT4 SID) → SRv6 core routes on the locator `/48` → egress PE matches DT4, decaps, VRF lookup → CE. This is a pure IPv6 data plane end to end.
 
 ```
-! Extranet leak on PE5 (holds both VRFs):
+! Extranet leak on G-R1 (holds both VRFs):
 vrf CUST_A
  address-family ipv4 unicast
   import route-target 65300:200      ! import CUST_B
@@ -358,28 +358,28 @@ vrf CUST_B
 **Verification**
 - From CE8: `ping <CE9 loopback>` succeeds.
 - `traceroute` from CE8 to CE9 traverses the Gold SRv6 core.
-- `show route vrf CUST_A <CE9-prefix>` on PE5 — resolves via CUST_B's SRv6 SID.
+- `show route vrf CUST_A <CE9-prefix>` on G-R1 — resolves via CUST_B's SRv6 SID.
 
 ---
 
 ## Section 4 — SRv6-TE
 
 ### Task 4.1 — Explicit SRv6-TE policy (segment-list of SRv6 SIDs)
-**Question:** On PE5, build an **explicit SRv6-TE policy** to PE6 that traverses P6 (non-shortest / pinned path) using a segment-list of SRv6 SIDs.
+**Question:** On G-R1, build an **explicit SRv6-TE policy** to G-R2 that traverses G-R3 (non-shortest / pinned path) using a segment-list of SRv6 SIDs.
 
 **Solution**
 
-An SRv6-TE policy encodes the path as an ordered **segment-list of SRv6 SIDs** placed in the **SRH**; transit nodes hold **no policy state** — they just route each SID on its locator (End) or cross-connect the link (End.X), exactly like SR-MPLS SR-TE but with IPv6 SIDs instead of labels. The head-end (PE5) does H.Encaps, writing the first SID into the IPv6 DA and the remainder into the SRH, with **Segments-Left** = number of segments still to process. To pin via P6, list P6's End SID then PE6's End (or End.DT) SID.
+An SRv6-TE policy encodes the path as an ordered **segment-list of SRv6 SIDs** placed in the **SRH**; transit nodes hold **no policy state** — they just route each SID on its locator (End) or cross-connect the link (End.X), exactly like SR-MPLS SR-TE but with IPv6 SIDs instead of labels. The head-end (G-R1) does H.Encaps, writing the first SID into the IPv6 DA and the remainder into the SRH, with **Segments-Left** = number of segments still to process. To pin via G-R3, list G-R3's End SID then G-R2's End (or End.DT) SID.
 
 ```
 segment-routing
  traffic-eng
   segment-list VIA_P6
-   index 10 sid fc00:0:23::           ! P6 End SID (waypoint)
-   index 20 sid fc00:0:25::           ! PE6 End SID (endpoint)
+   index 10 sid fc00:0:23::           ! G-R3 End SID (waypoint)
+   index 20 sid fc00:0:22::           ! G-R2 End SID (endpoint)
   !
   policy PE5_TO_PE6_VIAP6
-   color 100 end-point ipv6 fc00:0:25::25
+   color 100 end-point ipv6 fc00:0:22::25
    candidate-paths
     preference 100
      explicit segment-list VIA_P6
@@ -391,15 +391,15 @@ segment-routing
 ```
 
 **Verification**
-- `show segment-routing traffic-eng policy` — policy `Up`, segment-list installed, endpoint = PE6.
-- `traceroute srv6` toward PE6 via the policy transits P6 (not the shortest path).
+- `show segment-routing traffic-eng policy` — policy `Up`, segment-list installed, endpoint = G-R2.
+- `traceroute srv6` toward G-R2 via the policy transits G-R3 (not the shortest path).
 
 ### Task 4.2 — Traffic steering with color
 **Question:** Steer CUST_A traffic into the policy using BGP **color**.
 
 **Solution**
 
-As in SR-MPLS, steering is by **color + endpoint**, decoupling "which path" from "which prefixes." Tag CUST_A VPN routes (or the ODN template) with color 100; BGP resolves the VPN next-hop over the color-100 SRv6-TE policy to PE6. This enables **On-Demand Next-hop (ODN)** for SRv6: a policy is auto-instantiated per color/endpoint when a colored VPN route arrives — no per-prefix tunnel config, scaling to thousands of prefixes.
+As in SR-MPLS, steering is by **color + endpoint**, decoupling "which path" from "which prefixes." Tag CUST_A VPN routes (or the ODN template) with color 100; BGP resolves the VPN next-hop over the color-100 SRv6-TE policy to G-R2. This enables **On-Demand Next-hop (ODN)** for SRv6: a policy is auto-instantiated per color/endpoint when a colored VPN route arrives — no per-prefix tunnel config, scaling to thousands of prefixes.
 
 ```
 extcommunity-set opaque COLOR_100
@@ -415,7 +415,7 @@ end-policy
 
 **Verification**
 - `show bgp vpnv4 unicast vrf CUST_A <prefix> detail` — color:100 extended community present.
-- `show cef vrf CUST_A <prefix>` — resolves via the SRv6-TE policy (SRH imposed toward PE6).
+- `show cef vrf CUST_A <prefix>` — resolves via the SRv6-TE policy (SRH imposed toward G-R2).
 
 ### Task 4.3 — Verify SRH in packet (Segments-Left)
 **Question:** Confirm the Segment Routing Header is imposed and read **Segments-Left**.
@@ -426,24 +426,24 @@ The **SRH** is IPv6 extension header (Next-Header 43, Routing-Type 4). It carrie
 
 **Verification**
 - `show segment-routing traffic-eng policy PE5_TO_PE6_VIAP6 detail` — SID list + expected SRH depth.
-- Packet capture (or `show`) on P6: SRH present, `Segments Left` decremented by one at the waypoint; DA rewritten to the next SID.
-- `show segment-routing srv6 sid <P6-End-SID>` on P6 — `Packets/Bytes` counters incrementing as steered traffic passes.
+- Packet capture (or `show`) on G-R3: SRH present, `Segments Left` decremented by one at the waypoint; DA rewritten to the next SID.
+- `show segment-routing srv6 sid <G-R3-End-SID>` on G-R3 — `Packets/Bytes` counters incrementing as steered traffic passes.
 
 ---
 
 ## Section 5 — SRv6 Inter-domain (Gold ↔ Garnet)
 
-### Task 5.1 — SRv6 ↔ SR-MPLS boundary at ASBR4 ↔ ASBR2
-**Question:** Gold runs SRv6; the Garnet AS runs SR-MPLS. Describe/configure the interworking boundary at ASBR4 (Gold) ↔ ASBR2 (Garnet).
+### Task 5.1 — SRv6 ↔ SR-MPLS boundary at G-R5 ↔ Gar-R7
+**Question:** Gold runs SRv6; the Garnet AS runs SR-MPLS. Describe/configure the interworking boundary at G-R5 (Gold) ↔ Gar-R7 (Garnet).
 
 **Solution**
 
-The two domains use different data planes — Gold = IPv6/SRv6, Garnet = MPLS labels — so the ASBR pair is a **data-plane stitching point**. The clean pattern is **Inter-AS Option B (VPN route stitching)**: ASBR4 and ASBR2 run eBGP VPNv4/VPNv6 and *rewrite* the transport on their respective side. A VPN route received from Garnet with an MPLS VPN label is re-advertised into Gold with a locally-allocated **SRv6 End.DT SID** (and vice-versa); the ASBR becomes the next-hop, so the SRv6→MPLS translation happens in its forwarding path. This keeps each domain internally pure (no SRv6 in Garnet, no MPLS in Gold) while services span both.
+The two domains use different data planes — Gold = IPv6/SRv6, Garnet = MPLS labels — so the ASBR pair is a **data-plane stitching point**. The clean pattern is **Inter-AS Option B (VPN route stitching)**: G-R5 and Gar-R7 run eBGP VPNv4/VPNv6 and *rewrite* the transport on their respective side. A VPN route received from Garnet with an MPLS VPN label is re-advertised into Gold with a locally-allocated **SRv6 End.DT SID** (and vice-versa); the ASBR becomes the next-hop, so the SRv6→MPLS translation happens in its forwarding path. This keeps each domain internally pure (no SRv6 in Garnet, no MPLS in Gold) while services span both.
 
 ```
-! ASBR4 (Gold side) — eBGP to ASBR2, SRv6 into Gold, next-hop-self
+! G-R5 (Gold side) — eBGP to Gar-R7, SRv6 into Gold, next-hop-self
 router bgp 65300
- neighbor <ASBR2-link-ip>
+ neighbor <Gar-R7-link-ip>
   remote-as <Garnet-AS>
   address-family vpnv4 unicast
    route-policy PASS in
@@ -451,8 +451,8 @@ router bgp 65300
    next-hop-self
   !
  !
- ! toward Gold RR (ASBR3): re-advertise with SRv6 encapsulation
- neighbor 21.21.21.21
+ ! toward Gold RR (G-R4): re-advertise with SRv6 encapsulation
+ neighbor 24.24.24.24
   address-family vpnv4 unicast
    encapsulation-type srv6
   !
@@ -461,18 +461,18 @@ router bgp 65300
 ```
 
 **Verification**
-- `show bgp vpnv4 unicast` on ASBR4 — routes from Garnet, next-hop = ASBR4, re-originated with SRv6 SID toward Gold.
+- `show bgp vpnv4 unicast` on G-R5 — routes from Garnet, next-hop = G-R5, re-originated with SRv6 SID toward Gold.
 - End-to-end ping a Garnet CE from a Gold CE traverses the stitched boundary.
 
 ### Task 5.2 — SRv6-to-MPLS interworking concept
-**Question:** Explain the packet-level interworking as a packet crosses ASBR4→ASBR2.
+**Question:** Explain the packet-level interworking as a packet crosses G-R5→Gar-R7.
 
 **Solution**
 
-At the boundary the ASBR **terminates one transport and imposes the other**. For a Gold→Garnet flow: the packet arrives at ASBR4 as an SRv6-encapsulated packet whose DA is ASBR4's End.DT/stitching SID; ASBR4 decapsulates (removes outer IPv6/SRH), does the VPN lookup, and forwards toward ASBR2 imposing the **MPLS** VPN label + transport label that Garnet's SR-MPLS understands. Return traffic does the mirror: MPLS is popped and an SRv6 SID is imposed. Because BGP already advertised each domain's own transport identifier (SID vs label) for the same VPN prefix, the ASBR's FIB holds both encapsulations and swaps between them — a per-packet re-encapsulation, not tunneling one inside the other.
+At the boundary the ASBR **terminates one transport and imposes the other**. For a Gold→Garnet flow: the packet arrives at G-R5 as an SRv6-encapsulated packet whose DA is G-R5's End.DT/stitching SID; G-R5 decapsulates (removes outer IPv6/SRH), does the VPN lookup, and forwards toward Gar-R7 imposing the **MPLS** VPN label + transport label that Garnet's SR-MPLS understands. Return traffic does the mirror: MPLS is popped and an SRv6 SID is imposed. Because BGP already advertised each domain's own transport identifier (SID vs label) for the same VPN prefix, the ASBR's FIB holds both encapsulations and swaps between them — a per-packet re-encapsulation, not tunneling one inside the other.
 
 **Verification**
-- `show cef vrf <vrf> <remote-prefix>` on ASBR4 — ingress SRv6 decap, egress MPLS label imposition (or vice-versa).
+- `show cef vrf <vrf> <remote-prefix>` on G-R5 — ingress SRv6 decap, egress MPLS label imposition (or vice-versa).
 - Captures on each side: IPv6/SRH on the Gold link, MPLS label stack on the Garnet link, same customer payload.
 
 ### Task 5.3 — End.B6 binding SID at the boundary
@@ -502,7 +502,7 @@ router isis GOLD
    locator GOLD
 ```
 
-**Verify fix:** `show isis database verbose | include SRv6` shows the Locator/End SID TLVs; `show segment-routing srv6 sid` now lists End + End.X; remote `show route ipv6 fc00:0:24::/48` resolves.
+**Verify fix:** `show isis database verbose | include SRv6` shows the Locator/End SID TLVs; `show segment-routing srv6 sid` now lists End + End.X; remote `show route ipv6 fc00:0:21::/48` resolves.
 
 ### Task 6.2 — VPN route shows MPLS label instead of SRv6 SID
 **Symptom:** `show bgp vpnv4 unicast vrf CUST_A <prefix> detail` shows a real MPLS **label** and no SRv6 SID; data plane tries to impose MPLS on an IPv6-only core → drops.
@@ -511,7 +511,7 @@ router isis GOLD
 
 ```
 router bgp 65300
- neighbor 21.21.21.21
+ neighbor 24.24.24.24
   address-family vpnv4 unicast
    encapsulation-type srv6
 !

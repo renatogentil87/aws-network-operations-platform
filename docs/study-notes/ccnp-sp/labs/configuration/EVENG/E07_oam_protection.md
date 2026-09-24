@@ -12,8 +12,8 @@
 ## Section 1: LSP OAM
 
 ### Task 1: LSP ping / traceroute
-1. Emerald: `ping mpls ipv4 2.2.2.2/32` and `traceroute mpls ipv4 2.2.2.2/32` from PE1.
-2. Garnet: `ping mpls ipv4 12.12.12.12/32` (SR) from PE3.
+1. Emerald: `ping mpls ipv4 2.2.2.2/32` and `traceroute mpls ipv4 2.2.2.2/32` from E-R1.
+2. Garnet: `ping mpls ipv4 12.12.12.12/32` (SR) from Gar-R1.
 3. Verify: replies received; traceroute shows per-hop labels + return codes.
 
 ### Task 2: TTL propagation

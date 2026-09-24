@@ -6,10 +6,10 @@
 
 | SP | PEs | Loopbacks | Core Transport |
 |----|-----|-----------|----------------|
-| Emerald (AS 65100) | PE1, PE2 | 1.1.1.1, 2.2.2.2 | LDP (targeted LDP signals PWs) |
-| Garnet (AS 65200) | PE3, PE4 | 11.11.11.11, 12.12.12.12 | SR-MPLS (LSP is the SR prefix-SID path) |
+| Emerald (AS 65100) | E-R1, E-R2 | 1.1.1.1, 2.2.2.2 | LDP (targeted LDP signals PWs) |
+| Garnet (AS 65200) | Gar-R1, Gar-R2 | 11.11.11.11, 12.12.12.12 | SR-MPLS (LSP is the SR prefix-SID path) |
 
-> **Scope note:** These loopbacks are the workbook-local L2VPN addressing. The base `00_EVENG_Topology.md` uses different Garnet loopbacks (PE3=21.21.21.21, PE4=22.22.22.22) — if you run this on the full topology, substitute the base loopbacks. All configuration in this workbook uses **IOS-XR `l2vpn` syntax** (there is no `xconnect`-under-interface as in IOS classic; XR uses `l2vpn xconnect group` and `bridge-domain`).
+> **Scope note:** These loopbacks are the workbook-local L2VPN addressing. The base `00_EVENG_Topology.md` uses different Garnet loopbacks (Gar-R1=24.24.24.24, Gar-R2=25.25.25.25) — if you run this on the full topology, substitute the base loopbacks. All configuration in this workbook uses **IOS-XR `l2vpn` syntax** (there is no `xconnect`-under-interface as in IOS classic; XR uses `l2vpn xconnect group` and `bridge-domain`).
 
 > **Transport-agnostic principle:** VPWS and VPLS are indifferent to how the transport LSP is built. Emerald reaches remote PE loopbacks via **LDP**; Garnet reaches them via **SR-MPLS prefix-SIDs**. The pseudowire's inner **VC label** and the service config are identical either way — only the outer transport label differs. This is the whole point of the MPLS separation of *transport* from *service*.
 
@@ -17,12 +17,12 @@
 
 ## Section 1 — VPWS / AToM (Point-to-Point Pseudowire)
 
-Point-to-point Ethernet-over-MPLS (E-Line / VPWS) between **PE1 ↔ PE2** across the Emerald LDP core. A pseudowire uses a **two-label stack**: outer transport label (LDP/SR) tunnels the frame to the remote PE loopback; inner **VC label** identifies the specific PW at egress. The VC label is signaled by **targeted (directed) LDP** between the two PE loopbacks.
+Point-to-point Ethernet-over-MPLS (E-Line / VPWS) between **E-R1 ↔ E-R2** across the Emerald LDP core. A pseudowire uses a **two-label stack**: outer transport label (LDP/SR) tunnels the frame to the remote PE loopback; inner **VC label** identifies the specific PW at egress. The VC label is signaled by **targeted (directed) LDP** between the two PE loopbacks.
 
 ### Task 1.1 — Build the point-to-point pseudowire (VC-ID 100)
 
 **Question**
-Configure an AToM pseudowire carrying Customer A's Layer 2 between CE (via PE1) and CE (via PE2) using **VC-ID / pw-id 100**, port mode. CEs must reach each other at Layer 2 across the LDP core.
+Configure an AToM pseudowire carrying Customer A's Layer 2 between CE (via E-R1) and CE (via E-R2) using **VC-ID / pw-id 100**, port mode. CEs must reach each other at Layer 2 across the LDP core.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -56,7 +56,7 @@ Enable **PW status signaling** (LDP status TLV) so AC/PW faults propagate end-to
 ### Task 2.1 — Pseudowire redundancy (backup PW)
 
 **Question**
-Protect the PE1 service with a **backup pseudowire** to PE4 (12.12.12.12) so that if the primary PW to PE2 fails, traffic fails over automatically. Configure immediate switchover and restore.
+Protect the E-R1 service with a **backup pseudowire** to Gar-R2 (12.12.12.12) so that if the primary PW to E-R2 fails, traffic fails over automatically. Configure immediate switchover and restore.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -72,19 +72,19 @@ Pin VC-100's transport to a specific **MPLS-TE tunnel** (or SR-TE policy) instea
 ### Task 2.3 — Static pseudowire
 
 **Question**
-Build a **static (manually-labeled) pseudowire** PE1↔PE2 with no targeted-LDP signaling — you assign the VC labels by hand. State when this is used.
+Build a **static (manually-labeled) pseudowire** E-R1↔E-R2 with no targeted-LDP signaling — you assign the VC labels by hand. State when this is used.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
 ## Section 3 — VPLS Full-Mesh (LDP-signaled, RFC 4762)
 
-Multipoint L2 (E-LAN) across the **Emerald PEs (PE1, PE2)** using **LDP-signaled VPLS (RFC 4762)**. VPLS makes the SP core behave as one big learning bridge: each PE has a **bridge-domain** containing local ACs plus a **VFI** whose PW neighbors form a full mesh of pseudowires to every other PE.
+Multipoint L2 (E-LAN) across the **Emerald PEs (E-R1, E-R2)** using **LDP-signaled VPLS (RFC 4762)**. VPLS makes the SP core behave as one big learning bridge: each PE has a **bridge-domain** containing local ACs plus a **VFI** whose PW neighbors form a full mesh of pseudowires to every other PE.
 
 ### Task 3.1 — LDP-signaled VPLS bridge-domain + VFI
 
 **Question**
-Build a full-mesh VPLS instance (VPN-ID 500) across PE1 and PE2 so all customer sites share one broadcast domain. Use LDP (Martini) signaling.
+Build a full-mesh VPLS instance (VPN-ID 500) across E-R1 and E-R2 so all customer sites share one broadcast domain. Use LDP (Martini) signaling.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -120,7 +120,7 @@ H-VPLS reduces the **full-mesh scaling problem** (n PEs need n·(n-1)/2 PWs and 
 ### Task 4.1 — N-PE / U-PE tiers with a spoke PW
 
 **Question**
-Make **PE1 an N-PE** (in the core VPLS mesh) and attach a **U-PE (PE2 acting as edge)** to it via a single **spoke pseudowire**, so the U-PE needs no full mesh.
+Make **E-R1 an N-PE** (in the core VPLS mesh) and attach a **U-PE (E-R2 acting as edge)** to it via a single **spoke pseudowire**, so the U-PE needs no full mesh.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -148,7 +148,7 @@ LDP-VPLS (Section 3, RFC 4762) requires **manual full-mesh** neighbor configurat
 ### Task 5.1 — BGP auto-discovery + signaling VPLS (Kompella)
 
 **Question**
-Configure **BGP-VPLS (RFC 4761)** on the Garnet PEs (PE3, PE4) so PWs are auto-discovered and signaled by BGP, using a **label block**. Compare with LDP-VPLS.
+Configure **BGP-VPLS (RFC 4761)** on the Garnet PEs (Gar-R1, Gar-R2) so PWs are auto-discovered and signaled by BGP, using a **label block**. Compare with LDP-VPLS.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -174,7 +174,7 @@ Summarize the trade-offs so you can justify a choice in the exam.
 ### Task 6.1 — PW down: VC-ID / pw-id mismatch
 
 **Question**
-A VPWS PW PE1↔PE2 is **down**. Diagnose and fix.
+A VPWS PW E-R1↔E-R2 is **down**. Diagnose and fix.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -190,7 +190,7 @@ The PW shows **UP** on both ends but the CEs cannot pass traffic (or only small 
 ### Task 6.3 — VPLS MAC not learned: split-horizon block or AC down
 
 **Question**
-In the VPLS instance, a remote site's MAC never appears in PE1's MAC table and its traffic is missing. Diagnose.
+In the VPLS instance, a remote site's MAC never appears in E-R1's MAC table and its traffic is missing. Diagnose.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*

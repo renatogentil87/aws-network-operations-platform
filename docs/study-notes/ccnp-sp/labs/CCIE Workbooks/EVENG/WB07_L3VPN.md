@@ -11,32 +11,32 @@
 
 | SP | AS | IGP / Transport | PEs | RR | ASBR |
 |----|----|-----------------|-----|----|------|
-| **Emerald** | 65100 | IS-IS L2 + LDP | PE1 (1.1.1.1), PE2 (2.2.2.2) | **PCE1 (6.6.6.6)** | ASBR1 (5.5.5.5) |
-| **Gold** (transit) | 65300 | IS-IS L2 + SRv6 | PE5 (24.24.24.24), PE6 (25.25.25.25) | **ASBR3 (21.21.21.21)** | ASBR3 / ASBR4 (22.22.22.22) |
-| **Garnet** | 65200 | IS-IS L2 + SR-MPLS | PE3 (11.11.11.11), PE4 (12.12.12.12) | **PCE (17.17.17.17)** | ASBR2 (16.16.16.16) |
+| **Emerald** | 65100 | IS-IS L2 + LDP | E-R1 (1.1.1.1), E-R2 (2.2.2.2) | **E-R5 (6.6.6.6)** | E-R6 (5.5.5.5) |
+| **Gold** (transit) | 65300 | IS-IS L2 + SRv6 | G-R1 (21.21.21.21), G-R2 (22.22.22.22) | **G-R4 (24.24.24.24)** | G-R4 / G-R5 (25.25.25.25) |
+| **Garnet** | 65200 | IS-IS L2 + SR-MPLS | Gar-R1 (11.11.11.11), Gar-R2 (12.12.12.12) | **Gar-R6 (16.16.16.16)** | Gar-R7 (17.17.17.17) |
 
 **Customers**
 
 | Customer | ASN | CEs | SPs spanned | PE-CE protocol |
 |----------|-----|-----|-------------|----------------|
-| **A** | 65012 | CE1 (PE1), CE2 (PE1+PE2 dual-homed) — Emerald; CE8 (PE5+PE6 dual-homed) — Gold | Emerald + Gold | eBGP (as-override + SoO) |
-| **B** | 65013 | CE9 (PE5) — Gold; CE4 (PE3) — Garnet | Gold + Garnet | eBGP |
-| **C** | — (EVPN) | CE5 (PE3+PE4) — Garnet; CE7 (PE6) — Gold | Garnet + Gold | EVPN (WB10, not here) |
-| — | — | CE3 (PE2) — Emerald; CE6 (PE4) — Garnet | single SP | OSPF area 0 |
+| **A** | 65012 | CE1 (E-R1), CE2 (E-R1+E-R2 dual-homed) — Emerald; CE8 (G-R1+G-R2 dual-homed) — Gold | Emerald + Gold | eBGP (as-override + SoO) |
+| **B** | 65013 | CE9 (G-R1) — Gold; CE4 (Gar-R1) — Garnet | Gold + Garnet | eBGP |
+| **C** | — (EVPN) | CE5 (Gar-R1+Gar-R2) — Garnet; CE7 (G-R2) — Gold | Garnet + Gold | EVPN (WB10, not here) |
+| — | — | CE3 (E-R2) — Emerald; CE6 (Gar-R2) — Garnet | single SP | OSPF area 0 |
 
 **PE-CE links (relevant)**
 
 | Link | Subnet | PE addr | CE addr |
 |------|--------|---------|---------|
-| PE1–CE1 | 192.168.1.0/24 | .1 | .2 |
-| PE1–CE2 | 192.168.2.0/24 | .1 | .2 |
-| PE2–CE2 | 192.168.3.0/24 | .1 | .2 |
-| PE2–CE3 | 192.168.4.0/24 | .1 | .2 |
-| PE5–CE9 | 192.168.11.0/24 | .1 | .2 |
-| PE5–CE8 | 192.168.12.0/24 | .1 | .2 |
-| PE6–CE8 | 192.168.13.0/24 | .1 | .2 |
-| PE4–CE6 | 172.16.4.0/24 | .1 | .2 |
-| PE3–CE4 | 172.16.1.0/24 | .1 | .2 |
+| E-R1–CE1 | 192.168.1.0/24 | .1 | .2 |
+| E-R1–CE2 | 192.168.2.0/24 | .1 | .2 |
+| E-R2–CE2 | 192.168.3.0/24 | .1 | .2 |
+| E-R2–CE3 | 192.168.4.0/24 | .1 | .2 |
+| G-R1–CE9 | 192.168.11.0/24 | .1 | .2 |
+| G-R1–CE8 | 192.168.12.0/24 | .1 | .2 |
+| G-R2–CE8 | 192.168.13.0/24 | .1 | .2 |
+| Gar-R2–CE6 | 172.16.4.0/24 | .1 | .2 |
+| Gar-R1–CE4 | 172.16.1.0/24 | .1 | .2 |
 
 **RD / RT design decision (used throughout):**
 - **RD is per-SP-per-VRF** (unique so overlapping customer prefixes stay unique in VPNv4): `<SP-ASN>:<vrf-id>`.
@@ -44,10 +44,10 @@
 
 | VRF | On | RD | RT (import+export) |
 |-----|----|----|--------------------|
-| CUST_A | PE1, PE2 (Emerald) | 65100:100 (PE1), 65100:100 (PE2) | 65012:100 |
-| CUST_A | PE5, PE6 (Gold) | 65300:100 | 65012:100 |
-| CUST_B | PE5 (Gold) | 65300:200 | 65013:200 |
-| CUST_B | PE3 (Garnet) | 65200:200 | 65013:200 |
+| CUST_A | E-R1, E-R2 (Emerald) | 65100:100 (E-R1), 65100:100 (E-R2) | 65012:100 |
+| CUST_A | G-R1, G-R2 (Gold) | 65300:100 | 65012:100 |
+| CUST_B | G-R1 (Gold) | 65300:200 | 65013:200 |
+| CUST_B | Gar-R1 (Garnet) | 65200:200 | 65013:200 |
 
 > RD differs per SP; RT is identical (`65012:100` for Customer A everywhere). That is what makes inter-AS VPN "just work" once VPNv4 is exchanged across the ASBRs.
 
@@ -55,23 +55,23 @@
 
 # Section 1 — VRF + RD + RT Basics (5 tasks)
 
-## Task 1.1 — Create VRF CUST_A on PE1/PE2 (Emerald)
+## Task 1.1 — Create VRF CUST_A on E-R1/E-R2 (Emerald)
 
 **Question:** Create VRF `CUST_A` for Customer A on both Emerald PEs. Use a per-SP RD and the common Customer-A RT `65012:100`.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
-## Task 1.2 — Create VRF CUST_A on PE5/PE6 (Gold)
+## Task 1.2 — Create VRF CUST_A on G-R1/G-R2 (Gold)
 
-**Question:** Extend Customer A into Gold on PE5 and PE6. Same RT (`65012:100`), Gold-scoped RD.
+**Question:** Extend Customer A into Gold on G-R1 and G-R2. Same RT (`65012:100`), Gold-scoped RD.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
-## Task 1.3 — Create VRF CUST_B on PE5 (Gold) + PE3 (Garnet)
+## Task 1.3 — Create VRF CUST_B on G-R1 (Gold) + Gar-R1 (Garnet)
 
-**Question:** Customer B lives in Gold (CE9→PE5) and Garnet (CE4→PE3). Create VRF `CUST_B` with common RT `65013:200`.
+**Question:** Customer B lives in Gold (CE9→G-R1) and Garnet (CE4→Gar-R1). Create VRF `CUST_B` with common RT `65013:200`.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -99,14 +99,14 @@
 
 ## Task 2.2 — eBGP PE-CE with CE9/CE4 (AS 65013)
 
-**Question:** Customer B uses AS 65013: CE9 in Gold (PE5) and CE4 in Garnet (PE3). Configure eBGP PE-CE. as-override is still needed because both sites share AS 65013.
+**Question:** Customer B uses AS 65013: CE9 in Gold (G-R1) and CE4 in Garnet (Gar-R1). Configure eBGP PE-CE. as-override is still needed because both sites share AS 65013.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
 ## Task 2.3 — OSPF PE-CE with CE3/CE6 (area 0, DN-bit, domain-id)
 
-**Question:** CE3 (PE2, Emerald) and CE6 (PE4, Garnet) run OSPF area 0 to the PE. Configure VRF-aware OSPF, redistribute both ways with BGP, and understand the DN-bit and domain-id.
+**Question:** CE3 (E-R2, Emerald) and CE6 (Gar-R2, Garnet) run OSPF area 0 to the PE. Configure VRF-aware OSPF, redistribute both ways with BGP, and understand the DN-bit and domain-id.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -120,21 +120,21 @@
 
 ## Task 2.5 — SoO on dual-homed CE2 and CE8
 
-**Question:** CE2 (dual-homed to PE1+PE2) and CE8 (dual-homed to PE5+PE6) risk a routing loop: a route from CE2 enters PE1 → VPNv4 → PE2 → back to CE2. `as-override` removes the AS-PATH loop protection, so we need **Site-of-Origin (SoO)** to stop a route from being re-advertised back to the site it came from.
+**Question:** CE2 (dual-homed to E-R1+E-R2) and CE8 (dual-homed to G-R1+G-R2) risk a routing loop: a route from CE2 enters E-R1 → VPNv4 → E-R2 → back to CE2. `as-override` removes the AS-PATH loop protection, so we need **Site-of-Origin (SoO)** to stop a route from being re-advertised back to the site it came from.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
 ## Task 3.1 — Enable VPNv4 on all RRs and PE↔RR sessions
 
-**Question:** Configure MP-BGP VPNv4 unicast. RRs: **PCE1** (Emerald, 6.6.6.6), **ASBR3** (Gold, 21.21.21.21), **PCE** (Garnet, 17.17.17.17). PEs peer to their SP's RR only.
+**Question:** Configure MP-BGP VPNv4 unicast. RRs: **E-R5** (Emerald, 6.6.6.6), **G-R4** (Gold, 24.24.24.24), **Gar-R6** (Garnet, 16.16.16.16). PEs peer to their SP's RR only.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
 ## Task 3.2 — Verify VPN route propagation within each SP
 
-**Question:** Confirm that Customer A prefixes learned at PE1 reach PE2 (Emerald), and Customer A/B prefixes propagate within Gold and Garnet.
+**Question:** Confirm that Customer A prefixes learned at E-R1 reach E-R2 (Emerald), and Customer A/B prefixes propagate within Gold and Garnet.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -153,7 +153,7 @@
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
-## Task 4.1 — Option A between Emerald ↔ Garnet (back-to-back VRF on ASBR1/ASBR2)
+## Task 4.1 — Option A between Emerald ↔ Garnet (back-to-back VRF on E-R6/Gar-R7)
 
 **Question:** Implement **Inter-AS Option A** (10A / back-to-back VRF): each ASBR treats the other as a CE. One sub-interface per VRF per customer across the boundary, running eBGP in the VRF.
 
@@ -176,14 +176,14 @@
 
 ## Task 4.4 — Customer A across Emerald ↔ Gold (Option C with SRv6 transport on Gold side)
 
-**Question:** Extend Customer A from Emerald (LDP transport) into Gold (SRv6 transport) using Option C. Gold uses SRv6 for the VPN; the ASBR1↔ASBR3 boundary carries the reachability, and RR-to-RR (PCE1↔ASBR3) carries VPNv4 with next-hop-unchanged. Show the transport handoff.
+**Question:** Extend Customer A from Emerald (LDP transport) into Gold (SRv6 transport) using Option C. Gold uses SRv6 for the VPN; the E-R6↔G-R4 boundary carries the reachability, and RR-to-RR (E-R5↔G-R4) carries VPNv4 with next-hop-unchanged. Show the transport handoff.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
 ## Task 4.5 — Customer B across Gold ↔ Garnet
 
-**Question:** Customer B: CE9 (Gold, PE5) ↔ CE4 (Garnet, PE3). Use Option B across the Gold↔Garnet boundary (ASBR4 ↔ ASBR2) for contrast with 4.4's Option C.
+**Question:** Customer B: CE9 (Gold, G-R1) ↔ CE4 (Garnet, Gar-R1). Use Option B across the Gold↔Garnet boundary (G-R5 ↔ Gar-R7) for contrast with 4.4's Option C.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -219,7 +219,7 @@
 
 ## Task 5.2 — BGP PIC Edge for fast VPN failover
 
-**Question:** For dual-homed prefixes (e.g. CE8 via PE5+PE6), install a **backup path** in the FIB so failover is prefix-independent (sub-100 ms) instead of waiting for BGP reconvergence.
+**Question:** For dual-homed prefixes (e.g. CE8 via G-R1+G-R2), install a **backup path** in the FIB so failover is prefix-independent (sub-100 ms) instead of waiting for BGP reconvergence.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -244,17 +244,17 @@
 
 **Diagnose:**
 ```
-! Route is in VPNv4 on Gold PE5 but NOT in the VRF:
-RP/0/RP0/CPU0:PE5# show bgp vpnv4 unicast rd 65100:100 192.168.10.0/24     ! present
-RP/0/RP0/CPU0:PE5# show route vrf CUST_A 192.168.10.0/24                    ! % Not found
+! Route is in VPNv4 on Gold G-R1 but NOT in the VRF:
+RP/0/RP0/CPU0:G-R1# show bgp vpnv4 unicast rd 65100:100 192.168.10.0/24     ! present
+RP/0/RP0/CPU0:G-R1# show route vrf CUST_A 192.168.10.0/24                    ! % Not found
 ! Compare RTs:
-RP/0/RP0/CPU0:PE5# show vrf CUST_A detail | i "Import|Export"
+RP/0/RP0/CPU0:G-R1# show vrf CUST_A detail | i "Import|Export"
   Import VPN route-target: 65012:999      <-- WRONG (should be 65012:100)
-RP/0/RP0/CPU0:PE1# show bgp vpnv4 unicast rd 65100:100 192.168.10.0/24 | i "Extended"
+RP/0/RP0/CPU0:E-R1# show bgp vpnv4 unicast rd 65100:100 192.168.10.0/24 | i "Extended"
   Extended community: RT:65012:100
 ```
 
-**Root cause:** PE5's **import RT** (`65012:999`) does not match the **export RT** carried by the route (`65012:100`).
+**Root cause:** G-R1's **import RT** (`65012:999`) does not match the **export RT** carried by the route (`65012:100`).
 
 **Fix:**
 ```
@@ -267,7 +267,7 @@ vrf CUST_A
 
 **Verify:**
 ```
-RP/0/RP0/CPU0:PE5# show route vrf CUST_A 192.168.10.0/24    ! now installed (B)
+RP/0/RP0/CPU0:G-R1# show route vrf CUST_A 192.168.10.0/24    ! now installed (B)
 CE8# ping 192.168.10.2                                       ! success
 ```
 
@@ -275,23 +275,23 @@ CE8# ping 192.168.10.2                                       ! success
 
 ## Task 6.2 — VPN route received but not installed (next-hop unreachable — missing BGP-LU)
 
-**Symptom:** In Option C, PE1 has the remote Garnet prefix in VPNv4 but marks it **not best / inaccessible**.
+**Symptom:** In Option C, E-R1 has the remote Garnet prefix in VPNv4 but marks it **not best / inaccessible**.
 
 **Diagnose:**
 ```
-RP/0/RP0/CPU0:PE1# show bgp vpnv4 unicast rd 65200:200 192.168.110.0/24
+RP/0/RP0/CPU0:E-R1# show bgp vpnv4 unicast rd 65200:200 192.168.110.0/24
    Not advertised to any peer
    Path ... Next Hop: 11.11.11.11
    ... inaccessible                       <-- next-hop unreachable
-RP/0/RP0/CPU0:PE1# show route 11.11.11.11
+RP/0/RP0/CPU0:E-R1# show route 11.11.11.11
    % Network not in table                 <-- no LSP/route to remote PE loopback
-RP/0/RP0/CPU0:PE1# show cef 11.11.11.11/32
+RP/0/RP0/CPU0:E-R1# show cef 11.11.11.11/32
    0.0.0.0/0 ... drop
 ```
 
 **Root cause:** Option C relies on **BGP-LU** to carry the remote PE /32 loopbacks with labels across the AS boundary. The labeled-unicast session (or `allocate-label` / redistribution) is missing, so `11.11.11.11` has no LSP → VPNv4 next-hop is unresolved → route not installed.
 
-**Fix (restore BGP-LU on ASBR1):**
+**Fix (restore BGP-LU on E-R6):**
 ```
 router bgp 65100
  address-family ipv4 unicast
@@ -306,21 +306,21 @@ router bgp 65100
 
 **Verify:**
 ```
-RP/0/RP0/CPU0:PE1# show route 11.11.11.11               ! now a BGP-LU / IGP route
-RP/0/RP0/CPU0:PE1# show cef 11.11.11.11/32               ! labeled path (not drop)
-RP/0/RP0/CPU0:PE1# show bgp vpnv4 unicast rd 65200:200 192.168.110.0/24 | i best   ! now best
+RP/0/RP0/CPU0:E-R1# show route 11.11.11.11               ! now a BGP-LU / IGP route
+RP/0/RP0/CPU0:E-R1# show cef 11.11.11.11/32               ! labeled path (not drop)
+RP/0/RP0/CPU0:E-R1# show bgp vpnv4 unicast rd 65200:200 192.168.110.0/24 | i best   ! now best
 ```
 
 ---
 
 ## Task 6.3 — as-override not configured (CE rejects route — own AS in path)
 
-**Symptom:** CE8 (AS 65012) does not learn CE1's prefix even though PE5's VRF has it.
+**Symptom:** CE8 (AS 65012) does not learn CE1's prefix even though G-R1's VRF has it.
 
 **Diagnose:**
 ```
-RP/0/RP0/CPU0:PE5# show route vrf CUST_A 192.168.10.0/24          ! present on PE (B)
-RP/0/RP0/CPU0:PE5# show bgp vrf CUST_A neighbors 192.168.12.2 advertised-routes | i 192.168.10
+RP/0/RP0/CPU0:G-R1# show route vrf CUST_A 192.168.10.0/24          ! present on PE (B)
+RP/0/RP0/CPU0:G-R1# show bgp vrf CUST_A neighbors 192.168.12.2 advertised-routes | i 192.168.10
    192.168.10.0/24 ...                                            ! PE IS advertising it
 CE8# show ip bgp 192.168.10.0
    % Network not in table                                         ! CE dropped it
@@ -328,7 +328,7 @@ CE8# show ip bgp neighbors 192.168.12.1 | i "denied|filtered"
    ... 3 accepted, 2 denied (AS-PATH loop)
 ```
 
-**Root cause:** The AS_PATH toward CE8 is `65300 65012` (CE1's origin AS 65012 is still present). CE8's own AS is 65012, so its BGP loop-prevention rejects the update. **as-override** was never enabled on PE5's CE8 neighbor.
+**Root cause:** The AS_PATH toward CE8 is `65300 65012` (CE1's origin AS 65012 is still present). CE8's own AS is 65012, so its BGP loop-prevention rejects the update. **as-override** was never enabled on G-R1's CE8 neighbor.
 
 **Fix:**
 ```
@@ -356,17 +356,17 @@ CE8# ping 192.168.10.2
 **Diagnose:**
 ```
 ! Loop symptom: route toggles, or a VPN route re-enters BGP from OSPF:
-RP/0/RP0/CPU0:PE4# show route vrf CUST_C6 172.16.40.0/24
+RP/0/RP0/CPU0:Gar-R2# show route vrf CUST_C6 172.16.40.0/24
    ... route churns between OSPF and BGP
 ! Check the LSA the PE injects — DN-bit should be SET on PE-originated summaries/externals:
-RP/0/RP0/CPU0:PE4# show ospf CUST_CE6 vrf CUST_C6 database summary detail | i "Options|DN"
+RP/0/RP0/CPU0:Gar-R2# show ospf CUST_CE6 vrf CUST_C6 database summary detail | i "Options|DN"
    Options: (No DN)          <-- WRONG, DN-bit not set
 ! Domain-id mismatch symptom: routes cross as E2 instead of inter-area:
-RP/0/RP0/CPU0:PE4# show route vrf CUST_C6 | i "O E2"
+RP/0/RP0/CPU0:Gar-R2# show route vrf CUST_C6 | i "O E2"
    O E2 172.16.10.0/24 ...   <-- should be O IA if domain-ids matched
-RP/0/RP0/CPU0:PE2# show run router ospf | i domain-id
+RP/0/RP0/CPU0:E-R2# show run router ospf | i domain-id
    domain-id type 0005 value 000000010000
-RP/0/RP0/CPU0:PE4# show run router ospf | i domain-id
+RP/0/RP0/CPU0:Gar-R2# show run router ospf | i domain-id
    domain-id type 0005 value 000000020000    <-- DIFFERENT → treated as external
 ```
 
@@ -384,14 +384,14 @@ router ospf CUST_CE6
 ! 2) Align domain-id on all PEs serving this customer:
 router ospf CUST_CE6
  vrf CUST_C6
-  domain-id type 0005 value 000000010000     ! match PE2's value 1
+  domain-id type 0005 value 000000010000     ! match E-R2's value 1
 ```
 
 **Verify:**
 ```
-RP/0/RP0/CPU0:PE4# show ospf CUST_CE6 vrf CUST_C6 database summary detail | i DN
+RP/0/RP0/CPU0:Gar-R2# show ospf CUST_CE6 vrf CUST_C6 database summary detail | i DN
    Options: (DN)                     ! DN-bit now set → no re-redistribution loop
-RP/0/RP0/CPU0:PE4# show route vrf CUST_C6 | i "O IA"
+RP/0/RP0/CPU0:Gar-R2# show route vrf CUST_C6 | i "O IA"
    O IA 172.16.10.0/24 ...           ! now inter-area, core is transparent
 ```
 

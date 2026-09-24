@@ -60,7 +60,7 @@
 ## Section 3 — BGP Security
 
 ### Task 3.1 — BGP authentication: TCP-AO (preferred) with MD5 fallback
-**Question:** Authenticate the inter-AS ASBR1↔ASBR2 eBGP session. Prefer **TCP-AO** (RFC 5925) over legacy MD5; show both.
+**Question:** Authenticate the inter-AS E-R6↔Gar-R7 eBGP session. Prefer **TCP-AO** (RFC 5925) over legacy MD5; show both.
 
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
@@ -111,7 +111,7 @@
 
 ## Section 5 — MACsec (Layer 2 Encryption)
 
-> **Concept.** **MACsec (IEEE 802.1AE)** provides hop-by-hop Layer-2 confidentiality + integrity on a physical link — it encrypts the Ethernet payload between two directly connected interfaces (e.g. ASBR1↔ASBR2), independent of L3/BGP. Session keys are negotiated by **MKA (MACsec Key Agreement, 802.1X)** from a pre-shared **CAK/CKN** carried in a key-chain of type `macsec`. Unlike IPsec (L3, routed, per-flow), MACsec is line-rate hardware crypto on a single link.
+> **Concept.** **MACsec (IEEE 802.1AE)** provides hop-by-hop Layer-2 confidentiality + integrity on a physical link — it encrypts the Ethernet payload between two directly connected interfaces (e.g. E-R6↔Gar-R7), independent of L3/BGP. Session keys are negotiated by **MKA (MACsec Key Agreement, 802.1X)** from a pre-shared **CAK/CKN** carried in a key-chain of type `macsec`. Unlike IPsec (L3, routed, per-flow), MACsec is line-rate hardware crypto on a single link.
 
 ### Task 5.1 — MACsec key-chain and MKA policy
 **Question:** Create the MACsec pre-shared key (CKN/CAK) key-chain and an MKA policy (cipher, confidentiality offset, SAK rekey) to be used on the inter-AS link.
@@ -119,7 +119,7 @@
 
 > *Try this yourself first. Solution available in `solutions/` folder.*
 
-### Task 5.2 — Apply MACsec to the inter-AS link (ASBR1↔ASBR2)
+### Task 5.2 — Apply MACsec to the inter-AS link (E-R6↔Gar-R7)
 **Question:** Apply the key-chain + MKA policy to the physical interface on both ASBRs and confirm the link is encrypted and BGP still runs over it.
 
 
