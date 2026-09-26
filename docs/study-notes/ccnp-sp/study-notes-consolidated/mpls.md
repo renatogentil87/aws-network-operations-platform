@@ -878,7 +878,38 @@ Labels are allocated by LSD (Label Switching Database)
 
 - When a router reboot, LSD waits the high priority clients(ISIS or OSPF). ISIS register itself with LSD and request labels from SRGB.
 - after all priority clients have been registered, then it allocates labels to others (dynamic allocation, adj-id, etc.)
-- 
+
+**Mapping Server**
+It's used when you need to integrate Segment Routing to LDP. Let's say you need to connect to LDP domain over Segment Routing.
+Because Segment routing won't receive the label from its peer because it is not configured for LDP, then you need to configure mapping server to assign a prefix-sid to 
+the ip address outside of the Segment Routing domain, the prefix inside the LDP domain. That will make interworking with LDP over SR
+
+**Classic LFA**
+LFA FRR - Loop Free Alternate FRR
+
+- Prefix LFA - Automatic, local, sub-50msec fast reroute technique
+- IGP pre computes a backup path per primary path per IGP destination: Per-Path IP optimality
+- The backup path is pre installed in the data plane
+- upon local failure, all backup paths of the impacted destinations are enabled in a prefix independent manner (<50ms loss of connectivity)
+
+Classic LFA fails to understand the entire topology, so when I link fails from one router to another, the other routes in the path doesn't understand it whch can cause a
+loop in the network. Assume R1 sends to R2, then R2 to R3 but R2 to R3 link fails, R1 doesn't know it and still think that link to R2 is the best, but R2 is forwarding
+traffic back to R1, because its link to R3 faile, and this causes a loop in the network.  TI-LFA FRR resolves this - Topology Independent LFA
+Another issue is that the backup path is not the most optimal path towards the destination, it will pick a secondary path but not the most optimal one. TI-LFA also resolves it
+
+**TI-LFA FRR**
+Topology Independent Loop Free Alternate 
+- Inject the backup path in the RIB but only uses it when there is a fail in the link 
+commands to see backup and active path:
+- show ospf PID prefix/32 - active path
+- show ospf PID prefix/32 backup - it shows backup path
+- show mpls label XXx detail 
+
+TI-LFA pre-computes a loop-free backup path using the existing LSDB (no new LSAs/LSPs needed), 
+expresses it as a minimal segment list (adj-SID/prefix-SID to force traffic past the failure point), and pre-installs it in the FIB for sub-50ms switchover.
+
+The repair segment list uses P-space/Q-space logic to find the minimum labels needed — not one per hop, 
+just enough to guarantee a loop-free detour. Transit routers need zero state; the head-end (PLR) does all the work.
 
 
 
