@@ -838,9 +838,53 @@ Prefix-SID has two ways to be configured:
  - index: it uses the base number + index to form the prefix-sid, for example 16000base + 1 would be 16001
 
 **Segment Routing in OSPF**
-Opaque LSA:
-- Router information (type 4)
-- Extended Prefix (type 7)
-- Extended Link (type 8)
+Opaque LSA, type 10 sends different type of details in its LSA:
+- Router information (type 4) - it shows the SRGB 
+- Extended Prefix (type 7) - it shows the prefixes advertised by routers, with its index.
+- Extended Link (type 8) - it shows adj-id and the connectivity ip address and how the connectivity is established, via ip address. Each router creates type 8 depending
+on how many links it is running OSPF. Let's say two connections, then two opaque-LSA type 8.
+
+OSPF configuration in IOS-XR is hierarchical, which means that most specific configuration is taking into consideration first.
+If you enable a feature within the area, then the feature is enabled within the area, if you enable the feature globally it is outside the area, example below:
+
+router ospf CORE
+ area 0 
+ segment-routing mpls  - this applies for area 0 only
+  interface gi0/0/0/0
+    network point-to-point
+  interface loopback0 - if you wanna to enable hello intervals, you can enable per interface or globally outside of area 0.
+    prefix-sid absolute 16001
+
+NP Flag - no php flag - don't do php - it shows as P:0 in the output
+E-Flag - Explicit null function - remove the exp bits - it shows as E:0 in the output 
+Default behavior is NP and E flag 0, do php and remove exp bits.
+
+**IOS-XR Config:**
+router isis CORE
+ interface loopback 0
+  address-family ipv4 unnicast
+   prefix-sid absolute 16001 explicit-null
+
+A node imposes a prefix-sid label on a packet if:
+ - the destination itself, or the next-hop that the destination resolves on, matches a FEC with a prefix-id
+ - Thw downstream neighbor is SR enabled
+ - The node is configured to prefer SR label imposition or the matching FEC does not have an associated LDP label: If you have LDP, there is a preference for SR over LDP.
+
+Labels are allocated by LSD (Label Switching Database)
+- Label 0-15 - reserved for special purposes 
+- Label 16-15,999 - labels allocated for static MPLS
+- 16,000-23,999 - reserved for SRGB
+- 24,000-max - dynamic label allocation
+
+- When a router reboot, LSD waits the high priority clients(ISIS or OSPF). ISIS register itself with LSD and request labels from SRGB.
+- after all priority clients have been registered, then it allocates labels to others (dynamic allocation, adj-id, etc.)
+- 
+
+
+
+
+
+
+
 
 

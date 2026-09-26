@@ -115,3 +115,81 @@
 [ ] BGP path selection between direct and transit paths
 [ ] Multi-hop inter-AS (3 AS boundaries) concept
 ```
+
+---
+
+## Section 7: Cross-AS OSPF VPN — CE3 (Emerald) ↔ CE6 (Garnet)
+
+> **Prerequisite:** Inter-AS Option B or C working between Emerald and Garnet (Sections 1-3).
+
+This section makes CE3 and CE6 — both OSPF Area 0 customers — reachable across two SPs. They should feel like they're in the same OSPF domain even though the path crosses MPLS + inter-AS.
+
+### Task 10: Align RT for CUST_OSPF across both SPs
+1. Currently the VRFs use different RTs:
+   - E-R2: `vrf CUST_OSPF / route-target 65100:200` (Emerald local)
+   - Gar-R2: `vrf CUST_OSPF / route-target 65200:200` (Garnet local)
+2. Change both to the **same RT** so they import each other's routes:
+   ```
+   vrf CUST_OSPF
+    address-family ipv4 unicast
+     import route-target 100:200
+     export route-target 100:200
+   ```
+3. Use a neutral RT (100:200) that isn't tied to either SP's ASN.
+4. After inter-AS is working, VPNv4 routes with RT 100:200 will flow between E-R5 (RR) and Gar-R6 (RR).
+5. Verify: `show bgp vpnv4 unicast vrf CUST_OSPF` on E-R2 — CE6's prefix (172.16.4.0/24) should appear.
+
+### Task 11: Redistribute BGP → OSPF with prefix filter on E-R2
+1. CE3 should learn ONLY CE6's prefix from BGP, nothing else.
+2. Create a filter:
+   ```
+   route-policy OSPF-FROM-BGP
+     if destination in (172.16.4.0/24) then
+       pass
+     endif
+   end-policy
+   ```
+3. Apply under OSPF VRF:
+   ```
+   router ospf 1
+    vrf CUST_OSPF
+     redistribute bgp 65100 route-policy OSPF-FROM-BGP
+   ```
+4. Verify: `show route vrf CUST_OSPF ospf` on CE3 — should see 172.16.4.0/24 as O E2 (external type 2).
+
+### Task 12: Redistribute BGP → OSPF with prefix filter on Gar-R2
+1. Same but for CE6 — should learn only CE3's prefix.
+2. Filter:
+   ```
+   route-policy OSPF-FROM-BGP
+     if destination in (192.168.4.0/24) then
+       pass
+     endif
+   end-policy
+   ```
+3. Apply under OSPF VRF on Gar-R2.
+4. Verify: `show route vrf CUST_OSPF ospf` on CE6 — should see 192.168.4.0/24 as O E2.
+
+### Task 13: End-to-End Verification
+1. CE3 `ping` CE6 → **must succeed**. Traffic path: CE3 → E-R2 → MPLS → inter-AS → MPLS → Gar-R2 → CE6.
+2. CE3 OSPF table shows ONLY: connected (192.168.4.0/24) + CE6's prefix (172.16.4.0/24). No BGP noise.
+3. CE6 OSPF table shows ONLY: connected (172.16.4.0/24) + CE3's prefix (192.168.4.0/24). Clean.
+4. `traceroute` from CE3 to CE6 — shows the MPLS path across both SPs.
+5. Neither CE knows BGP, MPLS, or inter-AS exists. They see OSPF external routes. Transparent.
+
+### Task 14: DN-bit and Domain-ID awareness
+1. When BGP redistributes into OSPF inside a VRF, IOS-XR sets the **DN-bit** on the LSA. This prevents other PEs from re-importing the same route back into BGP (loop prevention).
+2. Check: `show ospf vrf CUST_OSPF database external detail` — look for the DN-bit on redistributed routes.
+3. **Domain-ID**: if both PEs use the same OSPF domain-ID, routes appear as inter-area (O IA) instead of external (O E2). Different domain-IDs = external. For cross-AS, different domain-IDs is expected.
+4. Understand: DN-bit = loop prevention. Domain-ID = route type (inter-area vs external).
+
+### Updated Checklist (add to main checklist)
+```
+[ ] CUST_OSPF RT aligned across Emerald + Garnet (same RT: 100:200)
+[ ] CE6 prefix appears in E-R2 VRF via VPNv4 (inter-AS working)
+[ ] BGP → OSPF with filter on E-R2 (only CE6's prefix to CE3)
+[ ] BGP → OSPF with filter on Gar-R2 (only CE3's prefix to CE6)
+[ ] CE3 ↔ CE6 ping works end-to-end
+[ ] CE3 OSPF table clean — only connected + CE6 prefix
+[ ] DN-bit set on redistributed LSAs (loop prevention)
+```
