@@ -214,7 +214,7 @@ Questions-only versions in `CCIE Workbooks/EVENG/`. Full solutions in `solutions
 
 ---
 
-## FLASHCARD DECK (all cards with scores)
+## FLASHCARD DECK (all cards with scores — ~65 cards total)
 
 ### MPLS Fundamentals
 - **M1:** LDP vs SR label significance (locally vs globally significant) → **10/10**
@@ -240,37 +240,68 @@ Questions-only versions in `CCIE Workbooks/EVENG/`. Full solutions in `solutions
 - **D1:** CSC 3-label stack → **7/10 ⚠️**
 - **D2:** Two VPNv4 entries same RT different RD → **9/10**
 - **D3:** BGP best-path router-id tiebreaker → **10/10**
-- **D4:** RR path hiding — Add-Path, unique RD, Best-External → **3/10 ⚠️⚠️**
+- **D4:** RR path hiding — Add-Path, unique RD, Best-External → **3/10 ⚠️⚠️ (reviewed, re-test)**
 - **D5:** PW DOWN but LDP up — 5 causes → **8/10**
 
 ### MPLS-TE
 - **TE1:** FRR scenario → **6/10 ⚠️⚠️**
 - **TE2:** Autoroute announce → **9/10**
-- **TE3-TE9:** Not yet tested
+- **TE3:** Link protection vs Node protection: backup tunnel destination (NHOP vs NNHOP) → not tested
+- **TE4:** Facility backup vs One-to-One: label stacking shares one bypass → not tested
+- **TE5:** SRLG: shared physical risk, `exclude force` vs `exclude preferred` → not tested
+- **TE6:** Make-before-break: SE style prevents double-booking BW → not tested
+- **TE7:** Auto-bandwidth: measures tunnel output, sampling interval → not tested
+- **TE8:** Setup/Hold priority: 0-7, preemption rules → not tested
+- **TE9:** CSPF vs SPF: constrained, uses TE database → not tested
 
 ### L3VPN Advanced
-- **V1-V8:** Defined but not formally tested (SoO, sham-link, DN-bit, RT-Constraint, as-override, PIC, admin distance, LDP-IGP sync)
+- **V1:** SoO — prevents loop on dual-homed CE → not formally tested
+- **V2:** Sham-link — OSPF intra > inter-area, backdoor wins → not formally tested
+- **V3:** DN-bit — OSPF loop prevention across MPLS core → not formally tested
+- **V4:** RT-Constraint — rtfilter unicast on both PE + RR → not formally tested
+- **V5:** as-override — same-ASN CEs at different sites → not formally tested
+- **V6:** BGP PIC — Add-Path = control plane diversity, PIC = data plane pre-computed backup → not formally tested
+- **V7:** Admin distance — eBGP=20, OSPF=110, iBGP=200 → not formally tested
+- **V8:** LDP-IGP sync — configure under router ospf → not formally tested
 
-### Segment Routing + SRv6
+### Segment Routing SR-MPLS
 - **SR1:** SR-MPLS PHP — same label across hops, Pop at penultimate → **8/10**
-- **SR2:** SRv6 SID types — End.DT4, locator vs prefix-SID, SRH for multiple SIDs only → **6/10 ⚠️**
-- **SR3:** Inter-AS Option C — BGP-LU not IGP redistribution → **7/10 ⚠️**
+- **SR2:** SRv6 SID types — End.DT4, locator vs prefix-SID, SRH for multiple SIDs only → **6/10 ⚠️ (reviewed)**
+- **SR3:** Inter-AS Option C — BGP-LU not IGP redistribution → **7/10 ⚠️ (reviewed)**
 - **SR4:** SR vs LDP label count — 1 global vs dozens local → **new ⚠️**
 - **SR5:** BGP path manipulation — LOCAL_PREF vs AS-PATH prepend → **9/10**
+- **SR6:** prefix-SID config location (Loopback0 only under IS-IS), `segment-routing mpls` at process level enables ALL interfaces, adj-SIDs automatic → **new**
+- **SR7:** SR label imposition 3 rules: FEC match + downstream SR-enabled + sr-prefer or no LDP label → **new**
+- **SR8:** Protected vs unprotected adj-SID: protected = TI-LFA backup, unprotected = dropped on failure. Both auto-allocated. Use unprotected for strict TE only → **new**
+- **SR9:** Mapping server: Garnet(SR) needs prefix-SIDs for Emerald(LDP). Configure on Gar-R6 with virtual indexes. Reverse (LDP→SR) works natively. Temporary bridge during migration → **new**
+- **SR10:** LDP→SR migration: (1) enable both, (2) sr-prefer, (3) remove LDP gradually, (4) verify no loss. sr-prefer is the key toggle → **new**
 
-### Priority Review Queue
-1. D4 — RR path hiding fixes (was 3/10, REVIEWED — re-test next session)
-2. SR2 — SRv6 SID types (was 6/10, REVIEWED End vs End.DT4 — re-test)
-3. SR3 — Inter-AS Option C / BGP-LU (was 7/10, REVIEWED — re-test)
-4. SR4 — SR vs LDP label count (new concept)
-5. TE1 — FRR facility backup (6/10)
-6. D1 — CSC 3-label stack (7/10)
+### TI-LFA
+- **TL1:** TI-LFA basics: reuses existing LSDB, pre-computes backup via modified SPF (remove failed link/node), minimal segment list, pre-installed in FIB, sub-50ms, zero transit state → **new**
+- **TL2:** P-space/Q-space: P=reachable from source without failure, Q=can reach dest without failure. PQ-node exists → 1 label. No PQ-node → 2-3 labels. Minimum labels, NOT one per hop → **new**
+- **TL3:** Link vs node protection: link = bypasses link only (node dies = blackhole). Node = bypasses entire node (covers both). Node protection = SP standard. `tiebreaker node-protecting`. Falls back to link protection if no node-protecting path → **new**
+- **TL4:** TI-LFA vs RSVP-TE FRR: RSVP = pre-signaled backup tunnel (state every hop). TI-LFA = local computation only (zero signaling, zero transit state, per-prefix). TI-LFA replaces RSVP-TE FRR → **new**
+- **TL5:** SRLG: interfaces sharing physical risk get same value (arbitrary number). TI-LFA avoids SRLG members in backup. `exclude force` = mandatory, `exclude preferred` = best-effort. MUST tag ALL interfaces sharing the risk → **new**
 
-### New Cards Needed (create during next flashcard session)
-- **PCE1:** PCE/PCEP + BGP-LS — how SR-TE uses BGP-LS to map topology, PCEP for PCC↔PCE communication
-- **EVPN1:** EVPN All-Active MH — DF election per ES, prevents BUM duplication, Type 1/Type 4 routes
-- **SRTE1:** BGP Color + SR-TE — color extended community tags prefix, headend matches to SR-TE policy, ODN auto-creates policy
-- **SRTE2:** RSVP-TE vs SR-TE — RSVP = stateful/per-flow/hop-by-hop, SR-TE = stateless core/source-routed/head-end only
+### SRv6
+- **SV1:** SRv6 fundamentals: pure IPv6 forwarding, no MPLS. Transit routers just do IPv6 lookup. Core MUST have IPv6 addresses → **new**
+- **SV2:** SRv6 locator: /64 prefix per router. All SIDs allocated within it. IS-IS advertises. Like prefix-SID but it's an address block producing many SIDs → **new**
+- **SV3:** SRv6 SID types: End (node), End.X (link), End.DT4 (IPv4 VRF decap), End.DT6 (IPv6 VRF), End.DX4 (specific CE), End.B6 (binding SID). SID encodes the ACTION — unlike MPLS where label is just a number → **new**
+- **SV4:** SRH: IPv6 Routing Header Type 4. Contains Segment List + Segments Left counter. Only for MULTIPLE SIDs. Single SID = plain IPv6, no SRH. Transit routers never read it → **new**
+- **SV5:** SRv6 encapsulation: ping = native IPv6 (no encap). VPN 1 SID = outer IPv6 + inner customer. VPN + TE = outer IPv6 + SRH + inner customer → **new**
+- **SV6:** IS-IS for SRv6: needs ipv6 AF + single-topology + locator reference. Single/multi-topology MUST match all routers. TLV 236 (single) vs 237 (multi) mismatch = routes don't install → **new**
+- **SV7:** SRv6 vs SR-MPLS: SRv6 = 16 bytes/SID, needs IPv6 core, native inter-domain, greenfield/5G. SR-MPLS = 4 bytes/label, IPv4-only ok, needs BGP-LU for inter-domain, brownfield → **new**
+
+### Priority Review Queue (updated 2026-09-26)
+1. **D4** — RR path hiding (was 3/10, reviewed — RE-TEST)
+2. **SR2** — SRv6 SIDs (was 6/10, reviewed — RE-TEST)
+3. **SR3** — Option C / BGP-LU (was 7/10, reviewed — RE-TEST)
+4. **SR4** — SR vs LDP label count (new)
+5. **TE1** — FRR facility backup (6/10)
+6. **D1** — CSC 3-label stack (7/10)
+7. **SR6-SR10** — New SR cards, test next session
+8. **TL1-TL5** — New TI-LFA cards, test next session
+9. **SV1-SV7** — New SRv6 cards, test next session
 
 ---
 
