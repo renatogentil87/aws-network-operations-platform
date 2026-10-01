@@ -93,7 +93,7 @@
 
 **Customers:** A(65012)=Emerald+Gold, B(65013)=Gold+Garnet, C(EVPN)=Gold+Garnet, CE3(OSPF Emerald), CE6(OSPF Garnet)
 
-### SR Lab Topology (for SR-EX01 to SR-EX06)
+### SR Lab Topology (for SR-EX01 to SR-EX08)
 
 | Router | Loopback | Role |
 |--------|----------|------|
@@ -105,6 +105,16 @@
 | R6 | 172.16.6.6 | PE (CE2) |
 
 Single AS 65100. IS-IS CORE. Prefix-SIDs: R1=1, R2=2, R3=3, R4=4, R5=5, R6=6.
+
+**SR Exercise Suite (8 exercises, 126 tasks):**
+- SR-EX01: Foundation + Classic LFA (9 tasks)
+- SR-EX02: TI-LFA link/node/SRLG (17 tasks)
+- SR-EX03: SR↔LDP coexistence + mapping server (14 tasks)
+- SR-EX04: Flex-Algo affinity/exclude (12 tasks)
+- SR-EX05: L3VPN over SR (13 tasks)
+- SR-EX06: Dual IGP OSPF↔IS-IS boundary (18 tasks)
+- SR-EX07: SR-TE explicit/dynamic/PCE/ODN (19 tasks)
+- SR-EX08: SRv6 underlay/locators/VPN/SRv6-TE (24 tasks)
 
 ---
 
@@ -183,17 +193,24 @@ Single AS 65100. IS-IS CORE. Prefix-SIDs: R1=1, R2=2, R3=3, R4=4, R5=5, R6=6.
 - **FA9:** Troubleshooting: `show isis flex-algo 128`, `show isis database verbose` (check Ext Admin Group), compare LFIB algo 0 vs 128. → **new**
 - **FA10:** Flex-Algo + TI-LFA: backup computed per-algorithm using that algo's topology. → **new**
 
-### Design Scenarios (CCIE SP Design Module)
-- **DS1:** Sub-50ms failover, no transit state → TI-LFA with node protection (not RSVP-TE FRR). → **new**
-- **DS2:** 3 ASes, minimal ASBR state, end-to-end labeled → Inter-AS Option C (BGP-LU + multihop VPNv4). → **new**
-- **DS3:** 5G three slices → Flex-Algo (not RSVP-TE tunnels). → **new**
-- **DS4:** LDP→SR zero downtime migration → coexist + sr-prefer + gradual removal. → **new**
-- **DS5:** Same-AS CEs, eBGP PE-CE, CE rejects own AS → as-override on PE. → **new**
-- **DS6:** OSPF backdoor beats MPLS VPN path → sham-link between PEs. → **new**
-- **DS7:** SP wants transparent MPLS transit for another SP → CSC (not Option C). → **new**
-- **DS8:** Premium vs standard customers, no controller → Flex-Algo (not RSVP-TE). → **new**
-- **DS9:** L2 all-active multi-homing → EVPN (not VPLS). → **new**
-- **DS10:** SR deployed but SIDs missing from LSDB → check metric-style wide + point-to-point + prefix-sid. → **new**
+### Design Scenarios (CCIE SP Design Module — multiple choice, exam format)
+- **DS1:** Sub-50ms failover, zero transit state → (A) RSVP-TE FRR (B) Classic LFA (C) TI-LFA node-protecting (D) static routes. **Answer: C** → **new**
+- **DS2:** 3 ASes, minimal ASBR state, end-to-end labeled → (A) Option A (B) Option B (C) Option C (D) static MPLS. **Answer: C** → **new**
+- **DS3:** 5G three slices, no controller, no RSVP → (A) RSVP-TE (B) Flex-Algo (C) BGP communities (D) multiple IS-IS. **Answer: B** → **new**
+- **DS4:** LDP→SR zero downtime, some routers can't run SR → (A) big-bang (B) coexist+sr-prefer+mapping server (C) redistribute (D) replace hardware first. **Answer: B** → **new**
+- **DS5:** Same-AS CEs, eBGP PE-CE, CE rejects own AS → (A) allowas-in on CE (B) as-override on PE (C) remove-private-as (D) local-as. **Answer: B** → **new**
+- **DS6:** OSPF backdoor beats MPLS VPN path → (A) increase cost (B) sham-link (C) change AD (D) static routes. **Answer: B** → **new**
+- **DS7:** Transparent MPLS transit for another SP, backbone blind to VPNs → (A) Option C (B) Option A (C) CSC (D) regular L3VPN. **Answer: C** → **new**
+- **DS8:** Premium vs standard, no controller, no RSVP, thousands of prefixes → (A) RSVP-TE (B) Flex-Algo+color+ODN (C) PBR (D) QoS only. **Answer: B** → **new**
+- **DS9:** L2 all-active multi-homing, no MAC storms → (A) VPLS H-VPLS (B) AToM (C) EVPN all-active MH (D) Q-in-Q+MC-LAG. **Answer: C** → **new**
+- **DS10:** SR deployed, SIDs missing on some routers, adjacencies UP — pick THREE causes → (A) metric-style wide (B) SRGB mismatch (C) /24 loopback (D) point-to-point (E) BGP missing. **Answer: A,C,D** → **new**
+
+### Latest Flashcard Session Scores (Oct 1, 2026)
+- LDP→SR migration (design): **8/10**
+- Flex-Algo affinity not working (troubleshooting): **10/10** 🔥
+- Classic LFA inequality (concept): **7/10 ⚠️** — knows concept, needs the formula
+- SR prefix-SID missing remotely (troubleshooting): **9/10**
+- EVPN vs VPLS all-active MH (design): **9/10**
 
 ### Troubleshooting Failures
 - **TS1:** eBGP 0 prefixes with `!` → missing route-policy (IOS-XR requirement). → **new**
@@ -264,6 +281,9 @@ Single AS 65100. IS-IS CORE. Prefix-SIDs: R1=1, R2=2, R3=3, R4=4, R5=5, R6=6.
 - Affinity-map must be identical on every router
 - Three silent failures: missing wide metrics, missing point-to-point, multiple definers
 - TLV chain: wide → p2p → affinity → definition → per-algo prefix-SID
+- **Flex-Algo alone doesn't steer traffic** — it creates alternate topology + SIDs
+- Traffic steering requires THREE layers: (1) Flex-Algo builds topology, (2) BGP color tags VPN routes at egress PE, (3) SR-TE policy on ingress PE matches color → pushes algo 128 SID instead of algo 0 SID
+- Without BGP color + SR-TE policy, algo 128 labels exist in LFIB but no traffic uses them
 
 ### Inter-AS
 - Option A: VRF on ASBRs, per-VPN sessions. Simple, doesn't scale.
