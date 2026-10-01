@@ -95,3 +95,17 @@ Take: **"SR-EX03-coexistence"**
 [ ] Mapping server removed — real prefix-SIDs take over
 [ ] Zero traffic loss throughout migration
 ```
+
+
+router isis CORE
+ net 49.0001.1720.1600.6006.00
+ is-type level-2-only
+ add ipv4 unic
+ metric-style wide
+ int lo0
+ passive
+ add ipv4 uni
+ int gi0/0/0/1
+ add ipv4 uni
+ int gi0/0/0/2
+ add ipv4 uni
