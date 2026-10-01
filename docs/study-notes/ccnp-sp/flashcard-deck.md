@@ -131,13 +131,39 @@ Legend: score /10 · ⚠️ = flagged for review (≤7 or unknown) · 🅿️ = 
 | SV6 | IS-IS for SRv6: needs `address-family ipv6 unicast` + `single-topology` + `segment-routing srv6 locator MAIN` under IS-IS. Single-topology vs multi-topology MUST match on all routers (TLV 236 vs 237 mismatch = IPv6 routes don't install, adjacency still UP). | — new | 2026-09-26 |
 | SV7 | SRv6 vs SR-MPLS: SRv6 overhead = 16 bytes per SID (IPv6 address), SR-MPLS = 4 bytes per label. SRv6 = native inter-domain (IPv6 routable), SR-MPLS = needs BGP-LU stitching. SRv6 = needs IPv6 core, SR-MPLS = works on IPv4-only. SRv6 = greenfield/5G, SR-MPLS = brownfield migration. | — new | 2026-09-26 |
 
-## Priority review queue (updated 2026-09-26)
-1. **D4** — RR path hiding fixes (was 3/10, reviewed — re-test next session)
+## Classic LFA (from SR lab exercises Oct 2026)
+
+| # | Question | Last score | Last seen |
+|---|----------|-----------|-----------|
+| CL1 | Classic LFA: what is it? Per-prefix fast-reroute. Checks each direct neighbor: "is this neighbor's distance to destination STRICTLY LESS than going back through me?" If yes → backup. If no → no backup, give up. Only considers direct neighbors. | — new | 2026-10-01 |
+| CL2 | Classic LFA inequality: Distance(N,D) < Distance(N,S) + Distance(S,D). N=neighbor, D=destination, S=source(self). STRICTLY less than — equal fails. Equal means neighbor MIGHT loop back through you. | — new | 2026-10-01 |
+| CL3 | Classic LFA vs TI-LFA: Classic LFA hopes the neighbor routes correctly (can't control it). TI-LFA forces the path with segment labels (adj-SID/prefix-SID). Classic LFA coverage ~70-80%. TI-LFA = ~100%. | — new | 2026-10-01 |
+| CL4 | Classic LFA coverage gap: R1→R3 primary path to R6. R2 is backup candidate. R2 has ECMP to R6 — one path goes back through R1. LFA inequality: 30 < 10+20 = 30 < 30 = FAILS (equal, not strictly less). R1 has no LFA backup. | — new | 2026-10-01 |
+| CL5 | TI-LFA zero-segment (LDP): TI-LFA computation on LDP network. If backup neighbor is naturally loop-free → zero extra labels needed, existing LDP label works. Better coverage than classic LFA (uses post-convergence P/Q-space model). But still can't reach 100% without SR repair segments. | — new | 2026-10-01 |
+
+## Flex-Algo (from SR lab exercises + troubleshooting Oct 2026)
+
+| # | Question | Last score | Last seen |
+|---|----------|-----------|-----------|
+| FA1 | Flex-Algo concept: multiple independent SPF computations on the same LSDB with different optimization criteria. Each algo produces separate forwarding topology + separate prefix-SIDs. Algo 0 = default. Algo 128-255 = user-defined. | — new | 2026-10-01 |
+| FA2 | Flex-Algo definition: ONE router advertises the definition (metric-type, constraints) via Router Capability TLV in IS-IS. All others just participate with `flex-algo 128` (no `advertise-definition`). Multiple definers = conflict — highest system-ID wins. | — new | 2026-10-01 |
+| FA3 | Flex-Algo affinity: tag interfaces with colors (`affinity flex-algo red`). Define algo constraint (`exclude-any red`). SPF reads Ext Admin Group sub-TLV in TLV 22 and excludes matching links. `affinity-map red bit-position 0` must be IDENTICAL on every router. | — new | 2026-10-01 |
+| FA4 | Flex-Algo participation: opt-in per router. Need `flex-algo 128` + `prefix-sid algorithm 128 index X` on Loopback0. No prefix-SID = not in that topology. Traffic routes around non-participating routers. Used to shape each virtual topology by selecting members. | — new | 2026-10-01 |
+| FA5 | Flex-Algo silent failure #1: missing `metric-style wide` → IS-IS uses narrow TLVs (2, 128) → no room for prefix-SID or affinity sub-TLVs → Flex-Algo configured but invisible. No error message. | — new | 2026-10-01 |
+| FA6 | Flex-Algo silent failure #2: missing `point-to-point` on interfaces → IS-IS creates pseudonodes → pseudonode LSPs can't carry Ext Admin Group (affinity) sub-TLVs → affinity tags exist in config but NOT in LSDB → algo sees no red links, excludes nothing. | — new | 2026-10-01 |
+| FA7 | Flex-Algo silent failure #3: multiple routers with `advertise-definition` → definition conflict → highest system-ID wins → if winning definition differs from yours → algo computes differently than expected. `Definition Equal to Local: No` in show output = conflict. | — new | 2026-10-01 |
+| FA8 | Flex-Algo TLV dependency chain: metric-style wide (TLV 22/135) → point-to-point (per-link sub-TLVs) → affinity tags (Ext Admin Group) → flex-algo definition (Router Cap TLV) → prefix-sid per algo (TLV 135). Break any link = silent failure. | — new | 2026-10-01 |
+| FA9 | Flex-Algo troubleshooting: `show isis flex-algo 128` (check Definition Equal to Local: Yes). `show isis database <router> verbose` (check Ext Admin Group on links). `show mpls forwarding labels <algo-SID>` (compare outgoing interface vs algo 0 SID). If algo 128 path = algo 0 path → affinity not being advertised. | — new | 2026-10-01 |
+| FA10 | Flex-Algo + TI-LFA: TI-LFA computes separate backup per algorithm. Algo 128 backup uses algo 128 topology (not default). If algo 128 excludes a link, the TI-LFA backup for algo 128 also avoids that link. | — new | 2026-10-01 |
+
+## Priority review queue (updated 2026-10-01)
+1. **D4** — RR path hiding fixes (was 3/10, reviewed — re-test)
 2. **SR2** — SRv6 SID types (was 6/10, reviewed — re-test)
 3. **SR3** — Inter-AS Option C / BGP-LU (was 7/10, reviewed — re-test)
-4. **SR4** — SR vs LDP label count (new concept, needs testing)
+4. **SR4** — SR vs LDP label count (new)
 5. **TE1** — FRR facility backup (6/10)
 6. **D1** — CSC 3-label stack (7/10)
-7. **SR6-SR10** — New SR cards, test in next session
-8. **TL1-TL5** — New TI-LFA cards, test in next session
-9. **SV1-SV7** — New SRv6 cards, test in next session
+7. **SR6-SR10** — SR cards, need testing
+8. **TL1-TL5** — TI-LFA cards, need testing
+9. **CL1-CL5** — Classic LFA cards, NEW
+10. **FA1-FA10** — Flex-Algo cards, NEW
