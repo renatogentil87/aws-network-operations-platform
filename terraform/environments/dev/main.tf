@@ -165,6 +165,19 @@ module "eveng_vpc" {
   transit_gateway_id = module.transit_gateway.tgw_id
 }
 
+module "vpc-b" {
+  source = "../../modules/vpc"
+  providers = {
+    aws = aws.eveng
+  }
+  name = "vpc-b"
+  ipam_pool_id = "ipam-pool-04540de906d50e885"
+  netmask_length = 22
+  availability_zones = ["eu-west-1a", "eu-west-1b"]
+  tgw_subnet_newbits = 6
+  transit_gateway_id = module.transit_gateway.tgw_id
+}
+
 module "shared_vpc" {
   source = "../../modules/vpc"
   providers = {
